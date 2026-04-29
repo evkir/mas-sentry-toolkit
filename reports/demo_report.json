@@ -1,0 +1,171 @@
+{
+  "meta": {
+    "session_id": "demo-001",
+    "target": "127.0.0.1",
+    "protocol": "mqtt",
+    "generated_at": "2026-04-29T07:50:56.689491+00:00",
+    "toolkit_version": "0.1.0"
+  },
+  "statistics": {
+    "total_findings": 3,
+    "severity_breakdown": {
+      "CRITICAL": 1,
+      "HIGH": 1,
+      "MEDIUM": 1,
+      "LOW": 0
+    },
+    "agents_analyzed": 2,
+    "rogue_agents": 1,
+    "max_anomaly_score": 85.0,
+    "stride_threats_mapped": 8
+  },
+  "protocol_findings": [
+    {
+      "title": "Anonymous Broker Access",
+      "severity": "CRITICAL",
+      "description": "MQTT broker at 127.0.0.1:1883 accepts anonymous connections. Any client can subscribe to all topics including command channels.",
+      "evidence": {
+        "port": 1883,
+        "anonymous": true
+      },
+      "remediation": "Enable authentication. Set allow_anonymous false in mosquitto.conf."
+    },
+    {
+      "title": "$SYS Topic Information Leakage",
+      "severity": "MEDIUM",
+      "description": "Broker version and client stats exposed via $SYS/# to unauthenticated clients.",
+      "evidence": {
+        "version": "mosquitto 2.0.18",
+        "sys_topics": 47
+      },
+      "remediation": "Restrict $SYS topic access via ACL."
+    },
+    {
+      "title": "Retained Message Poisoning",
+      "severity": "HIGH",
+      "description": "Unauthenticated client successfully published retained message to commands/actuator.",
+      "evidence": {
+        "topic": "commands/actuator/cooling",
+        "payload": "FORCE_ON"
+      },
+      "remediation": "Implement publish ACLs. Validate retained message origin."
+    }
+  ],
+  "abfp_fingerprints": [
+    {
+      "agent_id": "inferred_sensors_sensor_001",
+      "message_count": 240,
+      "anomaly_score": 0.0,
+      "is_rogue": false,
+      "threat_flags": [],
+      "timing": {
+        "mean_interval_ms": 1001.2
+      },
+      "payload": {
+        "encoding": "json",
+        "entropy_score": 3.82
+      }
+    },
+    {
+      "agent_id": "inferred_commands_unknown_agent",
+      "message_count": 45,
+      "anomaly_score": 85.0,
+      "is_rogue": true,
+      "threat_flags": [
+        "TOPIC_ESCALATION",
+        "NO_BASELINE",
+        "BURST_DETECTED"
+      ],
+      "timing": {
+        "mean_interval_ms": 22.4
+      },
+      "payload": {
+        "encoding": "binary",
+        "entropy_score": 7.2
+      }
+    }
+  ],
+  "abfp_anomalies": [],
+  "stride_threats": [
+    {
+      "threat_id": "MAS-S-001",
+      "category": "Spoofing",
+      "title": "Agent Identity Spoofing via MQTT Client ID",
+      "severity": "CRITICAL",
+      "affected_protocol": "mqtt",
+      "abfp_flag": "NO_BASELINE",
+      "cvss_score": 9.1,
+      "mitigation": "Enforce mutual TLS (mTLS). Validate client certificates. Use unique per-agent credentials. Enable MQTT ACLs."
+    },
+    {
+      "threat_id": "MAS-S-002",
+      "category": "Spoofing",
+      "title": "Behavioral Clone \u2014 Agent Impersonation",
+      "severity": "CRITICAL",
+      "affected_protocol": "both",
+      "abfp_flag": "HIGH_ENTROPY",
+      "cvss_score": 8.8,
+      "mitigation": "Use ABFP payload entropy analysis to detect anomalies even when timing matches. Implement payload signing (HMAC)."
+    },
+    {
+      "threat_id": "MAS-T-001",
+      "category": "Tampering",
+      "title": "Retained Message Poisoning",
+      "severity": "HIGH",
+      "affected_protocol": "mqtt",
+      "abfp_flag": null,
+      "cvss_score": 7.5,
+      "mitigation": "Restrict publish ACLs on command topics. Validate message schema server-side. Monitor retained messages with ABFP scanner."
+    },
+    {
+      "threat_id": "MAS-T-002",
+      "category": "Tampering",
+      "title": "Will Message Hijacking",
+      "severity": "HIGH",
+      "affected_protocol": "mqtt",
+      "abfp_flag": null,
+      "cvss_score": 7.2,
+      "mitigation": "Restrict will topic permissions. Validate will payloads against expected schema."
+    },
+    {
+      "threat_id": "MAS-I-001",
+      "category": "Information Disclosure",
+      "title": "Unauthenticated Topic Enumeration",
+      "severity": "HIGH",
+      "affected_protocol": "mqtt",
+      "abfp_flag": null,
+      "cvss_score": 7.5,
+      "mitigation": "Disable anonymous access. Restrict wildcard subscriptions. Enable TLS for all connections."
+    },
+    {
+      "threat_id": "MAS-D-001",
+      "category": "Denial of Service",
+      "title": "MQTT Broker Flood via Burst Publishing",
+      "severity": "HIGH",
+      "affected_protocol": "mqtt",
+      "abfp_flag": "BURST_DETECTED",
+      "cvss_score": 7.5,
+      "mitigation": "Configure per-client rate limits on broker. Use ABFP burst detection to alert on abnormal publish rates."
+    },
+    {
+      "threat_id": "MAS-E-001",
+      "category": "Elevation of Privilege",
+      "title": "Topic Privilege Escalation",
+      "severity": "CRITICAL",
+      "affected_protocol": "mqtt",
+      "abfp_flag": "TOPIC_ESCALATION",
+      "cvss_score": 9.0,
+      "mitigation": "Enforce strict topic ACLs per agent role. Use ABFP TOPIC_ESCALATION flag to detect and alert."
+    },
+    {
+      "threat_id": "MAS-E-002",
+      "category": "Elevation of Privilege",
+      "title": "RabbitMQ Default Credential Escalation",
+      "severity": "CRITICAL",
+      "affected_protocol": "amqp",
+      "abfp_flag": null,
+      "cvss_score": 9.8,
+      "mitigation": "Disable guest user. Create role-specific accounts. Restrict management API to localhost."
+    }
+  ]
+}

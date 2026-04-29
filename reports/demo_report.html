@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MAS-Sentry Report — demo-001</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', sans-serif; background: #0d1117; color: #c9d1d9; }
+  header { background: #161b22; border-bottom: 2px solid #e74c3c;
+            padding: 20px 40px; display: flex; align-items: center; gap: 20px; }
+  header h1 { color: #e74c3c; font-size: 1.6rem; }
+  header p  { color: #8b949e; font-size: 0.85rem; margin-top: 4px; }
+  .container { max-width: 1100px; margin: 30px auto; padding: 0 20px; }
+  .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px,1fr));
+                 gap: 16px; margin-bottom: 30px; }
+  .stat-card { background: #161b22; border: 1px solid #30363d;
+                border-radius: 8px; padding: 20px; text-align: center; }
+  .stat-card .value { font-size: 2rem; font-weight: bold; color: #58a6ff; }
+  .stat-card .label { font-size: 0.8rem; color: #8b949e; margin-top: 4px; }
+  .section { margin-bottom: 30px; }
+  .section h2 { color: #58a6ff; border-bottom: 1px solid #30363d;
+                  padding-bottom: 8px; margin-bottom: 16px; font-size: 1.1rem; }
+  table { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
+  th { background: #21262d; color: #8b949e; padding: 10px 12px;
+        text-align: left; border-bottom: 1px solid #30363d; }
+  td { padding: 10px 12px; border-bottom: 1px solid #21262d; vertical-align: top; }
+  tr:hover td { background: #161b22; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 4px;
+             font-size: 0.75rem; font-weight: bold; color: #0d1117; }
+  .meta-box { background: #161b22; border: 1px solid #30363d;
+               border-radius: 8px; padding: 16px; font-size: 0.85rem;
+               display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .meta-box span { color: #8b949e; }
+  footer { text-align: center; padding: 30px; color: #484f58; font-size: 0.8rem; }
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>🛡️ MAS-Sentry-Toolkit</h1>
+    <p>Multi-Agent System Security Audit Report</p>
+  </div>
+</header>
+<div class="container">
+
+  <!-- Meta -->
+  <div class="section">
+    <h2>Scan Information</h2>
+    <div class="meta-box">
+      <div><span>Session ID:</span> demo-001</div>
+      <div><span>Target:</span> 127.0.0.1</div>
+      <div><span>Protocol:</span> mqtt</div>
+      <div><span>Generated:</span> 2026-04-29T07:50:56.689491+00:00</div>
+      <div><span>Toolkit:</span> MAS-Sentry v0.1.0</div>
+    </div>
+  </div>
+
+  <!-- Statistics -->
+  <div class="section">
+    <h2>Executive Summary</h2>
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="value" style="color:#e74c3c">1</div>
+        <div class="label">CRITICAL</div>
+      </div>
+      <div class="stat-card">
+        <div class="value" style="color:#e67e22">1</div>
+        <div class="label">HIGH</div>
+      </div>
+      <div class="stat-card">
+        <div class="value" style="color:#f1c40f">1</div>
+        <div class="label">MEDIUM</div>
+      </div>
+      <div class="stat-card">
+        <div class="value" style="color:#2ecc71">0</div>
+        <div class="label">LOW</div>
+      </div>
+      <div class="stat-card">
+        <div class="value">2</div>
+        <div class="label">Agents Analyzed</div>
+      </div>
+      <div class="stat-card">
+        <div class="value" style="color:#e74c3c">1</div>
+        <div class="label">Rogue Agents</div>
+      </div>
+      <div class="stat-card">
+        <div class="value" style="color:#e67e22">85.0</div>
+        <div class="label">Max Anomaly Score</div>
+      </div>
+      <div class="stat-card">
+        <div class="value">8</div>
+        <div class="label">STRIDE Threats</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Protocol Findings -->
+  <div class="section">
+    <h2>Protocol Vulnerability Findings</h2>
+    <table><thead><tr><th>Severity</th><th>Finding</th><th>Remediation</th></tr></thead><tbody><tr><td><span class="badge" style="background:#e74c3c">CRITICAL</span></td><td><strong>Anonymous Broker Access</strong><br><small style='color:#8b949e'>MQTT broker at 127.0.0.1:1883 accepts anonymous connections. Any client can subscribe to all topics including command channels.</small></td><td style='color:#58a6ff'>Enable authentication. Set allow_anonymous false in mosquitto.conf.</td></tr><tr><td><span class="badge" style="background:#e67e22">HIGH</span></td><td><strong>Retained Message Poisoning</strong><br><small style='color:#8b949e'>Unauthenticated client successfully published retained message to commands/actuator.</small></td><td style='color:#58a6ff'>Implement publish ACLs. Validate retained message origin.</td></tr><tr><td><span class="badge" style="background:#f1c40f">MEDIUM</span></td><td><strong>$SYS Topic Information Leakage</strong><br><small style='color:#8b949e'>Broker version and client stats exposed via $SYS/# to unauthenticated clients.</small></td><td style='color:#58a6ff'>Restrict $SYS topic access via ACL.</td></tr></tbody></table>
+  </div>
+
+  <!-- ABFP -->
+  <div class="section">
+    <h2>ABFP Agent Behavioral Fingerprints</h2>
+    <table><thead><tr><th>Agent ID</th><th>Messages</th><th>Anomaly Score</th><th>Interval</th><th>Encoding</th><th>Threat Flags</th></tr></thead><tbody><tr><td style='color:#58a6ff'>inferred_commands_unknown_agent</td><td>45</td><td style='color:#e74c3c;font-weight:bold'>85.0/100</td><td>22 ms</td><td>binary</td><td style='color:#e74c3c'>TOPIC_ESCALATION, NO_BASELINE, BURST_DETECTED</td></tr><tr><td style='color:#58a6ff'>inferred_sensors_sensor_001</td><td>240</td><td style='color:#2ecc71;font-weight:bold'>0.0/100</td><td>1001 ms</td><td>json</td><td style='color:#e74c3c'>—</td></tr></tbody></table>
+  </div>
+
+  <!-- STRIDE -->
+  <div class="section">
+    <h2>STRIDE Threat Mapping</h2>
+    <table><thead><tr><th>ID</th><th>Severity</th><th>Category</th><th>Title</th><th>CVSS</th><th>Mitigation</th></tr></thead><tbody><tr><td style='color:#8b949e'>MAS-E-002</td><td><span class="badge" style="background:#e74c3c">CRITICAL</span></td><td>Elevation of Privilege</td><td><strong>RabbitMQ Default Credential Escalation</strong></td><td style='color:#e74c3c'>9.8</td><td>Disable guest user. Create role-specific accounts. Restrict management API to localhost.</td></tr><tr><td style='color:#8b949e'>MAS-S-001</td><td><span class="badge" style="background:#e74c3c">CRITICAL</span></td><td>Spoofing</td><td><strong>Agent Identity Spoofing via MQTT Client ID</strong></td><td style='color:#e74c3c'>9.1</td><td>Enforce mutual TLS (mTLS). Validate client certificates. Use unique per-agent credentials. Enable MQTT ACLs.</td></tr><tr><td style='color:#8b949e'>MAS-E-001</td><td><span class="badge" style="background:#e74c3c">CRITICAL</span></td><td>Elevation of Privilege</td><td><strong>Topic Privilege Escalation</strong></td><td style='color:#e74c3c'>9.0</td><td>Enforce strict topic ACLs per agent role. Use ABFP TOPIC_ESCALATION flag to detect and alert.</td></tr><tr><td style='color:#8b949e'>MAS-S-002</td><td><span class="badge" style="background:#e74c3c">CRITICAL</span></td><td>Spoofing</td><td><strong>Behavioral Clone — Agent Impersonation</strong></td><td style='color:#e74c3c'>8.8</td><td>Use ABFP payload entropy analysis to detect anomalies even when timing matches. Implement payload signing (HMAC).</td></tr><tr><td style='color:#8b949e'>MAS-T-001</td><td><span class="badge" style="background:#e67e22">HIGH</span></td><td>Tampering</td><td><strong>Retained Message Poisoning</strong></td><td style='color:#e74c3c'>7.5</td><td>Restrict publish ACLs on command topics. Validate message schema server-side. Monitor retained messages with ABFP scanner.</td></tr><tr><td style='color:#8b949e'>MAS-I-001</td><td><span class="badge" style="background:#e67e22">HIGH</span></td><td>Information Disclosure</td><td><strong>Unauthenticated Topic Enumeration</strong></td><td style='color:#e74c3c'>7.5</td><td>Disable anonymous access. Restrict wildcard subscriptions. Enable TLS for all connections.</td></tr><tr><td style='color:#8b949e'>MAS-D-001</td><td><span class="badge" style="background:#e67e22">HIGH</span></td><td>Denial of Service</td><td><strong>MQTT Broker Flood via Burst Publishing</strong></td><td style='color:#e74c3c'>7.5</td><td>Configure per-client rate limits on broker. Use ABFP burst detection to alert on abnormal publish rates.</td></tr><tr><td style='color:#8b949e'>MAS-T-002</td><td><span class="badge" style="background:#e67e22">HIGH</span></td><td>Tampering</td><td><strong>Will Message Hijacking</strong></td><td style='color:#e74c3c'>7.2</td><td>Restrict will topic permissions. Validate will payloads against expected schema.</td></tr></tbody></table>
+  </div>
+
+</div>
+<footer>
+  Generated by MAS-Sentry-Toolkit v0.1.0 |
+  ABFP — Agent Behavioral Fingerprinting Protocol |
+  For authorized security testing only
+</footer>
+</body>
+</html>
