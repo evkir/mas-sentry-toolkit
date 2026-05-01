@@ -68,3 +68,34 @@ mas-sentry-toolkit/
 │   ├── victim/                    # Mosquitto broker + Python agents
 │   └── scenarios/                 # Attack scenarios for testing
 ├── docs/                          # Full documentation
+
+## 📊 Roadmap
+
+### ✅ Completed
+- [x] Day 1  — Project structure
+- [x] Day 2  — Core engine + session + config
+- [x] Day 3  — Docker lab environment
+- [x] Day 4  — Base protocol analyzer
+- [x] Day 5  — MQTT analyzer
+- [x] Day 6  — MQTT fingerprinting + topic walker + retained scanner
+- [x] Day 7  — AMQP analyzer
+- [x] Day 8  — MQTT auth attacks + will hijack
+- [x] Day 9  — MQTT fuzzer
+- [x] Day 10 — AMQP exchange enumeration
+- [x] Day 11 — AMQP dead-letter + routing key brute-force
+- [x] Day 12 — Display + JSON exporter + architecture docs
+- [x] Day 13 — Retained poisoning + command injection + lab scenario
+- [x] Day 14 — Protocol auto-detection + multi-target scan + base refactor
+
+### 🔄 In Progress
+- [ ] Day 15 — ABFP behavioral fingerprinting (Phase 1)
+- [ ] Day 16 — ABFP timing analysis
+- [ ] Day 17 — ABFP payload analysis
+- [ ] Day 18 — ABFP topic graph builder
+- [ ] Day 19 — ABFP anomaly detection
+- [ ] Day 20 — Rogue agent detection
+- [ ] Day 21 — Impersonation detection
+- [ ] Day 22 — STRIDE threat modeling
+- [ ] Day 25 — JSON/HTML reporting
+- [ ] Day 26 — Full HTML report
+- [ ] Day 30 — v1.0.0 release
