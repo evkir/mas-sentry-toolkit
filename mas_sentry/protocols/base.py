@@ -49,3 +49,33 @@ class BaseProtocolAnalyzer(ABC):
             "unique_topics": len(set(m.topic for m in self.messages)),
             "total_bytes": sum(m.payload_size() for m in self.messages),
         }
+def filter_by_topic(self, pattern: str) -> List[CapturedMessage]:
+        """Filter captured messages by topic prefix."""
+        return [m for m in self.messages if m.topic.startswith(pattern)]
+
+    def filter_by_size(self, min_bytes: int = 0, max_bytes: int = 999999) -> List[CapturedMessage]:
+        """Filter messages by payload size."""
+        return [m for m in self.messages
+                if min_bytes <= m.payload_size() <= max_bytes]
+
+    def unique_topics(self) -> List[str]:
+        """Return sorted list of unique topics seen."""
+        return sorted(set(m.topic for m in self.messages))
+
+    def largest_messages(self, n: int = 5) -> List[CapturedMessage]:
+        """Return top N largest messages by payload size."""
+        return sorted(self.messages, key=lambda m: m.payload_size(), reverse=True)[:n]
+
+    def to_dict_list(self) -> List[Dict[str, Any]]:
+        """Serialize all captured messages to list of dicts."""
+        return [
+            {
+                "topic":     m.topic,
+                "payload":   m.payload_str(),
+                "size":      m.payload_size(),
+                "qos":       m.qos,
+                "timestamp": m.timestamp.isoformat(),
+                "client_id": m.source_client_id,
+            }
+            for m in self.messages
+        ]
