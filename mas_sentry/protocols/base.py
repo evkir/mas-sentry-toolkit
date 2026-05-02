@@ -3,6 +3,7 @@ from typing import List, Dict, Any, Optional
 from dataclasses import dataclass, field
 from datetime import datetime
 
+
 @dataclass
 class CapturedMessage:
     topic: str
@@ -19,6 +20,7 @@ class CapturedMessage:
 
     def payload_size(self) -> int:
         return len(self.payload)
+
 
 class BaseProtocolAnalyzer(ABC):
     def __init__(self, host: str, port: int):
@@ -49,25 +51,21 @@ class BaseProtocolAnalyzer(ABC):
             "unique_topics": len(set(m.topic for m in self.messages)),
             "total_bytes": sum(m.payload_size() for m in self.messages),
         }
-def filter_by_topic(self, pattern: str) -> List[CapturedMessage]:
-        """Filter captured messages by topic prefix."""
+
+    def filter_by_topic(self, pattern: str) -> List[CapturedMessage]:
         return [m for m in self.messages if m.topic.startswith(pattern)]
 
     def filter_by_size(self, min_bytes: int = 0, max_bytes: int = 999999) -> List[CapturedMessage]:
-        """Filter messages by payload size."""
         return [m for m in self.messages
                 if min_bytes <= m.payload_size() <= max_bytes]
 
-    def unique_topics(self) -> List[str]:
-        """Return sorted list of unique topics seen."""
+    def unique_topic_list(self) -> List[str]:
         return sorted(set(m.topic for m in self.messages))
 
     def largest_messages(self, n: int = 5) -> List[CapturedMessage]:
-        """Return top N largest messages by payload size."""
         return sorted(self.messages, key=lambda m: m.payload_size(), reverse=True)[:n]
 
     def to_dict_list(self) -> List[Dict[str, Any]]:
-        """Serialize all captured messages to list of dicts."""
         return [
             {
                 "topic":     m.topic,

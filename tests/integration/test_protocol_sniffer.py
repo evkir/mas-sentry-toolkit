@@ -1,64 +1,67 @@
-import time
-import json
+"""
+Integration tests for MQTT protocol sniffer.
+Requires running Docker lab: docker-compose up -d
+Skipped automatically if broker unavailable.
+"""
 import pytest
+import socket
 import paho.mqtt.client as mqtt
+import time
 
-LAB_BROKER = "127.0.0.1"
-LAB_MQTT = 1883
-CAPTURE_DURATION = 5
+BROKER_HOST = "127.0.0.1"
+BROKER_PORT = 1883
 
-@pytest.fixture(scope="module")
-def mqtt_publisher():
-    client = mqtt.Client(client_id="test-publisher")
-    connected = {"ok": False}
-    client.on_connect = lambda c, u, f, rc: connected.update({"ok": rc == 0})
+
+def broker_available() -> bool:
     try:
-        client.connect(LAB_BROKER, LAB_MQTT, keepalive=10)
-        client.loop_start()
-        time.sleep(1)
-        if not connected["ok"]:
-            pytest.skip("Lab broker not available")
-        payloads = [
-            ("sensors/test_001/telemetry", json.dumps({"temp": 22.5})),
-            ("sensors/all/status", json.dumps({"online": True})),
-            ("admin/config", json.dumps({"password": "admin123"})),
-        ]
-        for topic, payload in payloads:
-            client.publish(topic, payload, qos=1)
-            time.sleep(0.1)
-        yield client
-    finally:
-        client.loop_stop()
-        client.disconnect()
+        s = socket.create_connection((BROKER_HOST, BROKER_PORT), timeout=2)
+        s.close()
+        return True
+    except OSError:
+        return False
 
+
+pytestmark = pytest.mark.integration
+skip_no_broker = pytest.mark.skipif(
+    not broker_available(),
+    reason="MQTT broker not available - run: docker-compose up -d"
+)
+
+
+@skip_no_broker
 class TestMQTTCapture:
 
     def test_can_connect_anonymously(self):
-        client = mqtt.Client(client_id="test-anon")
-        result = {"rc": -1}
-        client.on_connect = lambda c, u, f, rc: result.update({"rc": rc})
-        try:
-            client.connect(LAB_BROKER, LAB_MQTT, keepalive=5)
-            client.loop_start()
-            time.sleep(1.5)
-            client.loop_stop()
-            client.disconnect()
-        except Exception:
-            pytest.skip("Lab broker not reachable")
-        assert result["rc"] == 0
+        connected = {"ok": False}
+        client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2,
+                             client_id="test-anon")
+        def on_connect(c, u, f, rc, p=None):
+            connected["ok"] = (rc == 0)
+        client.on_connect = on_connect
+        client.connect(BROKER_HOST, BROKER_PORT, keepalive=5)
+        client.loop_start()
+        time.sleep(2)
+        client.loop_stop()
+        client.disconnect()
+        assert connected["ok"] is True
 
-    def test_wildcard_captures_messages(self, mqtt_publisher):
-        captured = []
-        client = mqtt.Client(client_id="test-wildcard")
-        client.on_message = lambda c, u, msg: captured.append(msg.topic)
-        client.on_connect = lambda c, u, f, rc: c.subscribe("#", qos=0)
-        try:
-            client.connect(LAB_BROKER, LAB_MQTT)
-            client.loop_start()
-            time.sleep(CAPTURE_DURATION)
-            client.loop_stop()
-            client.disconnect()
-        except Exception as e:
-            pytest.skip(f"Not reachable: {e}")
-        assert len(captured) > 0
-        assert any("sensors" in t for t in captured)
+    def test_wildcard_captures_messages(self):
+        received = []
+        pub = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2,
+                          client_id="test-publisher")
+        sub = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2,
+                          client_id="test-subscriber")
+        sub.on_message = lambda c, u, msg: received.append(msg.topic)
+        sub.on_connect = lambda c, u, f, rc, p=None: c.subscribe("#")
+        sub.connect(BROKER_HOST, BROKER_PORT)
+        sub.loop_start()
+        time.sleep(1)
+        pub.connect(BROKER_HOST, BROKER_PORT)
+        pub.loop_start()
+        pub.publish("test/integration/ping", "hello", qos=1)
+        time.sleep(2)
+        sub.loop_stop()
+        pub.loop_stop()
+        sub.disconnect()
+        pub.disconnect()
+        assert len(received) > 0

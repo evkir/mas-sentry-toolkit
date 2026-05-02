@@ -4,7 +4,7 @@ Core data models: MessageEvent, AgentFingerprint, BehavioralBaseline
 """
 from dataclasses import dataclass, field
 from typing import List, Dict, Optional, Any
-from datetime import datetime
+from datetime import datetime, timezone
 import json
 
 
@@ -161,7 +161,7 @@ class BehavioralBaseline:
     """
     agent_id: str
     created_at: str = field(
-        default_factory=lambda: datetime.utcnow().isoformat()
+        default_factory=lambda: datetime.now(timezone.utc).isoformat()
     )
     fingerprints: List[Dict] = field(default_factory=list)
     known_topics: List[str] = field(default_factory=list)
