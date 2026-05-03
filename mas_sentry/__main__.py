@@ -1,41 +1,165 @@
 import click
+import json
+import os
 from rich.console import Console
-from mas_sentry.core.engine import SentryEngine
-from mas_sentry.core.config import SentryConfig
+from rich.panel import Panel
 
 console = Console()
+
+BANNER = """
+ ███╗   ███╗ █████╗ ███████╗    ███████╗███████╗███╗   ██╗████████╗██████╗ ██╗   ██╗
+ ████╗ ████║██╔══██╗██╔════╝    ██╔════╝██╔════╝████╗  ██║╚══██╔══╝██╔══██╗╚██╗ ██╔╝
+ ██╔████╔██║███████║███████╗    ███████╗█████╗  ██╔██╗ ██║   ██║   ██████╔╝ ╚████╔╝
+ ██║╚██╔╝██║██╔══██║╚════██║    ╚════██║██╔══╝  ██║╚██╗██║   ██║   ██╔══██╗  ╚██╔╝
+ ██║ ╚═╝ ██║██║  ██║███████║    ███████║███████╗██║ ╚████║   ██║   ██║  ██║   ██║
+ ╚═╝     ╚═╝╚═╝  ╚═╝╚══════╝    ╚══════╝╚══════╝╚═╝  ╚═══╝   ╚═╝   ╚═╝  ╚═╝   ╚═╝
+"""
 
 @click.group()
 @click.version_option("0.1.0")
 def cli():
-    """MAS-Sentry-Toolkit — Multi-Agent System Security Auditor"""
-    pass
+    """MAS-Sentry-Toolkit — Multi-Agent System Security Auditor\n
+    ABFP: Agent Behavioral Fingerprinting Protocol\n
+    For authorized security testing only.
+    """
+    console.print(Panel(BANNER, style="bold red", padding=(0, 2)))
+
 
 @cli.command()
-@click.option("--broker", default="127.0.0.1", help="Broker IP")
-@click.option("--port", default=1883, help="Broker port")
-@click.option("--topic", default="#", help="Topic filter")
-@click.option("--duration", default=60, help="Duration in seconds")
-def sniff(broker, port, topic, duration):
-    """Passive MQTT traffic sniffer"""
-    console.print(f"[bold yellow]Starting MQTT sniff on {broker}:{port} topic={topic}[/bold yellow]")
+@click.option("--broker", default="127.0.0.1", show_default=True, help="Broker IP")
+@click.option("--port",   default=1883,         show_default=True, help="Broker port")
+@click.option("--topic",  default="#",           show_default=True, help="Topic filter")
+@click.option("--duration", default=30,          show_default=True, help="Capture duration (s)")
+@click.option("--output", default=None, help="Save results to JSON file")
+def sniff(broker, port, topic, duration, output):
+    """Passive MQTT traffic sniffer — capture and display messages"""
+    from mas_sentry.protocols.mqtt_analyzer import MQTTAnalyzer
+    analyzer = MQTTAnalyzer(broker, port)
+    if not analyzer.connect():
+        console.print("[red]Cannot connect to broker[/red]")
+        return
+    msgs = analyzer.capture(duration=duration, topic_filter=topic)
+    analyzer.print_topic_table()
+    if output:
+        data = [{"topic": m.topic, "payload": m.payload_str(),
+                 "qos": m.qos, "size": m.payload_size()} for m in msgs]
+        with open(output, "w") as f:
+            json.dump(data, f, indent=2)
+        console.print(f"[green]Saved {len(msgs)} messages to {output}[/green]")
+    analyzer.disconnect()
+
 
 @cli.command()
-@click.option("--broker", default="127.0.0.1")
-@click.option("--duration", default=120)
-@click.option("--output", default="report.json")
-def abfp(broker, duration, output):
-    """Run ABFP behavioral fingerprinting"""
-    console.print(f"[bold cyan]Running ABFP on {broker} for {duration}s[/bold cyan]")
+@click.option("--broker",   default="127.0.0.1", show_default=True)
+@click.option("--port",     default=1883,         show_default=True)
+@click.option("--duration", default=60,           show_default=True, help="Collection duration (s)")
+@click.option("--output",   default="abfp_report.json", show_default=True)
+def abfp(broker, port, duration, output):
+    """Run ABFP behavioral fingerprinting — Phase 1+2+3"""
+    from mas_sentry.agents.fingerprinter import ABFPFingerprinter
+    from mas_sentry.agents.anomaly_detector import AnomalyDetector
+
+    console.print(f"[bold cyan][ABFP] Target: {broker}:{port} | Duration: {duration}s[/bold cyan]")
+
+    engine = ABFPFingerprinter(broker, port)
+    fingerprints = engine.collect(duration=duration)
+    engine.build_fingerprints()
+    engine.print_summary()
+
+    detector = AnomalyDetector()
+    detector.analyze(fingerprints)
+    detector.print_report(fingerprints)
+    detector.save_report(output)
+    console.print(f"[green][ABFP] Report saved: {output}[/green]")
+
 
 @cli.command()
-@click.option("--target", required=True)
-@click.option("--protocol", default="mqtt")
-@click.option("--full", is_flag=True)
-def audit(target, protocol, full):
-    """Run full security audit"""
-    engine = SentryEngine()
-    engine.start_session(target, protocol)
+@click.option("--broker",   default="127.0.0.1", show_default=True)
+@click.option("--port",     default=1883,         show_default=True)
+def fingerprint(broker, port):
+    """Fingerprint MQTT broker — version, config, auth posture"""
+    from mas_sentry.protocols.mqtt_fingerprint import MQTTBrokerFingerprinter
+    from mas_sentry.protocols.mqtt_auth_check import MQTTAuthChecker
+
+    fp = MQTTBrokerFingerprinter(broker, port)
+    fp.fingerprint()
+
+    checker = MQTTAuthChecker(broker, port)
+    checker.run_all()
+
+
+@cli.command()
+@click.option("--broker",   default="127.0.0.1", show_default=True)
+@click.option("--port",     default=1883,         show_default=True)
+@click.option("--duration", default=20,           show_default=True)
+def walk(broker, port, duration):
+    """Walk full MQTT topic tree using wildcard subscriptions"""
+    from mas_sentry.protocols.mqtt_topic_walker import MQTTTopicWalker
+    walker = MQTTTopicWalker(broker, port)
+    topics = walker.walk(duration=duration)
+    console.print(f"[green]Total unique topics: {len(topics)}[/green]")
+
+
+@cli.command()
+@click.option("--broker",   default="127.0.0.1", show_default=True)
+@click.option("--port",     default=1883,         show_default=True)
+@click.option("--protocol", default="mqtt",
+              type=click.Choice(["mqtt", "amqp"]), show_default=True)
+@click.option("--output",   default="report.html", show_default=True)
+@click.option("--full",     is_flag=True, help="Run all modules")
+def audit(broker, port, protocol, output, full):
+    """Run full MAS security audit — protocol + ABFP + STRIDE + report"""
+    from mas_sentry.protocols.mqtt_fingerprint import MQTTBrokerFingerprinter
+    from mas_sentry.protocols.mqtt_auth_check import MQTTAuthChecker
+    from mas_sentry.agents.fingerprinter import ABFPFingerprinter
+    from mas_sentry.agents.anomaly_detector import AnomalyDetector
+    from mas_sentry.threat_modeling.stride_mapper import STRIDEMapper
+    from mas_sentry.reporting.report_model import MASAuditReport, ReportMeta
+    from mas_sentry.reporting.html_report import HTMLReportGenerator
+    import uuid
+
+    session_id = str(uuid.uuid4())[:8]
+    console.print(f"[bold green]Session {session_id} | Target: {broker}:{port}[/bold green]")
+
+    report = MASAuditReport(meta=ReportMeta(
+        session_id=session_id, target=broker, protocol=protocol
+    ))
+
+    # Protocol checks
+    if protocol == "mqtt":
+        fp_result = MQTTBrokerFingerprinter(broker, port).fingerprint()
+        auth_result = MQTTAuthChecker(broker, port).run_all()
+        if auth_result.get("anonymous_access"):
+            report.add_finding(
+                "Anonymous Broker Access", "CRITICAL",
+                "MQTT broker allows unauthenticated connections.",
+                remediation="Set allow_anonymous false in mosquitto.conf"
+            )
+
+    # ABFP
+    duration = 60 if full else 20
+    engine = ABFPFingerprinter(broker, port)
+    fingerprints = engine.collect(duration=duration)
+    engine.build_fingerprints()
+
+    detector = AnomalyDetector()
+    detector.analyze(fingerprints)
+
+    report.abfp_fingerprints = [fp.to_dict() for fp in fingerprints.values()]
+
+    # STRIDE
+    mapper = STRIDEMapper()
+    threats = mapper.map_from_fingerprints(fingerprints)
+    report.stride_threats = [t.to_dict() for t in threats]
+
+    # Save report
+    os.makedirs("reports", exist_ok=True)
+    out_path = f"reports/{output}"
+    HTMLReportGenerator(report).save(out_path)
+    report.save_json(out_path.replace(".html", ".json"))
+
+    console.print(f"[bold green]Audit complete! Report: {out_path}[/bold green]")
+
 
 if __name__ == "__main__":
     cli()
