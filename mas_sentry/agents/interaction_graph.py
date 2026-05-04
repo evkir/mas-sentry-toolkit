@@ -88,3 +88,74 @@ class AgentInteractionGraph:
             return []
         return [n for n in self.graph.nodes
                 if self.graph.degree(n) >= min_degree]
+
+    def print_summary(self):
+        """Print graph summary table"""
+        if not HAS_NETWORKX or not self.graph:
+            return
+
+        table = Table(title="[bold]Agent Interaction Graph[/bold]")
+        table.add_column("Agent", style="cyan")
+        table.add_column("In", justify="right", style="green")
+        table.add_column("Out", justify="right", style="yellow")
+        table.add_column("Total", justify="right")
+        table.add_column("Centrality", justify="right", style="magenta")
+        table.add_column("Role", style="bold")
+
+        centrality = nx.betweenness_centrality(self.graph)
+
+        for node in sorted(self.graph.nodes):
+            in_deg  = self.graph.in_degree(node)
+            out_deg = self.graph.out_degree(node)
+            total   = in_deg + out_deg
+            cent    = centrality.get(node, 0.0)
+
+            if total == 0:
+                role = "[dim]isolated[/dim]"
+            elif out_deg > in_deg * 2:
+                role = "[yellow]publisher[/yellow]"
+            elif in_deg > out_deg * 2:
+                role = "[blue]subscriber[/blue]"
+            elif cent > 0.3:
+                role = "[red]hub[/red]"
+            else:
+                role = "[green]peer[/green]"
+
+            is_rogue = self.graph.nodes[node].get("is_rogue", False)
+            if is_rogue:
+                role = "[bold red]ROGUE[/bold red]"
+
+            table.add_row(
+                node, str(in_deg), str(out_deg),
+                str(total), f"{cent:.2f}", role
+            )
+        console.print(table)
+
+        isolated = self.find_isolated_agents()
+        if isolated:
+            console.print(f"[yellow][GRAPH] Isolated agents: {isolated}[/yellow]")
+
+        hubs = self.find_hub_agents()
+        if hubs:
+            console.print(f"[red][GRAPH] Hub agents (high connectivity): {hubs}[/red]")
+
+    def to_dot(self, path: str = "reports/agent_graph.dot"):
+        """Export graph as DOT file for Graphviz visualization"""
+        if not HAS_NETWORKX or not self.graph:
+            return
+        import os
+        os.makedirs("reports", exist_ok=True)
+        nx.drawing.nx_pydot.write_dot(self.graph, path)
+        console.print(f"[green][GRAPH] DOT file saved: {path}[/green]")
+        console.print(f"[dim]  Visualize: dot -Tpng {path} -o reports/graph.png[/dim]")
+
+    def to_json(self, path: str = "reports/agent_graph.json"):
+        """Export graph as JSON node-link format"""
+        if not HAS_NETWORKX or not self.graph:
+            return
+        import os
+        os.makedirs("reports", exist_ok=True)
+        data = nx.node_link_data(self.graph)
+        with open(path, "w") as f:
+            json.dump(data, f, indent=2)
+        console.print(f"[green][GRAPH] JSON saved: {path}[/green]")
