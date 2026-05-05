@@ -99,3 +99,17 @@ mas-sentry-toolkit/
 - [ ] Day 25 — JSON/HTML reporting
 - [ ] Day 26 — Full HTML report
 - [ ] Day 30 — v1.0.0 release
+
+## Live Demo Output
+
+Broker Fingerprint (Mosquitto 2.0.22):
+- Anonymous access ALLOWED (CRITICAL)
+- guest:guest works (HIGH)
+- admin:admin works (HIGH)
+- Version: 2.0.22, Clients: 3, SYS topics: 51
+
+ABFP Live Scan (30 seconds):
+- Agent: inferred_sensors_all
+- Messages: 31, Interval: 1000ms
+- Entropy: 4.01, Confidence: 0.62
+- Anomaly Score: 10/100 LOW
