@@ -1,0 +1,12 @@
+[
+  {
+    "agent_id": "inferred_sensors_all",
+    "finding_type": "NO_BASELINE",
+    "severity": "MEDIUM",
+    "score_contribution": 10.0,
+    "description": "Agent has no known-good behavioral baseline on record",
+    "evidence": {
+      "confidence": 0.62
+    }
+  }
+]
