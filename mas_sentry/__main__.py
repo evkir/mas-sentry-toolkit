@@ -139,5 +139,20 @@ def audit(broker, port, protocol, output, full):
     console.print(f"[bold green]Done! Report: {out}[/bold green]")
 
 
+
+@cli.command()
+@click.option("--broker",   default="127.0.0.1", show_default=True)
+@click.option("--port",     default=1883,         show_default=True)
+@click.option("--topics",   default="commands/#,sensors/#", show_default=True)
+def probe(broker, port, topics):
+    """Active probe - inject crafted messages, detect reactions"""
+    from mas_sentry.agents.active_prober import ActiveProber
+    topic_list = [t.strip() for t in topics.split(",")]
+    prober = ActiveProber(broker, port)
+    prober.probe_command_injection(topic_list)
+    prober.probe_retained_state(topic_list)
+    prober.print_results()
+
+
 if __name__ == "__main__":
     cli()
