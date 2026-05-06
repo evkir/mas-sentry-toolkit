@@ -113,3 +113,74 @@ class ActiveProber:
 
         self.results.append(result)
         return result
+
+    def probe_command_injection(self, topics: List[str]) -> List[ProbeResult]:
+        """Test if command topics trigger agent reactions"""
+        console.print("[bold yellow][PROBE] Command injection probing...[/bold yellow]")
+        payloads = [
+            '{"action": "shutdown"}',
+            '{"action": "restart"}',
+            '{"action": "activate_cooling"}',
+            '{"cmd": "exec", "args": "id"}',
+        ]
+        results = []
+        for topic in topics:
+            if any(kw in topic for kw in ["command", "cmd", "control", "actuator"]):
+                for payload in payloads[:2]:
+                    r = self.probe_topic(topic, payload, wait_seconds=2.0)
+                    results.append(r)
+        return results
+
+    def probe_retained_state(self, topics: List[str]) -> List[ProbeResult]:
+        """Probe retained message state on discovered topics"""
+        console.print("[bold yellow][PROBE] Retained state probing...[/bold yellow]")
+        results = []
+        poison_payload = json.dumps({
+            "probe": True,
+            "from": "mas-sentry-probe",
+            "action": "test_retained"
+        })
+        for topic in topics[:3]:
+            r = self.probe_topic(topic, poison_payload, wait_seconds=1.5)
+            results.append(r)
+        return results
+
+    def probe_hidden_subscribers(self, topics: List[str]) -> Dict[str, bool]:
+        """Detect hidden subscribers by sending probe and watching for reactions"""
+        console.print("[bold yellow][PROBE] Hidden subscriber detection...[/bold yellow]")
+        hidden: Dict[str, bool] = {}
+        for topic in topics:
+            r = self.probe_topic(
+                topic,
+                json.dumps({"probe": "hidden_sub_test", "id": uuid.uuid4().hex[:6]}),
+                wait_seconds=2.0
+            )
+            hidden[topic] = r.triggered_action
+        return hidden
+
+    def print_results(self):
+        """Print probe results table"""
+        if not self.results:
+            console.print("[green][PROBE] No probe results[/green]")
+            return
+        table = Table(title="[bold red]Active Probe Results[/bold red]")
+        table.add_column("Probe ID",  style="dim")
+        table.add_column("Topic Probed", style="cyan")
+        table.add_column("Reaction", style="bold")
+        table.add_column("Response Topic", style="yellow")
+        table.add_column("RTT ms", justify="right")
+
+        for r in self.results:
+            reaction = "[red]YES[/red]" if r.triggered_action else "[green]none[/green]"
+            rtt = f"{r.response_time_ms:.0f}" if r.response_time_ms else "—"
+            table.add_row(
+                r.probe_id,
+                r.topic[:35],
+                reaction,
+                (r.response_topic or "—")[:30],
+                rtt
+            )
+        console.print(table)
+
+    def to_json(self) -> str:
+        return json.dumps([r.to_dict() for r in self.results], indent=2)
