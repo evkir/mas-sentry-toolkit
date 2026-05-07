@@ -154,5 +154,43 @@ def probe(broker, port, topics):
     prober.print_results()
 
 
+
+@cli.command()
+@click.option("--broker",   default="127.0.0.1", show_default=True)
+@click.option("--port",     default=1883,         show_default=True)
+@click.option("--duration", default=60,           show_default=True)
+@click.option("--output",   default="baseline.json", show_default=True)
+def learn(broker, port, duration, output):
+    """Learn normal agent behavior and save baseline"""
+    from mas_sentry.agents.fingerprinter import ABFPFingerprinter
+    from mas_sentry.agents.abfp_models import BehavioralBaseline
+    import json, os
+    engine = ABFPFingerprinter(broker, port)
+    fps = engine.collect(duration=duration)
+    engine.build_fingerprints()
+    baselines = {}
+    for agent_id, fp in fps.items():
+        bl = BehavioralBaseline(
+            agent_id=agent_id,
+            known_topics=fp.unique_topics,
+            expected_interval_ms=fp.timing.mean_interval_ms,
+            expected_payload_size=fp.payload.mean_size_bytes,
+            expected_entropy=fp.payload.entropy_score
+        )
+        baselines[agent_id] = bl.save.__func__
+    os.makedirs("reports", exist_ok=True)
+    data = {}
+    for agent_id, fp in fps.items():
+        data[agent_id] = {
+            "known_topics": fp.unique_topics,
+            "expected_interval_ms": fp.timing.mean_interval_ms,
+            "expected_payload_size": fp.payload.mean_size_bytes,
+            "expected_entropy": fp.payload.entropy_score
+        }
+    with open(output, "w") as f:
+        json.dump(data, f, indent=2)
+    console.print(f"[bold green]Baseline saved: {output} ({len(data)} agents)[/bold green]")
+
+
 if __name__ == "__main__":
     cli()
