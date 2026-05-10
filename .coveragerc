@@ -1,0 +1,14 @@
+[run]
+source = mas_sentry
+omit =
+    */tests/*
+    */lab/*
+    setup.py
+
+[report]
+show_missing = true
+skip_covered = false
+precision = 2
+
+[html]
+directory = htmlcov
