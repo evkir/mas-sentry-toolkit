@@ -194,3 +194,28 @@ def learn(broker, port, duration, output):
 
 if __name__ == "__main__":
     cli()
+
+
+@cli.command()
+@click.option("--output", "-o", default=".", help="Output directory for reports")
+@click.option("--format", "-f",
+              type=click.Choice(["json", "html", "markdown"]),
+              default="json", show_default=True,
+              help="Report output format")
+@click.option("--verbose", "-v", is_flag=True, help="Enable verbose output")
+def config(output: str, format: str, verbose: bool):
+    """Show current configuration and output settings."""
+    from rich.table import Table
+    from rich.console import Console
+
+    console = Console()
+    table = Table(title="MAS-Sentry Configuration")
+    table.add_column("Setting", style="cyan")
+    table.add_column("Value", style="green")
+
+    table.add_row("Output Directory", output)
+    table.add_row("Report Format", format)
+    table.add_row("Verbose Mode", str(verbose))
+    table.add_row("Version", "0.9.0")
+
+    console.print(table)
