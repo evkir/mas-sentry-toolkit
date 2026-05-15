@@ -65,3 +65,6 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ### Tests
 - 116 commits, 100+ tests passing
 - CI green on Python 3.10 / 3.11 / 3.12
+
+---
+*Released: 2026-05-15*
