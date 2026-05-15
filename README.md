@@ -113,3 +113,5 @@ ABFP Live Scan (30 seconds):
 - Messages: 31, Interval: 1000ms
 - Entropy: 4.01, Confidence: 0.62
 - Anomaly Score: 10/100 LOW
+
+[![CI](https://github.com/user70616E6461/mas-sentry-toolkit/actions/workflows/ci.yml/badge.svg)](https://github.com/user70616E6461/mas-sentry-toolkit/actions)
