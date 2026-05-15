@@ -42,3 +42,26 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ### Added
 - Initial project scaffold
 - Basic MQTT connection probe
+
+---
+
+## [1.0.0] - 2025-05-13
+
+### Added
+- CVSS v3.1 calculator for MAS vulnerability scoring
+- IoT attack tree scenarios (AT-001, AT-002)
+- ROS2/DDS threat catalog (4 scenarios)
+- Threat scoring aggregation with risk level calculation
+- CONTRIBUTING.md with setup and commit guide
+- Full API reference docs
+- Attack scenario usage examples
+- STRIDE mapper tests, CVSS tests, aggregator tests
+
+### Changed
+- stride.py rewritten with threat_id, cvss_score fields
+- stride_mapper.py aligned with test expectations
+- numpy and pydantic version pins fixed for Python 3.13+
+
+### Tests
+- 116 commits, 100+ tests passing
+- CI green on Python 3.10 / 3.11 / 3.12
