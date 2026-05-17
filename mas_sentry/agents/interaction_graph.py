@@ -3,12 +3,14 @@
 ABFP Interaction Graph — maps agent-to-agent communication paths.
 Uses NetworkX to build directed graph from MQTT topic relationships.
 """
+
 import json
-from typing import Dict, List, Tuple
+
 from mas_sentry.agents.abfp_models import AgentFingerprint
 
 try:
     import networkx as nx
+
     HAS_NETWORKX = True
 except ImportError:
     HAS_NETWORKX = False
@@ -29,10 +31,10 @@ class AgentInteractionGraph:
 
     def __init__(self):
         self.graph = nx.DiGraph() if HAS_NETWORKX else None
-        self.edges: List[Tuple[str, str, str]] = []
-        self.nodes: List[str] = []
+        self.edges: list[tuple[str, str, str]] = []
+        self.nodes: list[str] = []
 
-    def build(self, fingerprints: Dict[str, AgentFingerprint]):
+    def build(self, fingerprints: dict[str, AgentFingerprint]):
         """Build graph from fingerprint collection"""
         if not HAS_NETWORKX:
             console.print("[yellow][GRAPH] networkx not installed - skipping graph[/yellow]")
@@ -41,28 +43,29 @@ class AgentInteractionGraph:
         self.graph.clear()
 
         for agent_id, fp in fingerprints.items():
-            self.graph.add_node(agent_id, messages=fp.message_count,
-                                anomaly_score=fp.anomaly_score,
-                                is_rogue=fp.is_rogue)
+            self.graph.add_node(
+                agent_id,
+                messages=fp.message_count,
+                anomaly_score=fp.anomaly_score,
+                is_rogue=fp.is_rogue,
+            )
             if agent_id not in self.nodes:
                 self.nodes.append(agent_id)
 
-        topic_publishers: Dict[str, List[str]] = {}
+        topic_publishers: dict[str, list[str]] = {}
         for agent_id, fp in fingerprints.items():
             for topic in fp.unique_topics:
                 topic_publishers.setdefault(topic, []).append(agent_id)
 
         for topic, publishers in topic_publishers.items():
-            for i, pub in enumerate(publishers):
+            for _i, pub in enumerate(publishers):
                 for sub in publishers:
                     if pub != sub:
                         if self.graph.has_edge(pub, sub):
                             self.graph[pub][sub]["weight"] += 1
                             self.graph[pub][sub]["topics"].append(topic)
                         else:
-                            self.graph.add_edge(pub, sub,
-                                                weight=1,
-                                                topics=[topic])
+                            self.graph.add_edge(pub, sub, weight=1, topics=[topic])
                             self.edges.append((pub, sub, topic))
 
         console.print(
@@ -70,25 +73,24 @@ class AgentInteractionGraph:
             f"{self.graph.number_of_edges()} edges[/bold cyan]"
         )
 
-    def get_central_agents(self) -> List[Tuple[str, float]]:
+    def get_central_agents(self) -> list[tuple[str, float]]:
         """Return agents by betweenness centrality (most connected)"""
         if not HAS_NETWORKX or not self.graph:
             return []
         centrality = nx.betweenness_centrality(self.graph)
         return sorted(centrality.items(), key=lambda x: x[1], reverse=True)
 
-    def find_isolated_agents(self) -> List[str]:
+    def find_isolated_agents(self) -> list[str]:
         """Agents with no connections - potential dead agents or rogues"""
         if not HAS_NETWORKX or not self.graph:
             return []
         return [n for n in self.graph.nodes if self.graph.degree(n) == 0]
 
-    def find_hub_agents(self, min_degree: int = 3) -> List[str]:
+    def find_hub_agents(self, min_degree: int = 3) -> list[str]:
         """Agents connected to many others - potential brokers or pivots"""
         if not HAS_NETWORKX or not self.graph:
             return []
-        return [n for n in self.graph.nodes
-                if self.graph.degree(n) >= min_degree]
+        return [n for n in self.graph.nodes if self.graph.degree(n) >= min_degree]
 
     def print_summary(self):
         """Print graph summary table"""
@@ -106,10 +108,10 @@ class AgentInteractionGraph:
         centrality = nx.betweenness_centrality(self.graph)
 
         for node in sorted(self.graph.nodes):
-            in_deg  = self.graph.in_degree(node)
+            in_deg = self.graph.in_degree(node)
             out_deg = self.graph.out_degree(node)
-            total   = in_deg + out_deg
-            cent    = centrality.get(node, 0.0)
+            total = in_deg + out_deg
+            cent = centrality.get(node, 0.0)
 
             if total == 0:
                 role = "[dim]isolated[/dim]"
@@ -126,10 +128,7 @@ class AgentInteractionGraph:
             if is_rogue:
                 role = "[bold red]ROGUE[/bold red]"
 
-            table.add_row(
-                node, str(in_deg), str(out_deg),
-                str(total), f"{cent:.2f}", role
-            )
+            table.add_row(node, str(in_deg), str(out_deg), str(total), f"{cent:.2f}", role)
         console.print(table)
 
         isolated = self.find_isolated_agents()
@@ -145,6 +144,7 @@ class AgentInteractionGraph:
         if not HAS_NETWORKX or not self.graph:
             return
         import os
+
         os.makedirs("reports", exist_ok=True)
         nx.drawing.nx_pydot.write_dot(self.graph, path)
         console.print(f"[green][GRAPH] DOT file saved: {path}[/green]")
@@ -155,6 +155,7 @@ class AgentInteractionGraph:
         if not HAS_NETWORKX or not self.graph:
             return
         import os
+
         os.makedirs("reports", exist_ok=True)
         data = nx.node_link_data(self.graph)
         with open(path, "w") as f:

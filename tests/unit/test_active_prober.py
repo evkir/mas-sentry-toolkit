@@ -3,10 +3,11 @@
 Unit tests for ActiveProber (no network required).
 Run: pytest tests/unit/test_active_prober.py -v
 """
-import pytest
+
 import json
 import time
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
+
 from mas_sentry.agents.active_prober import ActiveProber, ProbeResult
 
 
@@ -19,7 +20,7 @@ class TestProbeResult:
             sent_at=1000.0,
             response_topic="sensors/reply",
             response_time_ms=45.2,
-            triggered_action=True
+            triggered_action=True,
         )
         d = r.to_dict()
         assert d["probe_id"] == "abc123"
@@ -27,18 +28,12 @@ class TestProbeResult:
         assert d["response_time_ms"] == 45.2
 
     def test_no_response(self):
-        r = ProbeResult(
-            probe_id="xyz",
-            topic="test/topic",
-            payload="hello",
-            sent_at=1000.0
-        )
+        r = ProbeResult(probe_id="xyz", topic="test/topic", payload="hello", sent_at=1000.0)
         assert r.triggered_action is False
         assert r.response_topic is None
 
 
 class TestActiveProber:
-
     def setup_method(self):
         self.prober = ActiveProber("127.0.0.1", 1883)
 
@@ -48,7 +43,7 @@ class TestActiveProber:
             topic="test/probe",
             payload="test",
             sent_at=time.time(),
-            triggered_action=False
+            triggered_action=False,
         )
         self.prober.results.append(result)
         assert len(self.prober.results) == 1
@@ -62,9 +57,7 @@ class TestActiveProber:
     def test_command_injection_targets_command_topics(self):
         command_topics = ["commands/actuator", "sensors/temp"]
         with patch.object(self.prober, "probe_topic") as mock_probe:
-            mock_probe.return_value = ProbeResult(
-                "id", "commands/actuator", "{}", time.time()
-            )
+            mock_probe.return_value = ProbeResult("id", "commands/actuator", "{}", time.time())
             self.prober.probe_command_injection(command_topics)
             assert mock_probe.call_count >= 1
             called_topic = mock_probe.call_args[0][0]
@@ -75,11 +68,17 @@ class TestActiveProber:
         assert output == []
 
     def test_json_export_with_results(self):
-        self.prober.results.append(ProbeResult(
-            "p1", "test/topic", "payload",
-            time.time(), triggered_action=True,
-            response_topic="reply/topic", response_time_ms=22.5
-        ))
+        self.prober.results.append(
+            ProbeResult(
+                "p1",
+                "test/topic",
+                "payload",
+                time.time(),
+                triggered_action=True,
+                response_topic="reply/topic",
+                response_time_ms=22.5,
+            )
+        )
         output = json.loads(self.prober.to_json())
         assert len(output) == 1
         assert output[0]["triggered_action"] is True

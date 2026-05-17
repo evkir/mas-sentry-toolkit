@@ -2,21 +2,22 @@
 """
 Maps ABFP anomaly findings to STRIDE threat categories automatically.
 """
+
 from typing import Any
+
 from .stride import STRIDECategory, STRIDEThreat
 
-
 ABFP_TO_STRIDE: dict[str, STRIDECategory] = {
-    "duplicate_client_id":      STRIDECategory.SPOOFING,
-    "behavioral_clone":         STRIDECategory.SPOOFING,
+    "duplicate_client_id": STRIDECategory.SPOOFING,
+    "behavioral_clone": STRIDECategory.SPOOFING,
     "topic_privilege_escalation": STRIDECategory.ELEVATION_OF_PRIVILEGE,
-    "new_topic_emergence":      STRIDECategory.ELEVATION_OF_PRIVILEGE,
-    "payload_size_spike":       STRIDECategory.DENIAL_OF_SERVICE,
-    "message_flood":            STRIDECategory.DENIAL_OF_SERVICE,
-    "timing_anomaly":           STRIDECategory.TAMPERING,
-    "retained_message_poison":  STRIDECategory.TAMPERING,
-    "wildcard_enumeration":     STRIDECategory.INFO_DISCLOSURE,
-    "no_message_signing":       STRIDECategory.REPUDIATION,
+    "new_topic_emergence": STRIDECategory.ELEVATION_OF_PRIVILEGE,
+    "payload_size_spike": STRIDECategory.DENIAL_OF_SERVICE,
+    "message_flood": STRIDECategory.DENIAL_OF_SERVICE,
+    "timing_anomaly": STRIDECategory.TAMPERING,
+    "retained_message_poison": STRIDECategory.TAMPERING,
+    "wildcard_enumeration": STRIDECategory.INFO_DISCLOSURE,
+    "no_message_signing": STRIDECategory.REPUDIATION,
 }
 
 

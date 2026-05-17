@@ -4,12 +4,13 @@ ABFP Phase 3 — Active Probing Engine.
 Sends crafted messages to discovered agents and measures
 behavioral deviation from established fingerprints.
 """
-import paho.mqtt.client as mqtt
-import time
+
 import json
+import time
 import uuid
-from typing import Dict, List, Optional
-from dataclasses import dataclass, field
+from dataclasses import dataclass
+
+import paho.mqtt.client as mqtt
 from rich.console import Console
 from rich.table import Table
 
@@ -22,9 +23,9 @@ class ProbeResult:
     topic: str
     payload: str
     sent_at: float
-    response_topic: Optional[str] = None
-    response_payload: Optional[str] = None
-    response_time_ms: Optional[float] = None
+    response_topic: str | None = None
+    response_payload: str | None = None
+    response_time_ms: float | None = None
     triggered_action: bool = False
 
     def to_dict(self) -> dict:
@@ -48,35 +49,30 @@ class ActiveProber:
     def __init__(self, host: str, port: int = 1883):
         self.host = host
         self.port = port
-        self.results: List[ProbeResult] = []
-        self._responses: List[dict] = []
+        self.results: list[ProbeResult] = []
+        self._responses: list[dict] = []
 
-    def _make_client(self, client_id: str = None) -> mqtt.Client:
+    def _make_client(self, client_id: str | None = None) -> mqtt.Client:
         cid = client_id or f"mas-probe-{uuid.uuid4().hex[:6]}"
         c = mqtt.Client(client_id=cid)
         return c
 
-    def probe_topic(self, topic: str, payload: str,
-                    listen_topic: str = "#",
-                    wait_seconds: float = 3.0) -> ProbeResult:
+    def probe_topic(self, topic: str, payload: str, listen_topic: str = "#", wait_seconds: float = 3.0) -> ProbeResult:
         """Send a probe message and listen for reactions"""
-        result = ProbeResult(
-            probe_id=uuid.uuid4().hex[:8],
-            topic=topic,
-            payload=payload,
-            sent_at=time.time()
-        )
+        result = ProbeResult(probe_id=uuid.uuid4().hex[:8], topic=topic, payload=payload, sent_at=time.time())
         responses = []
         pub = self._make_client("mas-probe-pub")
         sub = self._make_client("mas-probe-sub")
 
         def on_message(c, u, msg):
             if msg.topic != topic:
-                responses.append({
-                    "topic": msg.topic,
-                    "payload": msg.payload.decode(errors="replace"),
-                    "time": time.time()
-                })
+                responses.append(
+                    {
+                        "topic": msg.topic,
+                        "payload": msg.payload.decode(errors="replace"),
+                        "time": time.time(),
+                    }
+                )
 
         sub.on_message = on_message
         sub.on_connect = lambda c, u, f, rc: c.subscribe(listen_topic, qos=0)
@@ -105,17 +101,14 @@ class ActiveProber:
             result.response_payload = first["payload"]
             result.response_time_ms = (first["time"] - result.sent_at) * 1000
             result.triggered_action = True
-            console.print(
-                f"[bold red][PROBE] Reaction detected! "
-                f"{topic} → {first['topic']}[/bold red]"
-            )
+            console.print(f"[bold red][PROBE] Reaction detected! {topic} → {first['topic']}[/bold red]")
         else:
             console.print(f"[green][PROBE] No reaction to probe on '{topic}'[/green]")
 
         self.results.append(result)
         return result
 
-    def probe_command_injection(self, topics: List[str]) -> List[ProbeResult]:
+    def probe_command_injection(self, topics: list[str]) -> list[ProbeResult]:
         """Test if command topics trigger agent reactions"""
         console.print("[bold yellow][PROBE] Command injection probing...[/bold yellow]")
         payloads = [
@@ -132,29 +125,25 @@ class ActiveProber:
                     results.append(r)
         return results
 
-    def probe_retained_state(self, topics: List[str]) -> List[ProbeResult]:
+    def probe_retained_state(self, topics: list[str]) -> list[ProbeResult]:
         """Probe retained message state on discovered topics"""
         console.print("[bold yellow][PROBE] Retained state probing...[/bold yellow]")
         results = []
-        poison_payload = json.dumps({
-            "probe": True,
-            "from": "mas-sentry-probe",
-            "action": "test_retained"
-        })
+        poison_payload = json.dumps({"probe": True, "from": "mas-sentry-probe", "action": "test_retained"})
         for topic in topics[:3]:
             r = self.probe_topic(topic, poison_payload, wait_seconds=1.5)
             results.append(r)
         return results
 
-    def probe_hidden_subscribers(self, topics: List[str]) -> Dict[str, bool]:
+    def probe_hidden_subscribers(self, topics: list[str]) -> dict[str, bool]:
         """Detect hidden subscribers by sending probe and watching for reactions"""
         console.print("[bold yellow][PROBE] Hidden subscriber detection...[/bold yellow]")
-        hidden: Dict[str, bool] = {}
+        hidden: dict[str, bool] = {}
         for topic in topics:
             r = self.probe_topic(
                 topic,
                 json.dumps({"probe": "hidden_sub_test", "id": uuid.uuid4().hex[:6]}),
-                wait_seconds=2.0
+                wait_seconds=2.0,
             )
             hidden[topic] = r.triggered_action
         return hidden
@@ -165,7 +154,7 @@ class ActiveProber:
             console.print("[green][PROBE] No probe results[/green]")
             return
         table = Table(title="[bold red]Active Probe Results[/bold red]")
-        table.add_column("Probe ID",  style="dim")
+        table.add_column("Probe ID", style="dim")
         table.add_column("Topic Probed", style="cyan")
         table.add_column("Reaction", style="bold")
         table.add_column("Response Topic", style="yellow")
@@ -174,13 +163,7 @@ class ActiveProber:
         for r in self.results:
             reaction = "[red]YES[/red]" if r.triggered_action else "[green]none[/green]"
             rtt = f"{r.response_time_ms:.0f}" if r.response_time_ms else "—"
-            table.add_row(
-                r.probe_id,
-                r.topic[:35],
-                reaction,
-                (r.response_topic or "—")[:30],
-                rtt
-            )
+            table.add_row(r.probe_id, r.topic[:35], reaction, (r.response_topic or "—")[:30], rtt)
         console.print(table)
 
     def to_json(self) -> str:

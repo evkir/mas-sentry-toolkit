@@ -1,6 +1,5 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 from dataclasses import dataclass, field
-from typing import List, Optional
 from enum import Enum
 
 
@@ -22,7 +21,20 @@ class STRIDEThreat:
     mitigation: str
     severity: str
     cvss_score: float
-    cve_refs: Optional[List[str]] = field(default_factory=list)
+    cve_refs: list[str] | None = field(default_factory=list)
+
+    def to_dict(self) -> dict:
+        return {
+            "threat_id": self.threat_id,
+            "category": self.category.value,
+            "title": self.title,
+            "description": self.description,
+            "mitigation": self.mitigation,
+            "severity": self.severity,
+            "cvss_score": self.cvss_score,
+            "cve_refs": self.cve_refs or [],
+        }
+
 
 
 MAS_THREAT_CATALOG = [

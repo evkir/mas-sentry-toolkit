@@ -1,23 +1,25 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
-import paho.mqtt.client as mqtt
 import time
-from typing import Set, List
-from rich.tree import Tree
+from typing import ClassVar
+
+import paho.mqtt.client as mqtt
 from rich.console import Console
+from rich.tree import Tree
 
 console = Console()
+
 
 class MQTTTopicWalker:
     """Enumerate full MQTT topic tree using wildcard subscriptions"""
 
-    WILDCARDS = ["#", "+/#", "+/+/#", "+/+/+/#"]
+    WILDCARDS: ClassVar[list[str]] = ["#", "+/#", "+/+/#", "+/+/+/#"]
 
     def __init__(self, host: str, port: int = 1883):
         self.host = host
         self.port = port
-        self.discovered: Set[str] = set()
+        self.discovered: set[str] = set()
 
-    def walk(self, duration: int = 20) -> List[str]:
+    def walk(self, duration: int = 20) -> list[str]:
         client = mqtt.Client(client_id="mas-sentry-walker")
         client.on_message = lambda c, u, msg: self.discovered.add(msg.topic)
 
@@ -50,7 +52,7 @@ class MQTTTopicWalker:
                 if part not in current_dict:
                     current_dict[part] = {
                         "_node": current_node.add(f"[cyan]{part}[/cyan]"),
-                        "_children": {}
+                        "_children": {},
                     }
                 current_node = current_dict[part]["_node"]
                 current_dict = current_dict[part]["_children"]

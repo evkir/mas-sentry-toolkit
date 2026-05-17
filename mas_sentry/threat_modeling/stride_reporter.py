@@ -1,16 +1,15 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
-from typing import List
-from .stride import STRIDEThreat, STRIDECategory, MAS_MQTT_THREATS
 
+from .stride import MAS_MQTT_THREATS, STRIDECategory, STRIDEThreat
 
 SEVERITY_ORDER = {"CRITICAL": 0, "HIGH": 1, "MEDIUM": 2, "LOW": 3}
 
 
-def format_threat_report(threats: List[STRIDEThreat]) -> str:
+def format_threat_report(threats: list[STRIDEThreat]) -> str:
     """Render STRIDE threats as a structured text report."""
     lines = ["=" * 60, "  STRIDE THREAT MODEL REPORT — MAS-Sentry-Toolkit", "=" * 60, ""]
 
-    by_category: dict[STRIDECategory, List[STRIDEThreat]] = {}
+    by_category: dict[STRIDECategory, list[STRIDEThreat]] = {}
     for t in threats:
         by_category.setdefault(t.category, []).append(t)
 
@@ -29,11 +28,11 @@ def format_threat_report(threats: List[STRIDEThreat]) -> str:
     return "\n".join(lines)
 
 
-def get_threats_by_severity(severity: str) -> List[STRIDEThreat]:
+def get_threats_by_severity(severity: str) -> list[STRIDEThreat]:
     """Filter threat catalog by severity level."""
     return [t for t in MAS_MQTT_THREATS if t.severity == severity.upper()]
 
 
-def get_threats_by_category(category: STRIDECategory) -> List[STRIDEThreat]:
+def get_threats_by_category(category: STRIDECategory) -> list[STRIDEThreat]:
     """Filter threat catalog by STRIDE category."""
     return [t for t in MAS_MQTT_THREATS if t.category == category]

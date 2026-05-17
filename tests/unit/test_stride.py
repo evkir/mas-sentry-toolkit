@@ -3,27 +3,21 @@
 Unit tests for STRIDE threat modeling.
 Run: pytest tests/unit/test_stride.py -v
 """
-import pytest
+
 import json
-from mas_sentry.threat_modeling.stride import (
-    MAS_THREAT_CATALOG, STRIDECategory, STRIDEThreat
-)
+
+from mas_sentry.agents.abfp_models import AgentFingerprint
+from mas_sentry.threat_modeling.stride import MAS_THREAT_CATALOG, STRIDECategory
 from mas_sentry.threat_modeling.stride_mapper import STRIDEMapper
-from mas_sentry.agents.abfp_models import (
-    AgentFingerprint, TimingMetrics, PayloadMetrics
-)
 
 
 def make_fp_with_flags(*flags) -> AgentFingerprint:
-    fp = AgentFingerprint(
-        agent_id="test", first_seen=0, last_seen=60
-    )
+    fp = AgentFingerprint(agent_id="test", first_seen=0, last_seen=60)
     fp.threat_flags = list(flags)
     return fp
 
 
 class TestSTRIDECatalog:
-
     def test_catalog_not_empty(self):
         assert len(MAS_THREAT_CATALOG) >= 8
 
@@ -48,7 +42,6 @@ class TestSTRIDECatalog:
 
 
 class TestSTRIDEMapper:
-
     def test_map_topic_escalation_flag(self):
         mapper = STRIDEMapper()
         fp = make_fp_with_flags("TOPIC_ESCALATION")
@@ -72,9 +65,7 @@ class TestSTRIDEMapper:
 
     def test_map_protocol_findings_anonymous(self):
         mapper = STRIDEMapper()
-        threats = mapper.map_from_protocol_findings(
-            ["anonymous access allowed", "sys topics exposed"]
-        )
+        threats = mapper.map_from_protocol_findings(["anonymous access allowed", "sys topics exposed"])
         ids = [t.threat_id for t in threats]
         assert "MAS-S-001" in ids
         assert "MAS-I-001" in ids

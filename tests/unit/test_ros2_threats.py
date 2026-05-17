@@ -2,7 +2,8 @@
 """
 Unit tests for ROS2/DDS threat scenarios.
 """
-from mas_sentry.threat_modeling.ros2_threats import ROS2_DDS_THREATS, ROSThreat
+
+from mas_sentry.threat_modeling.ros2_threats import ROS2_DDS_THREATS
 
 
 class TestROS2Threats:

@@ -1,15 +1,14 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 from dataclasses import dataclass, field
-from typing import List, Optional
 
 
 @dataclass
 class AttackNode:
     node_id: str
     description: str
-    likelihood: str        # HIGH / MEDIUM / LOW
-    required_access: str   # NONE / NETWORK / LOCAL / PHYSICAL
-    children: List["AttackNode"] = field(default_factory=list)
+    likelihood: str  # HIGH / MEDIUM / LOW
+    required_access: str  # NONE / NETWORK / LOCAL / PHYSICAL
+    children: list["AttackNode"] = field(default_factory=list)
 
 
 @dataclass

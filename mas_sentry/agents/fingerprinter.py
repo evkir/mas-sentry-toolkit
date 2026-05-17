@@ -3,20 +3,16 @@
 ABFPFingerprinter — Phase 1 & 2 implementation.
 Passive collection + fingerprint construction.
 """
-import paho.mqtt.client as mqtt
-import time
+
 import math
-from typing import Dict, List, Optional
-from datetime import datetime, timezone
+import time
+
+import paho.mqtt.client as mqtt
 from rich.console import Console
 from rich.table import Table
-from rich.panel import Panel
 
-from .abfp_models import (
-    AgentFingerprint, MessageEvent,
-    TopicProfile, TimingMetrics, PayloadMetrics
-)
-from .payload_analyzer import shannon_entropy, detect_encoding, scan_sensitive
+from .abfp_models import AgentFingerprint, MessageEvent, PayloadMetrics, TimingMetrics, TopicProfile
+from .payload_analyzer import detect_encoding, shannon_entropy
 
 console = Console()
 
@@ -35,7 +31,7 @@ class ABFPFingerprinter:
     def __init__(self, host: str, port: int = 1883):
         self.host = host
         self.port = port
-        self.fingerprints: Dict[str, AgentFingerprint] = {}
+        self.fingerprints: dict[str, AgentFingerprint] = {}
         self._total_messages = 0
 
     def _infer_agent_id(self, topic: str) -> str:
@@ -46,16 +42,11 @@ class ABFPFingerprinter:
 
     def _get_or_create(self, agent_id: str, now: float) -> AgentFingerprint:
         if agent_id not in self.fingerprints:
-            self.fingerprints[agent_id] = AgentFingerprint(
-                agent_id=agent_id,
-                first_seen=now,
-                last_seen=now
-            )
+            self.fingerprints[agent_id] = AgentFingerprint(agent_id=agent_id, first_seen=now, last_seen=now)
             console.print(f"[cyan][ABFP] New agent discovered: {agent_id}[/cyan]")
         return self.fingerprints[agent_id]
 
-    def collect(self, duration: int = 60,
-                topic_filter: str = "#") -> Dict[str, AgentFingerprint]:
+    def collect(self, duration: int = 60, topic_filter: str = "#") -> dict[str, AgentFingerprint]:
         """Phase 1: Passive collection"""
         client = mqtt.Client(client_id="mas-sentry-abfp")
 
@@ -67,9 +58,7 @@ class ABFPFingerprinter:
 
             # Update topic profile
             if msg.topic not in fp.topic_profiles:
-                fp.topic_profiles[msg.topic] = TopicProfile(
-                    topic=msg.topic, first_seen=now
-                )
+                fp.topic_profiles[msg.topic] = TopicProfile(topic=msg.topic, first_seen=now)
             tp = fp.topic_profiles[msg.topic]
             tp.message_count += 1
             tp.total_bytes += len(msg.payload)
@@ -80,22 +69,23 @@ class ABFPFingerprinter:
 
             # Store event
             preview = msg.payload.decode("utf-8", errors="replace")[:40]
-            fp.message_events.append(MessageEvent(
-                topic=msg.topic,
-                payload_size=len(msg.payload),
-                timestamp=now,
-                qos=msg.qos,
-                retain=bool(msg.retain),
-                payload_preview=preview
-            ))
+            fp.message_events.append(
+                MessageEvent(
+                    topic=msg.topic,
+                    payload_size=len(msg.payload),
+                    timestamp=now,
+                    qos=msg.qos,
+                    retain=bool(msg.retain),
+                    payload_preview=preview,
+                )
+            )
             self._total_messages += 1
 
         def on_connect(c, u, f, rc):
             if rc == 0:
                 c.subscribe(topic_filter, qos=0)
                 console.print(
-                    f"[bold green][ABFP] Phase 1 started — "
-                    f"collecting for {duration}s on '{topic_filter}'[/bold green]"
+                    f"[bold green][ABFP] Phase 1 started — collecting for {duration}s on '{topic_filter}'[/bold green]"
                 )
 
         client.on_message = on_message
@@ -108,10 +98,7 @@ class ABFPFingerprinter:
             elapsed = int(time.time() - start)
             agents = len(self.fingerprints)
             msgs = self._total_messages
-            print(
-                f"\r[ABFP] {elapsed}s | {agents} agents | {msgs} messages    ",
-                end=""
-            )
+            print(f"\r[ABFP] {elapsed}s | {agents} agents | {msgs} messages    ", end="")
             time.sleep(1)
 
         client.loop_stop()
@@ -124,8 +111,7 @@ class ABFPFingerprinter:
         )
         return self.fingerprints
 
-
-    def build_fingerprints(self) -> Dict[str, AgentFingerprint]:
+    def build_fingerprints(self) -> dict[str, AgentFingerprint]:
         """Phase 2: Compute all metrics for each collected agent"""
         console.print("[bold cyan][ABFP] Phase 2 — Building fingerprints...[/bold cyan]")
 
@@ -146,10 +132,7 @@ class ABFPFingerprinter:
         events = sorted(fp.message_events, key=lambda e: e.timestamp)
         if len(events) < 2:
             return
-        intervals = [
-            (events[i+1].timestamp - events[i].timestamp) * 1000
-            for i in range(len(events) - 1)
-        ]
+        intervals = [(events[i + 1].timestamp - events[i].timestamp) * 1000 for i in range(len(events) - 1)]
         n = len(intervals)
         mean = sum(intervals) / n
         variance = sum((x - mean) ** 2 for x in intervals) / n
@@ -161,7 +144,7 @@ class ABFPFingerprinter:
             min_interval_ms=min(intervals),
             max_interval_ms=max(intervals),
             burst_detected=min(intervals) < 50.0,
-            sample_count=n
+            sample_count=n,
         )
 
     def _compute_payload(self, fp: AgentFingerprint):
@@ -174,7 +157,7 @@ class ABFPFingerprinter:
         std = math.sqrt(variance)
 
         # Entropy from last payload sample
-        last_events = fp.message_events[-min(10, n):]
+        last_events = fp.message_events[-min(10, n) :]
         all_bytes = b""
         for ev in last_events:
             # Reconstruct from preview only (real impl uses raw bytes)
@@ -182,9 +165,7 @@ class ABFPFingerprinter:
         entropy = shannon_entropy(all_bytes)
 
         # Encoding from last event preview
-        encoding = detect_encoding(
-            fp.message_events[-1].payload_preview.encode("utf-8", errors="replace")
-        )
+        encoding = detect_encoding(fp.message_events[-1].payload_preview.encode("utf-8", errors="replace"))
 
         fp.payload = PayloadMetrics(
             mean_size_bytes=mean,
@@ -192,7 +173,7 @@ class ABFPFingerprinter:
             min_size_bytes=min(sizes),
             max_size_bytes=max(sizes),
             entropy_score=entropy,
-            encoding=encoding
+            encoding=encoding,
         )
 
     def _compute_confidence(self, fp: AgentFingerprint):
@@ -223,6 +204,6 @@ class ABFPFingerprinter:
                 f"{fp.timing.mean_interval_ms:.0f}",
                 f"{fp.payload.entropy_score:.2f}",
                 f"{fp.confidence:.2f}",
-                ", ".join(fp.threat_flags) or "—"
+                ", ".join(fp.threat_flags) or "—",
             )
         console.print(table)

@@ -1,18 +1,19 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
-from dataclasses import dataclass, field
-from typing import Optional
-from pathlib import Path
 import json
+from dataclasses import dataclass, field
+from pathlib import Path
+
 
 @dataclass
 class MQTTConfig:
     host: str = "127.0.0.1"
     port: int = 1883
-    username: Optional[str] = None
-    password: Optional[str] = None
+    username: str | None = None
+    password: str | None = None
     tls: bool = False
     keepalive: int = 60
     client_id: str = "mas-sentry-001"
+
 
 @dataclass
 class AMQPConfig:
@@ -21,6 +22,7 @@ class AMQPConfig:
     username: str = "guest"
     password: str = "guest"
     vhost: str = "/"
+
 
 @dataclass
 class SentryConfig:

@@ -3,34 +3,28 @@
 Unit tests for ABFPFingerprinter Phase 1 & 2.
 Run: pytest tests/unit/test_fingerprinter.py -v
 """
-import pytest
-import time
-import math
-from mas_sentry.agents.fingerprinter import ABFPFingerprinter
+
 from mas_sentry.agents.abfp_models import AgentFingerprint, MessageEvent
+from mas_sentry.agents.fingerprinter import ABFPFingerprinter
 
 
-def make_fp_with_events(n: int, interval_s: float = 1.0,
-                         payload_size: int = 48) -> AgentFingerprint:
+def make_fp_with_events(n: int, interval_s: float = 1.0, payload_size: int = 48) -> AgentFingerprint:
     """Helper: create AgentFingerprint with n synthetic events"""
     now = 1000.0
-    fp = AgentFingerprint(
-        agent_id="test_agent",
-        first_seen=now,
-        last_seen=now + n * interval_s
-    )
+    fp = AgentFingerprint(agent_id="test_agent", first_seen=now, last_seen=now + n * interval_s)
     for i in range(n):
-        fp.message_events.append(MessageEvent(
-            topic="sensors/test/telemetry",
-            payload_size=payload_size,
-            timestamp=now + i * interval_s,
-            payload_preview='{"temp": 22.5}'
-        ))
+        fp.message_events.append(
+            MessageEvent(
+                topic="sensors/test/telemetry",
+                payload_size=payload_size,
+                timestamp=now + i * interval_s,
+                payload_preview='{"temp": 22.5}',
+            )
+        )
     return fp
 
 
 class TestABFPFingerprinter:
-
     def setup_method(self):
         self.fp_engine = ABFPFingerprinter("127.0.0.1")
 

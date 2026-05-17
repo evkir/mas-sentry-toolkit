@@ -4,10 +4,11 @@ Vulnerable scenario: insecure command topic with no auth/validation.
 DAY 13 — Commit 3
 """
 
-import paho.mqtt.client as mqtt
 import json
-import time
 import os
+import time
+
+import paho.mqtt.client as mqtt
 
 BROKER = os.getenv("BROKER", "127.0.0.1")
 AGENT_ID = os.getenv("AGENT_ID", "vulnerable_actuator_001")
@@ -53,12 +54,7 @@ def on_message(client, userdata, msg):
         print(f"[{AGENT_ID}] >>> Unknown action: {action}")
 
     # Publish status back
-    status = json.dumps({
-        "agent": AGENT_ID,
-        "last_command": action,
-        "from": sender,
-        "timestamp": time.time()
-    })
+    status = json.dumps({"agent": AGENT_ID, "last_command": action, "from": sender, "timestamp": time.time()})
     client.publish(STATUS_TOPIC, status, qos=1)
 
 

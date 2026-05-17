@@ -2,10 +2,9 @@
 """
 Unit tests for threat scoring aggregation.
 """
+
 from mas_sentry.threat_modeling.stride import MAS_THREAT_CATALOG
-from mas_sentry.threat_modeling.threat_aggregator import (
-    aggregate_threats, ThreatScore
-)
+from mas_sentry.threat_modeling.threat_aggregator import aggregate_threats
 
 
 def get_by_severity(severity: str):

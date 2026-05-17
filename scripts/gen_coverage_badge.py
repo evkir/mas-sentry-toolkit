@@ -4,16 +4,17 @@
 Generate coverage badge URL for README.
 Run after: pytest --cov=mas_sentry --cov-report=term-missing
 """
+
+import re
 import subprocess
 import sys
-import re
 
 
 def get_coverage_percent() -> int:
     result = subprocess.run(
-        ["python", "-m", "pytest", "--cov=mas_sentry",
-         "--cov-report=term", "-q", "--no-header"],
-        capture_output=True, text=True
+        ["python", "-m", "pytest", "--cov=mas_sentry", "--cov-report=term", "-q", "--no-header"],
+        capture_output=True,
+        text=True,
     )
     output = result.stdout + result.stderr
     match = re.search(r"TOTAL\s+\d+\s+\d+\s+(\d+)%", output)

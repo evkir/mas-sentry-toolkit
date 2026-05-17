@@ -1,11 +1,11 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
-from typing import List
-from .stride import STRIDEThreat, STRIDECategory
+
+from .stride import STRIDECategory, STRIDEThreat
 
 SEVERITY_ORDER = {"CRITICAL": 0, "HIGH": 1, "MEDIUM": 2, "LOW": 3}
 
 
-def format_stride_report(threats: List[STRIDEThreat]) -> str:
+def format_stride_report(threats: list[STRIDEThreat]) -> str:
     """Render STRIDE threat list as a Markdown table."""
     lines = [
         "# STRIDE Threat Analysis — MAS/MQTT",
@@ -13,14 +13,9 @@ def format_stride_report(threats: List[STRIDEThreat]) -> str:
         "| # | Category | Severity | Title | Mitigation |",
         "|---|----------|----------|-------|------------|",
     ]
-    sorted_threats = sorted(
-        threats, key=lambda t: SEVERITY_ORDER.get(t.severity, 99)
-    )
+    sorted_threats = sorted(threats, key=lambda t: SEVERITY_ORDER.get(t.severity, 99))
     for i, t in enumerate(sorted_threats, 1):
-        lines.append(
-            f"| {i} | {t.category.value} | **{t.severity}** "
-            f"| {t.title} | {t.mitigation} |"
-        )
+        lines.append(f"| {i} | {t.category.value} | **{t.severity}** | {t.title} | {t.mitigation} |")
 
     lines += [
         "",

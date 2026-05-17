@@ -3,29 +3,26 @@
 Unit tests for report generation.
 Run: pytest tests/unit/test_reporting.py -v
 """
+
 import json
-import pytest
-from mas_sentry.reporting.report_model import MASAuditReport, ReportMeta
+
 from mas_sentry.reporting.html_report import HTMLReportGenerator
+from mas_sentry.reporting.report_model import MASAuditReport, ReportMeta
 
 
 def make_report() -> MASAuditReport:
-    report = MASAuditReport(
-        meta=ReportMeta(
-            session_id="test1234",
-            target="127.0.0.1",
-            protocol="mqtt"
-        )
-    )
+    report = MASAuditReport(meta=ReportMeta(session_id="test1234", target="127.0.0.1", protocol="mqtt"))
     report.add_finding(
-        "Anonymous Access", "CRITICAL",
+        "Anonymous Access",
+        "CRITICAL",
         "Broker allows anonymous connections",
-        remediation="Enable authentication"
+        remediation="Enable authentication",
     )
     report.add_finding(
-        "$SYS Exposure", "MEDIUM",
+        "$SYS Exposure",
+        "MEDIUM",
         "$SYS topics accessible without auth",
-        remediation="Add ACL for $SYS topics"
+        remediation="Add ACL for $SYS topics",
     )
     report.abfp_fingerprints = [
         {
@@ -52,7 +49,6 @@ def make_report() -> MASAuditReport:
 
 
 class TestMASAuditReport:
-
     def test_add_finding(self):
         report = make_report()
         assert len(report.protocol_findings) == 2
@@ -91,7 +87,6 @@ class TestMASAuditReport:
 
 
 class TestHTMLReportGenerator:
-
     def test_generates_html(self):
         report = make_report()
         gen = HTMLReportGenerator(report)

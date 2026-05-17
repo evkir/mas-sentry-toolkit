@@ -4,17 +4,12 @@ Unit tests for AMQPAnalyzer.
 Run: pytest tests/ -v
 These tests mock the HTTP API so no real RabbitMQ needed.
 """
-import pytest
-from unittest.mock import patch, MagicMock
-import json
+
+from unittest.mock import patch
 
 from mas_sentry.protocols.amqp_analyzer import AMQPAnalyzer
 
-MOCK_OVERVIEW = {
-    "rabbitmq_version": "3.12.0",
-    "management_version": "3.12.0",
-    "message_stats": {}
-}
+MOCK_OVERVIEW = {"rabbitmq_version": "3.12.0", "management_version": "3.12.0", "message_stats": {}}
 
 MOCK_EXCHANGES = [
     {"name": "", "type": "direct", "durable": True, "auto_delete": False},
@@ -27,8 +22,8 @@ MOCK_QUEUES = [
     {"name": "alerts", "messages": 0, "consumers": 0, "durable": False},
 ]
 
-class TestAMQPAnalyzer:
 
+class TestAMQPAnalyzer:
     def setup_method(self):
         self.analyzer = AMQPAnalyzer("127.0.0.1", 5672)
 

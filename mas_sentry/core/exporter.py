@@ -1,18 +1,16 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 import json
-from pathlib import Path
 from datetime import datetime
-from typing import List, Dict, Any, Optional
+from pathlib import Path
+from typing import Any
 
 
 class ReportExporter:
-
     def __init__(self, output_dir: str = "reports/output"):
         self.output_dir = Path(output_dir)
         self.output_dir.mkdir(parents=True, exist_ok=True)
 
-    def to_json(self, summary: Dict[str, Any], findings: List[Dict[str, Any]],
-                filename: Optional[str] = None) -> Path:
+    def to_json(self, summary: dict[str, Any], findings: list[dict[str, Any]], filename: str | None = None) -> Path:
         ts = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
         fname = filename or f"report_{summary.get('session_id', 'unknown')}_{ts}.json"
         path = self.output_dir / fname
@@ -33,8 +31,7 @@ class ReportExporter:
 
         return path
 
-    def to_markdown(self, summary: Dict[str, Any], findings: List[Dict[str, Any]],
-                    filename: Optional[str] = None) -> Path:
+    def to_markdown(self, summary: dict[str, Any], findings: list[dict[str, Any]], filename: str | None = None) -> Path:
         ts = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
         fname = filename or f"report_{summary.get('session_id', 'unknown')}_{ts}.md"
         path = self.output_dir / fname
@@ -80,8 +77,8 @@ class ReportExporter:
         return path
 
     @staticmethod
-    def _compute_stats(findings: List[Dict[str, Any]]) -> Dict[str, Any]:
-        by_severity: Dict[str, int] = {}
+    def _compute_stats(findings: list[dict[str, Any]]) -> dict[str, Any]:
+        by_severity: dict[str, int] = {}
         for f in findings:
             sev = f.get("severity", "INFO").upper()
             by_severity[sev] = by_severity.get(sev, 0) + 1

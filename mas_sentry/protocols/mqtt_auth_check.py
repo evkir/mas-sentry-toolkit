@@ -1,10 +1,11 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
-import paho.mqtt.client as mqtt
 import time
-from typing import Dict
+
+import paho.mqtt.client as mqtt
 from rich.console import Console
 
 console = Console()
+
 
 class MQTTAuthChecker:
     """Test MQTT broker authentication posture"""
@@ -13,13 +14,12 @@ class MQTTAuthChecker:
         self.host = host
         self.port = port
 
-    def _try_connect(self, username: str = None, password: str = None,
-                     label: str = "test") -> bool:
+    def _try_connect(self, username: str | None = None, password: str | None = None, label: str = "test") -> bool:
         result = {"ok": False}
         client = mqtt.Client(client_id=f"mas-check-{label[:6]}")
 
         def on_connect(c, u, f, rc):
-            result["ok"] = (rc == 0)
+            result["ok"] = rc == 0
 
         client.on_connect = on_connect
         if username is not None:
@@ -34,7 +34,7 @@ class MQTTAuthChecker:
             pass
         return result["ok"]
 
-    def run_all(self) -> Dict[str, bool]:
+    def run_all(self) -> dict[str, bool]:
         results = {}
 
         console.print("[bold yellow][AUTH] Testing broker authentication...[/bold yellow]")

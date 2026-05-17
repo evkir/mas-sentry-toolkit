@@ -2,6 +2,7 @@
 """
 Type aliases and typed utilities for MAS-Sentry-Toolkit.
 """
+
 from typing import Any
 
 # Common type aliases

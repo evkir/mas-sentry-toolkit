@@ -6,10 +6,12 @@ DAY 14 — Commit 2
 """
 
 import threading
-from typing import List, Dict, Any
+from typing import Any
+
+from rich import box
 from rich.console import Console
 from rich.table import Table
-from rich import box
+
 from mas_sentry.protocols.auto_detect import detect_protocol
 
 console = Console()
@@ -20,22 +22,21 @@ class MultiTargetScanner:
     Run protocol detection against multiple targets in parallel.
     """
 
-    def __init__(self, targets: List[str], port: int = None, threads: int = 5):
+    def __init__(self, targets: list[str], port: int | None = None, threads: int = 5):
         self.targets = targets
-        self.port    = port
+        self.port = port
         self.threads = threads
-        self.results: List[Dict[str, Any]] = []
-        self._lock   = threading.Lock()
+        self.results: list[dict[str, Any]] = []
+        self._lock = threading.Lock()
 
     def _scan_one(self, host: str) -> None:
         result = detect_protocol(host, self.port)
         with self._lock:
             self.results.append(result)
 
-    def run(self) -> List[Dict[str, Any]]:
+    def run(self) -> list[dict[str, Any]]:
         console.print(
-            f"[bold yellow][MULTI] Scanning {len(self.targets)} targets "
-            f"with {self.threads} threads...[/bold yellow]"
+            f"[bold yellow][MULTI] Scanning {len(self.targets)} targets with {self.threads} threads...[/bold yellow]"
         )
 
         active = []
@@ -69,9 +70,9 @@ class MultiTargetScanner:
         for r in self.results:
             proto = r.get("protocol", "unknown")
             color = {
-                "mqtt":    "green",
-                "amqp":    "cyan",
-                "tcp":     "yellow",
+                "mqtt": "green",
+                "amqp": "cyan",
+                "tcp": "yellow",
                 "unknown": "red",
             }.get(proto, "white")
 
@@ -85,8 +86,8 @@ class MultiTargetScanner:
 
         console.print(table)
 
-    def mqtt_targets(self) -> List[str]:
+    def mqtt_targets(self) -> list[str]:
         return [r["host"] for r in self.results if r.get("protocol") == "mqtt"]
 
-    def amqp_targets(self) -> List[str]:
+    def amqp_targets(self) -> list[str]:
         return [r["host"] for r in self.results if r.get("protocol") == "amqp"]

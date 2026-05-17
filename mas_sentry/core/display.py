@@ -1,27 +1,28 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
-from rich.console import Console
-from rich.table import Table
-from rich.panel import Panel
-from rich.text import Text
+from typing import Any
+
 from rich import box
-from typing import List, Dict, Any
+from rich.console import Console
+from rich.panel import Panel
+from rich.table import Table
+from rich.text import Text
 
 console = Console()
 
 SEVERITY_COLORS = {
     "CRITICAL": "bold red",
-    "HIGH":     "red",
-    "MEDIUM":   "yellow",
-    "LOW":      "cyan",
-    "INFO":     "white",
+    "HIGH": "red",
+    "MEDIUM": "yellow",
+    "LOW": "cyan",
+    "INFO": "white",
 }
 
 SEVERITY_ICONS = {
     "CRITICAL": "💀",
-    "HIGH":     "🔴",
-    "MEDIUM":   "🟡",
-    "LOW":      "🔵",
-    "INFO":     "ℹ️ ",
+    "HIGH": "🔴",
+    "MEDIUM": "🟡",
+    "LOW": "🔵",
+    "INFO": "ℹ️ ",
 }
 
 SEVERITY_ORDER = ["CRITICAL", "HIGH", "MEDIUM", "LOW", "INFO"]
@@ -33,7 +34,7 @@ def severity_text(severity: str) -> Text:
     return Text(f"{icon} {severity}", style=color)
 
 
-def print_finding(finding: Dict[str, Any]) -> None:
+def print_finding(finding: dict[str, Any]) -> None:
     sev = finding.get("severity", "INFO").upper()
     color = SEVERITY_COLORS.get(sev, "white")
     icon = SEVERITY_ICONS.get(sev, "  ")
@@ -46,13 +47,12 @@ def print_finding(finding: Dict[str, Any]) -> None:
     console.print(Panel(body, title=title, border_style=color, expand=False))
 
 
-def print_findings_table(findings: List[Dict[str, Any]]) -> None:
+def print_findings_table(findings: list[dict[str, Any]]) -> None:
     if not findings:
         console.print("[green][+] No findings to display.[/green]")
         return
 
-    table = Table(title="📋 Scan Findings", box=box.ROUNDED,
-                  show_lines=True, header_style="bold magenta")
+    table = Table(title="📋 Scan Findings", box=box.ROUNDED, show_lines=True, header_style="bold magenta")
     table.add_column("#", style="dim", width=4)
     table.add_column("Severity", width=12)
     table.add_column("Title", style="bold")
@@ -77,7 +77,7 @@ def print_findings_table(findings: List[Dict[str, Any]]) -> None:
     console.print(table)
 
 
-def print_summary_panel(summary: Dict[str, Any], findings: List[Dict[str, Any]]) -> None:
+def print_summary_panel(summary: dict[str, Any], findings: list[dict[str, Any]]) -> None:
     counts = {s: 0 for s in SEVERITY_ORDER}
     for f in findings:
         sev = f.get("severity", "INFO").upper()
@@ -85,8 +85,7 @@ def print_summary_panel(summary: Dict[str, Any], findings: List[Dict[str, Any]])
             counts[sev] += 1
 
     breakdown = "  ".join(
-        f"[{SEVERITY_COLORS[s]}]{SEVERITY_ICONS[s]} {s}: {counts[s]}[/{SEVERITY_COLORS[s]}]"
-        for s in SEVERITY_ORDER
+        f"[{SEVERITY_COLORS[s]}]{SEVERITY_ICONS[s]} {s}: {counts[s]}[/{SEVERITY_COLORS[s]}]" for s in SEVERITY_ORDER
     )
     body = (
         f"[bold]Session ID:[/bold]  {summary.get('session_id', 'N/A')}\n"

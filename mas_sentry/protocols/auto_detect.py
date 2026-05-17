@@ -7,6 +7,7 @@ DAY 14 — Commit 1
 
 import socket
 import time
+
 import paho.mqtt.client as mqtt
 from rich.console import Console
 
@@ -19,21 +20,21 @@ class ProtocolDetector:
     Tries MQTT first, then AMQP, then falls back to TCP banner grab.
     """
 
-    MQTT_DEFAULT_PORT  = 1883
-    AMQP_DEFAULT_PORT  = 5672
-    TIMEOUT            = 3
+    MQTT_DEFAULT_PORT = 1883
+    AMQP_DEFAULT_PORT = 5672
+    TIMEOUT = 3
 
     def __init__(self, host: str):
         self.host = host
         self.result = {
-            "host":     host,
+            "host": host,
             "protocol": None,
-            "port":     None,
-            "banner":   None,
+            "port": None,
+            "banner": None,
             "confidence": None,
         }
 
-    def detect(self, port: int = None) -> dict:
+    def detect(self, port: int | None = None) -> dict:
         """
         Run detection. If port is given, test only that port.
         Otherwise try both defaults.
@@ -47,7 +48,7 @@ class ProtocolDetector:
                     break
 
         if not self.result["protocol"]:
-            self.result["protocol"]   = "unknown"
+            self.result["protocol"] = "unknown"
             self.result["confidence"] = "low"
 
         console.print(
@@ -67,9 +68,9 @@ class ProtocolDetector:
 
         banner = self._grab_banner(port)
         if banner:
-            self.result["banner"]     = banner
-            self.result["port"]       = port
-            self.result["protocol"]   = "tcp"
+            self.result["banner"] = banner
+            self.result["port"] = port
+            self.result["protocol"] = "tcp"
             self.result["confidence"] = "low"
             return True
 
@@ -96,8 +97,8 @@ class ProtocolDetector:
             return False
 
         if connected["ok"]:
-            self.result["protocol"]   = "mqtt"
-            self.result["port"]       = port
+            self.result["protocol"] = "mqtt"
+            self.result["port"] = port
             self.result["confidence"] = "high"
             return True
         return False
@@ -106,9 +107,9 @@ class ProtocolDetector:
         """Check AMQP by looking for AMQP handshake bytes in banner."""
         banner = self._grab_banner(port)
         if banner and "AMQP" in banner:
-            self.result["protocol"]   = "amqp"
-            self.result["port"]       = port
-            self.result["banner"]     = banner
+            self.result["protocol"] = "amqp"
+            self.result["port"] = port
+            self.result["banner"] = banner
             self.result["confidence"] = "high"
             return True
         return False
@@ -123,6 +124,6 @@ class ProtocolDetector:
             return ""
 
 
-def detect_protocol(host: str, port: int = None) -> dict:
+def detect_protocol(host: str, port: int | None = None) -> dict:
     """Convenience wrapper."""
     return ProtocolDetector(host).detect(port)

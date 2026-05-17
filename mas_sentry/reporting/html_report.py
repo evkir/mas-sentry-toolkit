@@ -3,14 +3,15 @@
 HTML report generator for MAS-Sentry audit results.
 Produces a self-contained single-file HTML report.
 """
+
 from .report_model import MASAuditReport
 
 SEVERITY_COLORS = {
     "CRITICAL": "#e74c3c",
-    "HIGH":     "#e67e22",
-    "MEDIUM":   "#f1c40f",
-    "LOW":      "#2ecc71",
-    "INFO":     "#3498db",
+    "HIGH": "#e67e22",
+    "MEDIUM": "#f1c40f",
+    "LOW": "#2ecc71",
+    "INFO": "#3498db",
 }
 
 HTML_TEMPLATE = """<!DOCTYPE html>
@@ -139,7 +140,6 @@ HTML_TEMPLATE = """<!DOCTYPE html>
 
 
 class HTMLReportGenerator:
-
     def __init__(self, report: MASAuditReport):
         self.report = report
 
@@ -151,10 +151,14 @@ class HTMLReportGenerator:
         if not self.report.protocol_findings:
             return "<p style='color:#8b949e'>No protocol findings recorded.</p>"
         rows = ""
-        for f in sorted(self.report.protocol_findings,
-                        key=lambda x: ["CRITICAL","HIGH","MEDIUM","LOW"].index(
-                            x.severity) if x.severity in
-                            ["CRITICAL","HIGH","MEDIUM","LOW"] else 99):
+        for f in sorted(
+            self.report.protocol_findings,
+            key=lambda x: (
+                ["CRITICAL", "HIGH", "MEDIUM", "LOW"].index(x.severity)
+                if x.severity in ["CRITICAL", "HIGH", "MEDIUM", "LOW"]
+                else 99
+            ),
+        ):
             rows += (
                 f"<tr><td>{self._badge(f.severity)}</td>"
                 f"<td><strong>{f.title}</strong><br>"
@@ -171,21 +175,17 @@ class HTMLReportGenerator:
         if not self.report.abfp_fingerprints:
             return "<p style='color:#8b949e'>No ABFP data collected.</p>"
         rows = ""
-        for fp in sorted(self.report.abfp_fingerprints,
-                         key=lambda x: x.get("anomaly_score", 0),
-                         reverse=True):
+        for fp in sorted(self.report.abfp_fingerprints, key=lambda x: x.get("anomaly_score", 0), reverse=True):
             score = fp.get("anomaly_score", 0)
-            color = ("#e74c3c" if score >= 70 else
-                     "#e67e22" if score >= 40 else
-                     "#f1c40f" if score >= 20 else "#2ecc71")
+            color = "#e74c3c" if score >= 70 else "#e67e22" if score >= 40 else "#f1c40f" if score >= 20 else "#2ecc71"
             flags = ", ".join(fp.get("threat_flags", [])) or "—"
             rows += (
                 f"<tr>"
-                f"<td style='color:#58a6ff'>{fp.get('agent_id','?')}</td>"
-                f"<td>{fp.get('message_count',0)}</td>"
+                f"<td style='color:#58a6ff'>{fp.get('agent_id', '?')}</td>"
+                f"<td>{fp.get('message_count', 0)}</td>"
                 f"<td style='color:{color};font-weight:bold'>{score:.1f}/100</td>"
-                f"<td>{fp.get('timing',{}).get('mean_interval_ms',0):.0f} ms</td>"
-                f"<td>{fp.get('payload',{}).get('encoding','?')}</td>"
+                f"<td>{fp.get('timing', {}).get('mean_interval_ms', 0):.0f} ms</td>"
+                f"<td>{fp.get('payload', {}).get('encoding', '?')}</td>"
                 f"<td style='color:#e74c3c'>{flags}</td>"
                 f"</tr>"
             )
@@ -200,17 +200,15 @@ class HTMLReportGenerator:
         if not self.report.stride_threats:
             return "<p style='color:#8b949e'>No STRIDE threats mapped.</p>"
         rows = ""
-        for t in sorted(self.report.stride_threats,
-                        key=lambda x: x.get("cvss_score", 0),
-                        reverse=True):
+        for t in sorted(self.report.stride_threats, key=lambda x: x.get("cvss_score", 0), reverse=True):
             rows += (
                 f"<tr>"
-                f"<td style='color:#8b949e'>{t.get('threat_id','?')}</td>"
-                f"<td>{self._badge(t.get('severity','?'))}</td>"
-                f"<td>{t.get('category','?')}</td>"
-                f"<td><strong>{t.get('title','?')}</strong></td>"
-                f"<td style='color:#e74c3c'>{t.get('cvss_score','?')}</td>"
-                f"<td>{t.get('mitigation','?')}</td>"
+                f"<td style='color:#8b949e'>{t.get('threat_id', '?')}</td>"
+                f"<td>{self._badge(t.get('severity', '?'))}</td>"
+                f"<td>{t.get('category', '?')}</td>"
+                f"<td><strong>{t.get('title', '?')}</strong></td>"
+                f"<td style='color:#e74c3c'>{t.get('cvss_score', '?')}</td>"
+                f"<td>{t.get('mitigation', '?')}</td>"
                 f"</tr>"
             )
         return (

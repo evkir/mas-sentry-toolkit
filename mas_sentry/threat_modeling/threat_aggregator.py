@@ -1,8 +1,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 from dataclasses import dataclass, field
-from typing import List
-from .stride import STRIDEThreat, MAS_THREAT_CATALOG
 
+from .stride import STRIDEThreat
 
 SEVERITY_WEIGHT = {"CRITICAL": 4, "HIGH": 3, "MEDIUM": 2, "LOW": 1}
 
@@ -16,10 +15,10 @@ class ThreatScore:
     low_count: int = 0
     weighted_score: float = 0.0
     risk_level: str = "LOW"
-    top_threats: List[STRIDEThreat] = field(default_factory=list)
+    top_threats: list[STRIDEThreat] = field(default_factory=list)
 
 
-def aggregate_threats(threats: List[STRIDEThreat]) -> ThreatScore:
+def aggregate_threats(threats: list[STRIDEThreat]) -> ThreatScore:
     score = ThreatScore(total_threats=len(threats))
 
     for t in threats:

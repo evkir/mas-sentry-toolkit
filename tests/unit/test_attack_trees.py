@@ -2,9 +2,8 @@
 """
 Unit tests for IoT attack tree scenarios.
 """
-from mas_sentry.threat_modeling.attack_trees import (
-    IoT_ATTACK_TREES, AttackTree, AttackNode
-)
+
+from mas_sentry.threat_modeling.attack_trees import IoT_ATTACK_TREES
 
 
 class TestAttackTrees:

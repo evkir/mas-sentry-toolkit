@@ -3,12 +3,12 @@
 ABFP Phase 3 — Anomaly Detection Engine.
 Detects behavioral deviations, rogue agents, privilege escalation.
 """
-import math
-from typing import Dict, List, Tuple, Optional
+
 from dataclasses import dataclass, field
+
 from rich.console import Console
-from rich.table import Table
 from rich.panel import Panel
+from rich.table import Table
 
 from .abfp_models import AgentFingerprint, BehavioralBaseline
 
@@ -18,9 +18,10 @@ console = Console()
 @dataclass
 class AnomalyFinding:
     """Single anomaly finding from the detector"""
+
     agent_id: str
     finding_type: str
-    severity: str          # CRITICAL / HIGH / MEDIUM / LOW
+    severity: str  # CRITICAL / HIGH / MEDIUM / LOW
     score_contribution: float
     description: str
     evidence: dict = field(default_factory=dict)
@@ -38,9 +39,9 @@ class AnomalyFinding:
 
 SEVERITY_COLORS = {
     "CRITICAL": "bold red",
-    "HIGH":     "red",
-    "MEDIUM":   "yellow",
-    "LOW":      "green",
+    "HIGH": "red",
+    "MEDIUM": "yellow",
+    "LOW": "green",
 }
 
 
@@ -58,37 +59,44 @@ class AnomalyDetector:
     """
 
     # Thresholds
-    TIMING_ZSCORE_THRESHOLD   = 2.5
-    PAYLOAD_SPIKE_RATIO       = 3.0
-    ENTROPY_HIGH_THRESHOLD    = 7.0   # near-random = encrypted/compressed
-    ENTROPY_LOW_THRESHOLD     = 0.5   # near-zero = suspicious repetition
-    BURST_INTERVAL_MS         = 50.0
+    TIMING_ZSCORE_THRESHOLD = 2.5
+    PAYLOAD_SPIKE_RATIO = 3.0
+    ENTROPY_HIGH_THRESHOLD = 7.0  # near-random = encrypted/compressed
+    ENTROPY_LOW_THRESHOLD = 0.5  # near-zero = suspicious repetition
+    BURST_INTERVAL_MS = 50.0
 
-    def __init__(self, baselines: Optional[Dict[str, BehavioralBaseline]] = None):
+    def __init__(self, baselines: dict[str, BehavioralBaseline] | None = None):
         self.baselines = baselines or {}
-        self.findings: List[AnomalyFinding] = []
+        self.findings: list[AnomalyFinding] = []
 
-    def _add(self, agent_id: str, finding_type: str, severity: str,
-             score: float, description: str, evidence: dict = None):
+    def _add(
+        self,
+        agent_id: str,
+        finding_type: str,
+        severity: str,
+        score: float,
+        description: str,
+        evidence: dict | None = None,
+    ):
         f = AnomalyFinding(
             agent_id=agent_id,
             finding_type=finding_type,
             severity=severity,
             score_contribution=score,
             description=description,
-            evidence=evidence or {}
+            evidence=evidence or {},
         )
         self.findings.append(f)
         color = SEVERITY_COLORS.get(severity, "white")
         console.print(f"[{color}][{severity}] {agent_id}: {description}[/{color}]")
         return f
 
-    def analyze(self, fingerprints: Dict[str, AgentFingerprint]) -> Dict[str, AgentFingerprint]:
+    def analyze(self, fingerprints: dict[str, AgentFingerprint]) -> dict[str, AgentFingerprint]:
         """Run all anomaly checks on collected fingerprints"""
         self.findings.clear()
         console.print("[bold cyan][ABFP] Phase 3 — Running anomaly detection...[/bold cyan]")
 
-        for agent_id, fp in fingerprints.items():
+        for _agent_id, fp in fingerprints.items():
             score = 0.0
             fp.threat_flags.clear()
 
@@ -112,8 +120,8 @@ class AnomalyDetector:
             return 0.0
 
         expected = baseline.expected_interval_ms
-        actual   = fp.timing.mean_interval_ms
-        std      = fp.timing.std_interval_ms or 1.0
+        actual = fp.timing.mean_interval_ms
+        std = fp.timing.std_interval_ms or 1.0
 
         z_score = abs(actual - expected) / std
         if z_score > self.TIMING_ZSCORE_THRESHOLD:
@@ -121,11 +129,12 @@ class AnomalyDetector:
             score += contrib
             fp.add_threat_flag("TIMING_DEVIATION")
             self._add(
-                fp.agent_id, "TIMING_DEVIATION",
+                fp.agent_id,
+                "TIMING_DEVIATION",
                 "HIGH" if z_score > 5 else "MEDIUM",
                 contrib,
                 f"Timing z-score={z_score:.1f} (expected={expected:.0f}ms, actual={actual:.0f}ms)",
-                {"z_score": round(z_score, 2), "expected_ms": expected, "actual_ms": actual}
+                {"z_score": round(z_score, 2), "expected_ms": expected, "actual_ms": actual},
             )
         return score
 
@@ -142,10 +151,13 @@ class AnomalyDetector:
             score += contrib
             fp.add_threat_flag("PAYLOAD_SPIKE")
             self._add(
-                fp.agent_id, "PAYLOAD_SPIKE", "HIGH", contrib,
+                fp.agent_id,
+                "PAYLOAD_SPIKE",
+                "HIGH",
+                contrib,
                 f"Payload {ratio:.1f}x larger than baseline "
                 f"({fp.payload.mean_size_bytes:.0f}B vs {baseline.expected_payload_size:.0f}B)",
-                {"ratio": round(ratio, 2)}
+                {"ratio": round(ratio, 2)},
             )
         return score
 
@@ -158,17 +170,23 @@ class AnomalyDetector:
             fp.add_threat_flag("HIGH_ENTROPY")
             score += 15.0
             self._add(
-                fp.agent_id, "HIGH_ENTROPY", "MEDIUM", 15.0,
+                fp.agent_id,
+                "HIGH_ENTROPY",
+                "MEDIUM",
+                15.0,
                 f"Entropy={entropy:.2f} — payload may be encrypted or compressed",
-                {"entropy": entropy}
+                {"entropy": entropy},
             )
         elif 0 < entropy <= self.ENTROPY_LOW_THRESHOLD:
             fp.add_threat_flag("LOW_ENTROPY")
             score += 10.0
             self._add(
-                fp.agent_id, "LOW_ENTROPY", "LOW", 10.0,
+                fp.agent_id,
+                "LOW_ENTROPY",
+                "LOW",
+                10.0,
                 f"Entropy={entropy:.2f} — suspiciously repetitive payload",
-                {"entropy": entropy}
+                {"entropy": entropy},
             )
         return score
 
@@ -177,9 +195,12 @@ class AnomalyDetector:
         if fp.timing.burst_detected:
             fp.add_threat_flag("BURST_DETECTED")
             self._add(
-                fp.agent_id, "BURST_DETECTED", "HIGH", 20.0,
+                fp.agent_id,
+                "BURST_DETECTED",
+                "HIGH",
+                20.0,
                 f"Burst pattern: min_interval={fp.timing.min_interval_ms:.1f}ms < {self.BURST_INTERVAL_MS}ms",
-                {"min_interval_ms": fp.timing.min_interval_ms}
+                {"min_interval_ms": fp.timing.min_interval_ms},
             )
             return 20.0
         return 0.0
@@ -197,9 +218,12 @@ class AnomalyDetector:
             score += contrib
             fp.add_threat_flag("TOPIC_ESCALATION")
             self._add(
-                fp.agent_id, "TOPIC_ESCALATION", "CRITICAL", contrib,
+                fp.agent_id,
+                "TOPIC_ESCALATION",
+                "CRITICAL",
+                contrib,
                 f"Agent publishing to {len(new_topics)} new topic(s) outside baseline",
-                {"new_topics": list(new_topics)}
+                {"new_topics": list(new_topics)},
             )
         return score
 
@@ -208,20 +232,20 @@ class AnomalyDetector:
         if fp.agent_id not in self.baselines and fp.confidence >= 0.5:
             fp.add_threat_flag("NO_BASELINE")
             self._add(
-                fp.agent_id, "NO_BASELINE", "MEDIUM", 10.0,
+                fp.agent_id,
+                "NO_BASELINE",
+                "MEDIUM",
+                10.0,
                 "Agent has no known-good behavioral baseline on record",
-                {"confidence": fp.confidence}
+                {"confidence": fp.confidence},
             )
             return 10.0
         return 0.0
 
-    def print_report(self, fingerprints: Dict[str, AgentFingerprint]):
+    def print_report(self, fingerprints: dict[str, AgentFingerprint]):
         """Print full anomaly detection report"""
         console.print()
-        console.print(Panel(
-            "[bold red]ABFP ANOMALY DETECTION REPORT[/bold red]",
-            style="red"
-        ))
+        console.print(Panel("[bold red]ABFP ANOMALY DETECTION REPORT[/bold red]", style="red"))
 
         # Summary table
         table = Table(title="Agent Risk Summary")
@@ -231,11 +255,7 @@ class AnomalyDetector:
         table.add_column("Risk Level", justify="center")
         table.add_column("Flags", style="yellow")
 
-        for agent_id, fp in sorted(
-            fingerprints.items(),
-            key=lambda x: x[1].anomaly_score,
-            reverse=True
-        ):
+        for agent_id, fp in sorted(fingerprints.items(), key=lambda x: x[1].anomaly_score, reverse=True):
             score = fp.anomaly_score
             if score >= 70:
                 risk = "[bold red]CRITICAL[/bold red]"
@@ -251,7 +271,7 @@ class AnomalyDetector:
                 str(fp.message_count),
                 f"{score:.1f}/100",
                 risk,
-                ", ".join(fp.threat_flags) or "—"
+                ", ".join(fp.threat_flags) or "—",
             )
         console.print(table)
 
@@ -260,17 +280,12 @@ class AnomalyDetector:
             console.print(f"\n[bold]Detailed Findings ({len(self.findings)} total):[/bold]")
             for f in self.findings:
                 color = SEVERITY_COLORS.get(f.severity, "white")
-                console.print(
-                    f"  [{color}][{f.severity}][/{color}] "
-                    f"[cyan]{f.agent_id}[/cyan] — {f.description}"
-                )
+                console.print(f"  [{color}][{f.severity}][/{color}] [cyan]{f.agent_id}[/cyan] — {f.description}")
 
     def to_json(self) -> str:
         import json
-        return json.dumps(
-            [f.to_dict() for f in self.findings],
-            indent=2
-        )
+
+        return json.dumps([f.to_dict() for f in self.findings], indent=2)
 
     def save_report(self, path: str):
         with open(path, "w") as f:

@@ -3,21 +3,22 @@
 Payload analysis utilities for ABFP.
 Entropy calculation, encoding detection, sensitive data patterns.
 """
-import math
-import json
+
 import base64
+import json
+import math
 import re
-from typing import Tuple
 
 SENSITIVE_PATTERNS = [
     (r"password", "password field detected"),
-    (r"passwd",   "password field detected"),
-    (r"secret",   "secret field detected"),
-    (r"token",    "auth token detected"),
-    (r"api_key",  "API key detected"),
-    (r"private",  "private key reference"),
+    (r"passwd", "password field detected"),
+    (r"secret", "secret field detected"),
+    (r"token", "auth token detected"),
+    (r"api_key", "API key detected"),
+    (r"private", "private key reference"),
     (r"\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b", "IP address in payload"),
 ]
+
 
 def shannon_entropy(data: bytes) -> float:
     """Calculate Shannon entropy of bytes (0=uniform, 8=random)"""
@@ -32,6 +33,7 @@ def shannon_entropy(data: bytes) -> float:
         p = count / length
         entropy -= p * math.log2(p)
     return round(entropy, 4)
+
 
 def detect_encoding(data: bytes) -> str:
     """Detect payload encoding: json / base64 / plaintext / binary"""
@@ -53,6 +55,7 @@ def detect_encoding(data: bytes) -> str:
     except UnicodeDecodeError:
         pass
     return "binary"
+
 
 def scan_sensitive(data: bytes) -> list:
     """Scan payload for sensitive data patterns"""

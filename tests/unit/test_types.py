@@ -1,9 +1,9 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 from mas_sentry.core.types import (
+    build_report_path,
     filter_findings,
     get_critical,
     get_high,
-    build_report_path,
 )
 
 SAMPLE_FINDINGS = [

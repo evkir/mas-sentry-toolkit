@@ -1,23 +1,23 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
-import paho.mqtt.client as mqtt
 import time
-from typing import List, Dict, Optional, Set
+from datetime import datetime
+
+import paho.mqtt.client as mqtt
 from rich.console import Console
 from rich.table import Table
+
 from .base import BaseProtocolAnalyzer, CapturedMessage
-from datetime import datetime
 
 console = Console()
 
+
 class MQTTAnalyzer(BaseProtocolAnalyzer):
-    def __init__(self, host: str, port: int = 1883,
-                 username: Optional[str] = None,
-                 password: Optional[str] = None):
+    def __init__(self, host: str, port: int = 1883, username: str | None = None, password: str | None = None):
         super().__init__(host, port)
         self.username = username
         self.password = password
         self.client = mqtt.Client(client_id="mas-sentry-analyzer")
-        self.topics_seen: Set[str] = set()
+        self.topics_seen: set[str] = set()
         self._setup_callbacks()
 
     def _setup_callbacks(self):
@@ -32,7 +32,7 @@ class MQTTAnalyzer(BaseProtocolAnalyzer):
             2: "Client ID rejected",
             3: "Server unavailable",
             4: "Bad credentials",
-            5: "Not authorized"
+            5: "Not authorized",
         }
         status = codes.get(rc, f"Unknown ({rc})")
         if rc == 0:
@@ -42,12 +42,7 @@ class MQTTAnalyzer(BaseProtocolAnalyzer):
             console.print(f"[bold red][MQTT] Connection failed: {status}[/bold red]")
 
     def _on_message(self, client, userdata, msg):
-        captured = CapturedMessage(
-            topic=msg.topic,
-            payload=msg.payload,
-            qos=msg.qos,
-            timestamp=datetime.utcnow()
-        )
+        captured = CapturedMessage(topic=msg.topic, payload=msg.payload, qos=msg.qos, timestamp=datetime.utcnow())
         self.messages.append(captured)
         self.topics_seen.add(msg.topic)
 
@@ -68,10 +63,10 @@ class MQTTAnalyzer(BaseProtocolAnalyzer):
         self.client.disconnect()
         self.is_running = False
 
-    def enumerate_topics(self) -> List[str]:
+    def enumerate_topics(self) -> list[str]:
         return sorted(list(self.topics_seen))
 
-    def capture(self, duration: int = 60, topic_filter: str = "#") -> List[CapturedMessage]:
+    def capture(self, duration: int = 60, topic_filter: str = "#") -> list[CapturedMessage]:
         self.messages.clear()
         self.client.subscribe(topic_filter, qos=0)
         self.client.loop_start()
@@ -90,7 +85,7 @@ class MQTTAnalyzer(BaseProtocolAnalyzer):
         table.add_column("Topic", style="cyan")
         table.add_column("Messages", style="green", justify="right")
         table.add_column("Avg Size (bytes)", style="yellow", justify="right")
-        topic_stats: Dict[str, List] = {}
+        topic_stats: dict[str, list] = {}
         for msg in self.messages:
             topic_stats.setdefault(msg.topic, []).append(msg.payload_size())
         for topic, sizes in sorted(topic_stats.items()):
