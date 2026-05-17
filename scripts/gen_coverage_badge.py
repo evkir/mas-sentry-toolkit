@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """
 Generate coverage badge URL for README.
 Run after: pytest --cov=mas_sentry --cov-report=term-missing

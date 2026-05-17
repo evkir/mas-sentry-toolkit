@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """
 ABFPFingerprinter — Phase 1 & 2 implementation.
 Passive collection + fingerprint construction.

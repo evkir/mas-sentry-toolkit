@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """
 mas_sentry/core/multi_target.py
 Multi-target scan support.

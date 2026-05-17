@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
 from rich.console import Console
 from rich.table import Table
 from rich.panel import Panel

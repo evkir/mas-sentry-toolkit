@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """
 ABFP Phase 3 — Anomaly Detection Engine.
 Detects behavioral deviations, rogue agents, privilege escalation.

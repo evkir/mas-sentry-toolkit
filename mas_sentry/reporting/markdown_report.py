@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Markdown report generator for MAS-Sentry audit results."""
 from .report_model import MASAuditReport
 

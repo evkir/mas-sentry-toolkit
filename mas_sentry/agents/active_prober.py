@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """
 ABFP Phase 3 — Active Probing Engine.
 Sends crafted messages to discovered agents and measures

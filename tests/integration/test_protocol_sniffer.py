@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """
 Integration tests for MQTT protocol sniffer.
 Requires running Docker lab: docker-compose up -d

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """
 HTML report generator for MAS-Sentry audit results.
 Produces a self-contained single-file HTML report.

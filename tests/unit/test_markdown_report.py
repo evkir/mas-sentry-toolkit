@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
 import pytest
 from mas_sentry.reporting.report_model import MASAuditReport, ReportMeta
 from mas_sentry.reporting.markdown_report import MarkdownReportGenerator

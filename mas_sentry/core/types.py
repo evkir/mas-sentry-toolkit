@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """
 Type aliases and typed utilities for MAS-Sentry-Toolkit.
 """

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """
 Unit tests for ABFP data models.
 Run: pytest tests/unit/test_abfp_models.py -v

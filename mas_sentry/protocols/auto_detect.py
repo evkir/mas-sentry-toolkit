@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """
 mas_sentry/protocols/auto_detect.py
 Automatic protocol detection — MQTT vs AMQP.

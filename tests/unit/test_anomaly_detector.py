@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """
 Unit tests for ABFP AnomalyDetector.
 Run: pytest tests/unit/test_anomaly_detector.py -v

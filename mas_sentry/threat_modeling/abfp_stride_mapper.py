@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """
 Maps ABFP anomaly findings to STRIDE threat categories automatically.
 """

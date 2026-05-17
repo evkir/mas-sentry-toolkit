@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """
 IoT/Robotic ecosystem attack scenarios for MAS-Sentry.
 Pre-built attack trees for common MAS deployments.

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """
 ABFP — Agent Behavioral Fingerprinting Protocol
 Core data models: MessageEvent, AgentFingerprint, BehavioralBaseline

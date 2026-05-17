@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """
 Unit tests for STRIDE threat modeling.
 Run: pytest tests/unit/test_stride.py -v

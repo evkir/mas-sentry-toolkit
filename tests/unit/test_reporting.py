@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """
 Unit tests for report generation.
 Run: pytest tests/unit/test_reporting.py -v

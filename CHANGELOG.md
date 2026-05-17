@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.2.0-dev] — 2026-05-17 — Pivot to Agentic MAS Security
+
+### Changed
+- Relicensed from MIT to **AGPL-3.0-or-later** (sole contributor consent).
+- Repositioned: MQTT/AMQP-only → unified MQTT/AMQP **+ MCP + A2A + agentic** toolkit.
+- All findings now map to OWASP Agentic Top 10 (2026) in addition to STRIDE.
+- Python floor raised to 3.11.
+- CI badge URL fixed (user70616E6461 → evkir).
+- pyproject.toml migrated to hatchling backend.
+
+### Added
+- THREAT_MODEL.md (ASI01-ASI10, MCP CVEs, ABFP-STRIDE table).
+- CI matrix Python 3.11/3.12/3.13/3.14.
+- scripts/add_spdx_header.sh (idempotent, shebang-aware).
+
+
 All notable changes to MAS-Sentry-Toolkit are documented here.
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 

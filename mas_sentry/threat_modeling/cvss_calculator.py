@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """
 Simplified CVSS v3.1 score calculator for MAS vulnerabilities.
 https://www.first.org/cvss/specification-document

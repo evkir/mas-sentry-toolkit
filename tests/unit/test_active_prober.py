@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """
 Unit tests for ActiveProber (no network required).
 Run: pytest tests/unit/test_active_prober.py -v

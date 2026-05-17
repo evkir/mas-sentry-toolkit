@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """
 Integration test: full ABFP + STRIDE + Report pipeline.
 No network required — uses synthetic data end-to-end.

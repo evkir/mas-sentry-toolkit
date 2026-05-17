@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """
 ABFP Interaction Graph — maps agent-to-agent communication paths.
 Uses NetworkX to build directed graph from MQTT topic relationships.

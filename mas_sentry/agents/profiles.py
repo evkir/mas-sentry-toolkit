@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """
 mas_sentry/agents/profiles.py
 AgentProfile dataclass — behavioral fingerprint of a single MAS agent.
