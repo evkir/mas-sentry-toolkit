@@ -10,3 +10,4 @@ reports/output/
 .DS_Store
 .idea/
 *.pcap
+*.bak
