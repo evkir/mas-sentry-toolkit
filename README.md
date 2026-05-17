@@ -1,117 +1,91 @@
 # 🛡️ MAS-Sentry-Toolkit
 
-<p align="center">
-  <img src="https://img.shields.io/badge/version-0.1.0-blue?style=for-the-badge" />
-  <img src="https://img.shields.io/badge/python-3.10%2B-green?style=for-the-badge" />
-  <img src="https://img.shields.io/badge/license-MIT-orange?style=for-the-badge" />
-  <img src="https://img.shields.io/badge/status-active-brightgreen?style=for-the-badge" />
-  <img src="https://img.shields.io/badge/OSCP--Ready-red?style=for-the-badge" />
-</p>
+[![Version](https://img.shields.io/badge/version-0.2.0--dev-blue?style=for-the-badge)](https://github.com/evkir/mas-sentry-toolkit/releases)
+[![Python](https://img.shields.io/badge/python-3.11%2B-green?style=for-the-badge)](https://www.python.org/)
+[![License](https://img.shields.io/badge/license-AGPL--3.0-orange?style=for-the-badge)](LICENSE)
+[![OWASP](https://img.shields.io/badge/OWASP-Agentic%20Top%2010-red?style=for-the-badge)](https://genai.owasp.org/resource/owasp-top-10-for-agentic-applications-for-2026/)
+[![CI](https://github.com/evkir/mas-sentry-toolkit/actions/workflows/ci.yml/badge.svg)](https://github.com/evkir/mas-sentry-toolkit/actions)
 
-> **A professional research framework for auditing Multi-Agent System (MAS) security.**  
-> Focused on MQTT/AMQP communication interception, agent interaction vulnerabilities,  
-> and threat modeling in IoT/Robotic ecosystems.
+> **Unified offensive-security toolkit for Multi-Agent Systems** — from MQTT-based IoT swarms to MCP-driven LLM agents. Aligned with OWASP Top 10 for Agentic Applications (2026) and powered by **ABFP** behavioral fingerprinting.
 
----
+## Why MAS-Sentry
 
-## 🔬 Novel Method: ABFP — Agent Behavioral Fingerprinting Protocol
+The MAS security landscape changed twice in 2024–2026:
 
-> ⚡ **This is the core innovation of MAS-Sentry-Toolkit.**
+1. **Anthropic's Model Context Protocol (MCP)** became the de-facto standard for LLM agent tooling — and brought a fresh class of architectural vulnerabilities (STDIO RCE affecting 200K+ servers, tool poisoning, indirect prompt injection).
+2. **OWASP released the Top 10 for Agentic Applications (Dec 2025)** — formalising ASI01–ASI10 risks.
 
-**ABFP (Agent Behavioral Fingerprinting Protocol)** is a novel method developed within this project for passive and active identification, profiling, and anomaly detection of agents in Multi-Agent Systems.
+Existing tools cover **either** classical IoT messaging (MQTT/AMQP) **or** LLM-agent risks. MAS-Sentry covers **both** under one threat model.
 
-### Why ABFP is different
+## What's inside
 
-Traditional MAS security tools focus on **network-level** attacks (MITM, replay, credential brute-force).  
-ABFP operates at the **behavioral layer** — it builds a unique fingerprint for each agent by analyzing:
+| Module | Targets | Maps to |
+|---|---|---|
+| `protocols/mqtt` | Mosquitto, EMQX, HiveMQ, VerneMQ | IoT/Robotic MAS |
+| `protocols/amqp` | RabbitMQ, ActiveMQ | Enterprise MAS |
+| `protocols/mcp` | Anthropic MCP servers (STDIO / HTTP+SSE / streamable HTTP) | LLM agent tooling |
+| `protocols/a2a` | Google A2A inter-agent protocol | Agent-to-agent comms |
+| `agents/abfp` | Any pub/sub agent | Behavioral fingerprinting |
+| `agentic/asi01-10` | LangChain / CrewAI / AutoGen / MCP hosts | OWASP Agentic Top 10 |
+| `threat_modeling` | All findings | STRIDE + ASI + CWE + CVE refs |
+| `reporting` | All scans | HTML / PDF / SARIF / JUnit / HackerOne preset |
 
-| Dimension | What is measured |
-|-----------|-----------------|
-| 📡 **Topic Graph** | Which topics does the agent publish/subscribe to, and in what pattern |
-| ⏱️ **Timing Cadence** | Publish intervals, response latency, burst patterns |
-| 📦 **Payload Signature** | Payload size distribution, encoding, field structure entropy |
-| 🔗 **Interaction Graph** | Which agents communicate with which, direction, frequency |
-| 🧠 **State Inference** | Inferred FSM state of agent from message sequence |
+## 🔬 ABFP — Agent Behavioral Fingerprinting Protocol
 
-### What ABFP enables
+The core research contribution. Builds a unique fingerprint per agent across five dimensions:
 
-- **Rogue Agent Detection** — identify agents that don't match known behavioral profiles
-- **Impersonation Attacks** — detect when a legitimate agent is being spoofed
-- **Privilege Escalation Detection** — agent starts publishing to topics outside its profile
-- **Zero-Day Interaction Vulnerabilities** — discover undocumented agent-to-agent communication paths
-- **Forensic Attribution** — match captured traffic to specific agent types even without credentials
+| Dimension | Measured |
+|---|---|
+| 📡 Topic Graph | Pub/sub topology and pattern |
+| ⏱️ Timing Cadence | Inter-publish interval, latency, burst signature |
+| 📦 Payload Signature | Size distribution, encoding, schema entropy |
+| 🔗 Interaction Graph | Agent-to-agent communication direction and frequency |
+| 🧠 State Inference | FSM state inferred from message sequence |
 
-### ABFP Phases
+**Phases:** passive learning → fingerprint build → active probing → anomaly scoring → STRIDE-mapped threat report.
 
+**Enables:** rogue agent detection, impersonation attacks, privilege escalation detection, zero-day interaction-vuln discovery, forensic attribution without credentials.
+
+## OWASP Agentic Top 10 (2026) coverage
+
+| ID | Risk | Module |
+|---|---|---|
+| ASI01 | Agent Goal Hijack | `agentic/goal_hijack` |
+| ASI02 | Tool Misuse & Exploitation | `agentic/tool_misuse` |
+| ASI03 | Identity & Privilege Abuse | `agentic/identity_abuse` |
+| ASI04 | Memory Poisoning | `agentic/memory_poisoning` |
+| ASI05 | Cascading Failure | `agentic/cascade` |
+| ASI06 | Untraceable Actions | `agentic/action_audit` |
+| ASI07 | Resource Exhaustion | `agentic/resource_exhaustion` |
+| ASI08 | Supply Chain | `agentic/supply_chain` |
+| ASI09 | Human-Agent Trust Exploit | `agentic/trust_exploit` |
+| ASI10 | Rogue Agent | `agentic/rogue_agent` (ties to ABFP) |
+
+Full mapping in [THREAT_MODEL.md](THREAT_MODEL.md).
+
+## Quick start
+
+```bash
+pipx install mas-sentry-toolkit
+mas-sentry doctor
+mas-sentry mqtt scan --target 192.168.1.10
+mas-sentry mcp scan --target stdio://./vuln-server --checks all
+mas-sentry abfp scan --target mqtt://broker.lab --duration 60
+mas-sentry agentic scan --target http://langchain-app.lab --asi all
 ```
-Phase 1: PASSIVE LEARNING    →  Collect 500+ messages per agent, build behavioral baseline
-Phase 2: FINGERPRINT BUILD   →  Generate mathematical fingerprint (timing vector + topic graph)
-Phase 3: ACTIVE PROBING      →  Inject crafted messages, observe behavioral deviation
-Phase 4: ANOMALY SCORING     →  Score each agent 0-100 on behavioral deviation from baseline
-Phase 5: THREAT REPORT       →  Generate structured threat report with STRIDE mapping
+
+Run the included vulnerable lab:
+
+```bash
+docker compose -f lab/docker-compose.yml up -d
+mas-sentry mqtt scan --target localhost:1883
+mas-sentry mcp scan --target stdio://lab/vuln-mcp/server.py
 ```
 
----
+## ⚖️ Legal & Scope
 
-## 🏗️ Architecture
+Active modules require explicit scope confirmation. Use only on assets you own or have written authorization to test. Designed for legal contexts: HackerOne / Bugcrowd / Intigriti / Immunefi programs and internal red-team engagements. See [SECURITY.md](SECURITY.md).
 
-```
-mas-sentry-toolkit/
-├── mas_sentry/                    # Core Python package
-│   ├── core/                      # Engine, config, session management
-│   ├── protocols/                 # MQTT & AMQP analyzers
-│   ├── agents/                    # ABFP fingerprinting engine
-│   ├── exploits/                  # Protocol-level exploit modules
-│   ├── threat_modeling/           # STRIDE + ABFP threat models
-│   └── reporting/                 # Report generator (HTML/JSON/PDF)
-├── lab/                           # Docker-based victim environment
-│   ├── victim/                    # Mosquitto broker + Python agents
-│   └── scenarios/                 # Attack scenarios for testing
-├── docs/                          # Full documentation
+## License
 
-## 📊 Roadmap
-
-### ✅ Completed
-- [x] Day 1  — Project structure
-- [x] Day 2  — Core engine + session + config
-- [x] Day 3  — Docker lab environment
-- [x] Day 4  — Base protocol analyzer
-- [x] Day 5  — MQTT analyzer
-- [x] Day 6  — MQTT fingerprinting + topic walker + retained scanner
-- [x] Day 7  — AMQP analyzer
-- [x] Day 8  — MQTT auth attacks + will hijack
-- [x] Day 9  — MQTT fuzzer
-- [x] Day 10 — AMQP exchange enumeration
-- [x] Day 11 — AMQP dead-letter + routing key brute-force
-- [x] Day 12 — Display + JSON exporter + architecture docs
-- [x] Day 13 — Retained poisoning + command injection + lab scenario
-- [x] Day 14 — Protocol auto-detection + multi-target scan + base refactor
-
-### 🔄 In Progress
-- [ ] Day 15 — ABFP behavioral fingerprinting (Phase 1)
-- [ ] Day 16 — ABFP timing analysis
-- [ ] Day 17 — ABFP payload analysis
-- [ ] Day 18 — ABFP topic graph builder
-- [ ] Day 19 — ABFP anomaly detection
-- [ ] Day 20 — Rogue agent detection
-- [ ] Day 21 — Impersonation detection
-- [ ] Day 22 — STRIDE threat modeling
-- [ ] Day 25 — JSON/HTML reporting
-- [ ] Day 26 — Full HTML report
-- [ ] Day 30 — v1.0.0 release
-
-## Live Demo Output
-
-Broker Fingerprint (Mosquitto 2.0.22):
-- Anonymous access ALLOWED (CRITICAL)
-- guest:guest works (HIGH)
-- admin:admin works (HIGH)
-- Version: 2.0.22, Clients: 3, SYS topics: 51
-
-ABFP Live Scan (30 seconds):
-- Agent: inferred_sensors_all
-- Messages: 31, Interval: 1000ms
-- Entropy: 4.01, Confidence: 0.62
-- Anomaly Score: 10/100 LOW
-
-[![CI](https://github.com/user70616E6461/mas-sentry-toolkit/actions/workflows/ci.yml/badge.svg)](https://github.com/user70616E6461/mas-sentry-toolkit/actions)
+[GNU Affero General Public License v3.0 or later](LICENSE). The author retains copyright and may grant commercial licenses separately.
