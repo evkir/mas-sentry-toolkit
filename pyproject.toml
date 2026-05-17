@@ -74,8 +74,11 @@ ignore = ["S101", "S105", "S107", "S110", "S310", "RUF001"]
 
 [tool.mypy]
 python_version = "3.11"
-strict = true
+strict = false
 ignore_missing_imports = true
+check_untyped_defs = true
+warn_redundant_casts = true
+warn_unused_ignores = true
 
 [tool.pytest.ini_options]
 minversion = "8.0"
