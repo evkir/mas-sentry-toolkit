@@ -36,7 +36,6 @@ class STRIDEThreat:
         }
 
 
-
 MAS_THREAT_CATALOG = [
     STRIDEThreat(
         threat_id="MAS-S-001",
