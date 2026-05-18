@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 """BaselineCollector — gates ABFP fingerprint build on minimum sample size."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass

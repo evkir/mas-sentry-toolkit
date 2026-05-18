@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 """MessageObserver — per-agent ring-buffer of MessageEvent records."""
+
 from __future__ import annotations
 
 from collections import deque
@@ -27,6 +28,7 @@ class MessageEvent:
     @classmethod
     def now(cls, agent_id: str, topic: str, payload: bytes, qos: int = 0, retain: bool = False) -> Self:
         import hashlib
+
         return cls(
             agent_id=agent_id,
             topic=topic,

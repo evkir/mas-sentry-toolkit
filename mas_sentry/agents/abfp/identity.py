@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 """Heuristic agent identity inference for MAS where client_id is anonymous/random."""
+
 from __future__ import annotations
 
 import re
