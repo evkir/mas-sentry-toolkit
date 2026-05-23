@@ -71,6 +71,7 @@ ignore = ["S101", "S105", "S107", "S110", "S310", "RUF001"]
 "tests/**" = ["S", "B"]
 "lab/**" = ["S311", "S104"]
 "scripts/**" = ["S607", "E402", "S603"]
+"mas_sentry/cli/**" = ["B008"]
 
 [tool.mypy]
 python_version = "3.11"
