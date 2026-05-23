@@ -89,3 +89,27 @@ Active modules require explicit scope confirmation. Use only on assets you own o
 ## License
 
 [GNU Affero General Public License v3.0 or later](LICENSE). The author retains copyright and may grant commercial licenses separately.
+
+## ABFP — Quick demo
+
+```bash
+# 1. Start the lab broker (Mosquitto + 3 sample agents)
+docker compose -f lab/docker-compose.yml up -d
+
+# 2. Run a 60-second ABFP passive scan
+mas-sentry abfp scan --target mqtt://localhost:1883 --duration 60
+
+# 3. Open the generated HTML report
+xdg-open reports/abfp.html
+```
+
+Output snapshot:
+
+```
++-----------------------+-------+----------+
+| Agent                 | Score | Severity |
++-----------------------+-------+----------+
+| inferred_sensors      |   12  |  INFO    |
+| factory_robot_r17     |   78  |  HIGH    |
++-----------------------+-------+----------+
+```
