@@ -49,6 +49,19 @@ class ResourceDef:
     mime_type: str = ""
 
 
+@dataclass(slots=True)
+class Enumeration:
+    """Aggregated result of one full server enumeration pass."""
+
+    tools: list[ToolDef] = field(default_factory=list)
+    prompts: list[PromptDef] = field(default_factory=list)
+    resources: list[ResourceDef] = field(default_factory=list)
+
+    @property
+    def total(self) -> int:
+        return len(self.tools) + len(self.prompts) + len(self.resources)
+
+
 class McpClient:
     def __init__(self, transport: Transport) -> None:
         self.transport = transport
@@ -130,3 +143,11 @@ class McpClient:
                 )
             )
         return out
+
+    def enumerate_all(self) -> Enumeration:
+        """Single pass: tools + prompts + resources. Errors degrade to empty lists."""
+        return Enumeration(
+            tools=self.list_tools(),
+            prompts=self.list_prompts(),
+            resources=self.list_resources(),
+        )
