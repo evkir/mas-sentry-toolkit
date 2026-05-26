@@ -19,9 +19,9 @@ class SentryEngine:
     ╚═╝     ╚═╝╚═╝  ╚═╝╚══════╝    ╚══════╝╚══════╝╚═╝  ╚═══╝   ╚═╝   ╚═╝  ╚═╝   ╚═╝
     """
 
-    def __init__(self, config: SentryConfig = None):
+    def __init__(self, config: SentryConfig | None = None):
         self.config = config or SentryConfig()
-        self.session = None
+        self.session: ScanSession | None = None
 
     def start_session(self, target: str, protocol: str) -> ScanSession:
         self.session = ScanSession(target=target, protocol=protocol)

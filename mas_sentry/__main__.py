@@ -172,22 +172,11 @@ def learn(broker, port, duration, output):
     import json
     import os
 
-    from mas_sentry.agents.abfp_models import BehavioralBaseline
     from mas_sentry.agents.fingerprinter import ABFPFingerprinter
 
     engine = ABFPFingerprinter(broker, port)
     fps = engine.collect(duration=duration)
     engine.build_fingerprints()
-    baselines = {}
-    for agent_id, fp in fps.items():
-        bl = BehavioralBaseline(
-            agent_id=agent_id,
-            known_topics=fp.unique_topics,
-            expected_interval_ms=fp.timing.mean_interval_ms,
-            expected_payload_size=fp.payload.mean_size_bytes,
-            expected_entropy=fp.payload.entropy_score,
-        )
-        baselines[agent_id] = bl.save.__func__
     os.makedirs("reports", exist_ok=True)
     data = {}
     for agent_id, fp in fps.items():

@@ -24,7 +24,7 @@ def shannon_entropy(data: bytes) -> float:
     """Calculate Shannon entropy of bytes (0=uniform, 8=random)"""
     if not data:
         return 0.0
-    freq = {}
+    freq: dict[int, int] = {}
     for b in data:
         freq[b] = freq.get(b, 0) + 1
     length = len(data)

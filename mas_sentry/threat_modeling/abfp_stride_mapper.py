@@ -21,6 +21,9 @@ ABFP_TO_STRIDE: dict[str, STRIDECategory] = {
 }
 
 
+_SEVERITY_CVSS = {"CRITICAL": 9.5, "HIGH": 7.5, "MEDIUM": 5.0, "LOW": 2.5}
+
+
 def map_finding_to_stride(finding: dict[str, Any]) -> STRIDEThreat | None:
     """Convert a single ABFP finding dict into a STRIDEThreat object."""
     finding_type = finding.get("type", "")
@@ -28,12 +31,15 @@ def map_finding_to_stride(finding: dict[str, Any]) -> STRIDEThreat | None:
     if not category:
         return None
 
+    severity = finding.get("severity", "MEDIUM")
     return STRIDEThreat(
+        threat_id=f"ABFP-{finding_type or 'UNKNOWN'}".upper(),
         category=category,
         title=f"ABFP: {finding.get('title', finding_type)}",
         description=finding.get("description", "Detected by ABFP engine."),
         mitigation=finding.get("mitigation", "Review ABFP anomaly report."),
-        severity=finding.get("severity", "MEDIUM"),
+        severity=severity,
+        cvss_score=_SEVERITY_CVSS.get(severity.upper(), 5.0),
     )
 
 

@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
-from .stride import MAS_MQTT_THREATS, STRIDECategory, STRIDEThreat
+from .stride import MAS_THREAT_CATALOG, STRIDECategory, STRIDEThreat
 
 SEVERITY_ORDER = {"CRITICAL": 0, "HIGH": 1, "MEDIUM": 2, "LOW": 3}
 
@@ -30,9 +30,9 @@ def format_threat_report(threats: list[STRIDEThreat]) -> str:
 
 def get_threats_by_severity(severity: str) -> list[STRIDEThreat]:
     """Filter threat catalog by severity level."""
-    return [t for t in MAS_MQTT_THREATS if t.severity == severity.upper()]
+    return [t for t in MAS_THREAT_CATALOG if t.severity == severity.upper()]
 
 
 def get_threats_by_category(category: STRIDECategory) -> list[STRIDEThreat]:
     """Filter threat catalog by STRIDE category."""
-    return [t for t in MAS_MQTT_THREATS if t.category == category]
+    return [t for t in MAS_THREAT_CATALOG if t.category == category]

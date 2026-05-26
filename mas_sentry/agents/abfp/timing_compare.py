@@ -5,7 +5,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from scipy.stats import ks_2samp  # type: ignore[import-not-found]
+from scipy.stats import ks_2samp
 
 from .observer import MessageEvent
 

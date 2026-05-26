@@ -8,7 +8,7 @@ import time
 from pathlib import Path
 from urllib.parse import urlparse
 
-import paho.mqtt.client as mqtt  # type: ignore[import-not-found]
+import paho.mqtt.client as mqtt
 from rich.console import Console
 
 from .baseline import BaselineCollector
@@ -33,7 +33,7 @@ def run_abfp_scan(
     observer = MessageObserver()
     graph_builder = TopicGraphBuilder()
 
-    client = mqtt.Client(callback_api_version=mqtt.CallbackAPIVersion.VERSION2)  # type: ignore[attr-defined]
+    client = mqtt.Client(callback_api_version=mqtt.CallbackAPIVersion.VERSION2)
 
     def on_connect(c, _u, _f, _rc, _props=None):
         c.subscribe("#", qos=0)

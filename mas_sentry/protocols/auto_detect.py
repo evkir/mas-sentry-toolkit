@@ -26,7 +26,7 @@ class ProtocolDetector:
 
     def __init__(self, host: str):
         self.host = host
-        self.result = {
+        self.result: dict[str, str | int | None] = {
             "host": host,
             "protocol": None,
             "port": None,

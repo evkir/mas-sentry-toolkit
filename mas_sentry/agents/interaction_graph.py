@@ -30,7 +30,7 @@ class AgentInteractionGraph:
     """
 
     def __init__(self):
-        self.graph = nx.DiGraph() if HAS_NETWORKX else None
+        self.graph: nx.DiGraph | None = nx.DiGraph() if HAS_NETWORKX else None
         self.edges: list[tuple[str, str, str]] = []
         self.nodes: list[str] = []
 
@@ -40,6 +40,7 @@ class AgentInteractionGraph:
             console.print("[yellow][GRAPH] networkx not installed - skipping graph[/yellow]")
             return
 
+        assert self.graph is not None  # guaranteed by HAS_NETWORKX check above
         self.graph.clear()
 
         for agent_id, fp in fingerprints.items():
