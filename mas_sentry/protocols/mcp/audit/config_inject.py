@@ -54,8 +54,8 @@ def probe_via_config_field(
     responded = False
     detail = ""
     try:
-        # bug in our tooling — see module docstring. Input is operator-supplied.
-        proc = subprocess.run(  # noqa: S602
+        # Audited behaviour under test (see module docstring); not a tooling bug.
+        proc = subprocess.run(  # noqa: S602  # nosec B602
             injected,
             shell=True,
             env=extra_env,
