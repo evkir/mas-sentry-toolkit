@@ -72,6 +72,10 @@ class McpClient:
         self._next_id += 1
         return self._next_id
 
+    def next_id(self) -> int:
+        """Public counter shared with auditors/probes that need request IDs."""
+        return self._id()
+
     def initialize(self) -> ServerInfo:
         req = JsonRpcCodec.request(
             "initialize",
