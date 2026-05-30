@@ -1,0 +1,144 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+"""MCP scan orchestrator: applies all audit modules, enforces scope, logs audit trail."""
+
+from __future__ import annotations
+
+import json
+from datetime import UTC, datetime
+from pathlib import Path
+from typing import Any
+from urllib.parse import urlparse
+
+from .audit.dns_rebind import test_dns_rebinding
+from .audit.path_traversal import probe_arg_injection, probe_path_traversal
+from .audit.ssrf import probe_ssrf
+from .audit.tool_poisoning import detect_tool_poisoning
+from .client import McpClient
+from .fingerprint import fingerprint, known_cves_for
+from .transport_http import HttpConfig, open_http
+from .transport_stdio import StdioConfig, open_stdio
+
+LAB_HOSTS = {"localhost", "127.0.0.1", "::1"}
+AUDIT_LOG = Path("~/.mas-sentry/audit.jsonl").expanduser()
+
+
+def run_mcp_scan(
+    scheme: str,
+    command: str | list[str],
+    target_label: str,
+    checks: str,
+    out: Path,
+    scope_confirmed: bool,
+) -> list[dict[str, Any]]:
+    _enforce_scope(scheme=scheme, command=command, confirmed=scope_confirmed)
+    _audit_log({"action": "mcp_scan_start", "target": target_label, "checks": checks})
+
+    findings: list[dict[str, Any]] = []
+
+    if scheme == "stdio":
+        with open_stdio(StdioConfig(command=command)) as t:
+            findings.extend(_run_all_checks(McpClient(t), transport="stdio", checks=checks))
+    elif scheme in ("http", "https"):
+        assert isinstance(command, str)  # CLI guarantees this for http(s)
+        with open_http(HttpConfig(url=command)) as t:
+            findings.extend(_run_all_checks(McpClient(t), transport=scheme, checks=checks))
+            if checks in ("all", "rebind"):
+                rb = test_dns_rebinding(command)
+                if rb.vulnerable:
+                    findings.append(
+                        {
+                            "check": "dns_rebind",
+                            "severity": "HIGH",
+                            "detail": f"Accepts Host={rb.accepted_host} Origin={rb.accepted_origin}",
+                        }
+                    )
+    else:
+        raise ValueError(f"Unsupported scheme: {scheme}")
+
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(json.dumps(findings, indent=2, default=str))
+    _audit_log({"action": "mcp_scan_done", "target": target_label, "findings": len(findings)})
+    return findings
+
+
+def _run_all_checks(client: McpClient, transport: str, checks: str) -> list[dict[str, Any]]:
+    out: list[dict[str, Any]] = []
+    fp = fingerprint(client, transport_name=transport)
+    out.append(
+        {
+            "check": "fingerprint",
+            "severity": "INFO",
+            "detail": f"{fp.name} {fp.version} ({fp.tool_count} tools)",
+        }
+    )
+    for impl in fp.suspected_impls:
+        for cve in known_cves_for(impl):
+            out.append({"check": "known_cve", "severity": "HIGH", "detail": f"{impl}: {cve}"})
+
+    if checks in ("all", "poisoning"):
+        for pf in detect_tool_poisoning(client):
+            out.append(
+                {
+                    "check": "tool_poisoning",
+                    "severity": pf.severity,
+                    "detail": f"{pf.tool}: {'; '.join(pf.reasons)}",
+                }
+            )
+
+    if checks in ("all", "ssrf"):
+        for sf in probe_ssrf(client):
+            if sf.status == "OK":
+                out.append(
+                    {
+                        "check": "ssrf",
+                        "severity": "CRITICAL",
+                        "detail": f"{sf.tool} -> {sf.url}",
+                    }
+                )
+
+    if checks in ("all", "traversal"):
+        for tf in probe_path_traversal(client):
+            if tf.confirmed:
+                out.append(
+                    {
+                        "check": "path_traversal",
+                        "severity": "HIGH",
+                        "detail": f"{tf.tool}: {tf.payload}",
+                    }
+                )
+        for tf in probe_arg_injection(client):
+            if tf.confirmed:
+                out.append(
+                    {
+                        "check": "arg_injection",
+                        "severity": "CRITICAL",
+                        "detail": f"{tf.tool}: {tf.payload}",
+                    }
+                )
+
+    return out
+
+
+def _enforce_scope(scheme: str, command: str | list[str], confirmed: bool) -> None:
+    if confirmed:
+        return
+    if scheme == "stdio":
+        return  # local subprocess — always in scope
+    if scheme not in ("http", "https"):
+        raise ValueError(f"Unsupported scheme: {scheme}")
+    assert isinstance(command, str)
+    host = urlparse(command).hostname or ""
+    if host in LAB_HOSTS:
+        return
+    if host.endswith((".lab", ".test", ".local")):
+        return
+    raise PermissionError(
+        f"Target '{command}' is outside the lab allowlist. Pass --confirm-scope if you have written authorisation."
+    )
+
+
+def _audit_log(entry: dict[str, Any]) -> None:
+    AUDIT_LOG.parent.mkdir(parents=True, exist_ok=True)
+    entry["ts"] = datetime.now(UTC).isoformat()
+    with AUDIT_LOG.open("a") as f:
+        f.write(json.dumps(entry) + "\n")
