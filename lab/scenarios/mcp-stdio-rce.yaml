@@ -1,0 +1,23 @@
+name: mcp-stdio-rce
+description: Reproduce STDIO RCE / SSRF / traversal / tool-poisoning on the lab vuln-mcp server.
+target: stdio://python3 ./lab/vuln-mcp/server.py
+steps:
+  - run: mas-sentry mcp scan -t 'stdio://python3 ./lab/vuln-mcp/server.py' --checks fingerprint --out reports/lab_mcp_fingerprint.json
+    out: reports/lab_mcp_fingerprint.json
+    expect_check: fingerprint
+    expect_severity: INFO
+
+  - run: mas-sentry mcp scan -t 'stdio://python3 ./lab/vuln-mcp/server.py' --checks poisoning --out reports/lab_mcp_poisoning.json
+    out: reports/lab_mcp_poisoning.json
+    expect_check: tool_poisoning
+    expect_severity: MEDIUM
+
+  - run: mas-sentry mcp scan -t 'stdio://python3 ./lab/vuln-mcp/server.py' --checks ssrf --out reports/lab_mcp_ssrf.json
+    out: reports/lab_mcp_ssrf.json
+    expect_check: ssrf
+    expect_severity: CRITICAL
+
+  - run: mas-sentry mcp scan -t 'stdio://python3 ./lab/vuln-mcp/server.py' --checks traversal --out reports/lab_mcp_traversal.json
+    out: reports/lab_mcp_traversal.json
+    expect_check: path_traversal
+    expect_severity: HIGH
