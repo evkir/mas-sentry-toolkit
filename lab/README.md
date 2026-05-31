@@ -57,6 +57,8 @@ The scenario asserts these via per-step `expect_check` + `expect_severity` (see 
 > Note: the CLI flag name (`poisoning`, `traversal`) does NOT always match the `check` field in JSON output (`tool_poisoning`, `path_traversal`). Match by JSON `check` when writing assertions.
 
 ## File layout
+
+```
 lab/
 ├── README.md                       # this file
 ├── docker-compose.yml              # (lives at repo root, not here)
@@ -65,8 +67,9 @@ lab/
 │   └── agents/{sensor,logger,controller}/
 ├── vuln-mcp/                       # intentional-vuln MCP server (Day 28)
 │   ├── server.py
-│   └── Dockerfile                  # optional, for docker run -i
+│   └── Dockerfile                  # optional, for `docker run -i`
 └── scenarios/
-├── insecure_command_topic.py   # MQTT scenario (Day 17)
-├── mcp-stdio-rce.yaml          # MCP scenario (Day 28)
-└── run.py                      # YAML scenario runner with expect-validation
+    ├── insecure_command_topic.py   # MQTT scenario (Day 17)
+    ├── mcp-stdio-rce.yaml          # MCP scenario (Day 28)
+    └── run.py                      # YAML scenario runner with expect-validation
+```
