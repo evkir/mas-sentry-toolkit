@@ -68,7 +68,7 @@ def build_probes(count: int = 6, extra_corpus_path: Path | None = None) -> list[
     out: list[GoalHijackProbe] = []
     for raw in merged[:count]:
         canary = CANARY_TOKEN.format(nonce=secrets.token_hex(4))
-        out.append(GoalHijackProbe(payload=raw.format(canary=canary), canary=canary))
+        out.append(GoalHijackProbe(payload=raw.replace("{canary}", canary), canary=canary))
     return out
 
 
