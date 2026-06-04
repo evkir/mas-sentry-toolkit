@@ -50,8 +50,29 @@ def _run_identity_abuse(ctx: dict[str, Any]) -> list[AgenticFinding]:
     return audit_token(token, ctx.get("target", "<unknown>"))
 
 
+def _run_cascade(ctx: dict[str, Any]) -> list[AgenticFinding]:
+    from .cascade import audit_call_graph
+
+    return audit_call_graph(ctx.get("edges", []), ctx.get("target", "<unknown>"))
+
+
+def _run_action_audit(ctx: dict[str, Any]) -> list[AgenticFinding]:
+    from .action_audit import audit_action_log
+
+    return audit_action_log(ctx.get("action_records", []), ctx.get("target", "<unknown>"))
+
+
+def _run_resource_exhaustion(ctx: dict[str, Any]) -> list[AgenticFinding]:
+    from .resource_exhaustion import evaluate_telemetry
+
+    return evaluate_telemetry(ctx.get("telemetry", []), ctx.get("target", "<unknown>"))
+
+
 def default_pipeline() -> Pipeline:
     p = Pipeline()
     p.register("asi02_tool_misuse", _run_tool_misuse)
     p.register("asi03_identity_abuse", _run_identity_abuse)
+    p.register("asi05_cascade", _run_cascade)
+    p.register("asi06_action_audit", _run_action_audit)
+    p.register("asi07_resource_exhaustion", _run_resource_exhaustion)
     return p
