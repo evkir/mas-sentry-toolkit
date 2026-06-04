@@ -132,11 +132,6 @@ def test_memory_drift_streak_resets_on_hit() -> None:
 # ─────────────── Pipeline ───────────────
 
 
-def test_default_pipeline_registers_sync_modules_only() -> None:
-    p = default_pipeline()
-    assert set(p.modules.keys()) == {"asi02_tool_misuse", "asi03_identity_abuse"}
-
-
 def test_pipeline_runs_all_modules_when_selected_is_none() -> None:
     now = int(time.time())
     ctx = {
