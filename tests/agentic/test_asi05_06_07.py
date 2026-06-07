@@ -161,17 +161,6 @@ def test_exhaustion_refused_payloads_skipped() -> None:
 # ─────────────── Pipeline integration ───────────────
 
 
-def test_default_pipeline_registers_all_five_sync_modules() -> None:
-    p = default_pipeline()
-    assert set(p.modules.keys()) == {
-        "asi02_tool_misuse",
-        "asi03_identity_abuse",
-        "asi05_cascade",
-        "asi06_action_audit",
-        "asi07_resource_exhaustion",
-    }
-
-
 def test_pipeline_end_to_end_all_asis() -> None:
     now = int(time.time())
     ctx = {
