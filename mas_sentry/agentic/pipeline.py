@@ -68,6 +68,38 @@ def _run_resource_exhaustion(ctx: dict[str, Any]) -> list[AgenticFinding]:
     return evaluate_telemetry(ctx.get("telemetry", []), ctx.get("target", "<unknown>"))
 
 
+def _run_supply_chain(ctx: dict[str, Any]) -> list[AgenticFinding]:
+    from .supply_chain import SupplyChainContext, audit_supply_chain
+
+    sc_ctx = ctx.get("supply_chain")
+    if sc_ctx is None:
+        return []
+    if not isinstance(sc_ctx, SupplyChainContext):
+        return []
+    return audit_supply_chain(sc_ctx, ctx.get("target", "<unknown>"))
+
+
+def _run_trust_exploit(ctx: dict[str, Any]) -> list[AgenticFinding]:
+    from .trust_exploit import AgentResponse, audit_response
+
+    resp = ctx.get("agent_response")
+    if resp is None:
+        return []
+    if not isinstance(resp, AgentResponse):
+        return []
+    return audit_response(resp, ctx.get("target", "<unknown>"))
+
+
+def _run_rogue_agent(ctx: dict[str, Any]) -> list[AgenticFinding]:
+    from .rogue_agent import audit_for_rogue_agents
+
+    baseline = ctx.get("baseline_graph")
+    current = ctx.get("current_graph")
+    if baseline is None or current is None:
+        return []
+    return audit_for_rogue_agents(baseline, current, ctx.get("target", "<unknown>"))
+
+
 def default_pipeline() -> Pipeline:
     p = Pipeline()
     p.register("asi02_tool_misuse", _run_tool_misuse)
@@ -75,4 +107,7 @@ def default_pipeline() -> Pipeline:
     p.register("asi05_cascade", _run_cascade)
     p.register("asi06_action_audit", _run_action_audit)
     p.register("asi07_resource_exhaustion", _run_resource_exhaustion)
+    p.register("asi08_supply_chain", _run_supply_chain)
+    p.register("asi09_trust_exploit", _run_trust_exploit)
+    p.register("asi10_rogue_agent", _run_rogue_agent)
     return p
