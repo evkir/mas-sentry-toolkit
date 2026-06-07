@@ -3,7 +3,7 @@
 
 Thin adapter that re-emits ABFP rogue findings (mas_sentry.agents.abfp.rogue)
 as agentic findings, so the agentic pipeline can surface them alongside
-ASI01–ASI09 results without consumers needing to know about the ABFP layer.
+ASI01-ASI09 results without consumers needing to know about the ABFP layer.
 """
 
 from __future__ import annotations
