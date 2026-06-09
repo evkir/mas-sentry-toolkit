@@ -51,7 +51,7 @@ class UnifiedThreatEngine:
         selected: list[str] | None = None,
     ) -> EngineRun:
         run = EngineRun(target=target)
-        names = selected or list(self.modules.keys())
+        names = list(self.modules.keys()) if selected is None else selected
         seen: set[str] = set()
         for n in names:
             fn = self.modules.get(n)
