@@ -24,23 +24,25 @@ def to_sarif(findings: list[dict[str, Any]], tool_version: str = "0.2.0.dev0") -
     rules: dict[str, dict[str, Any]] = {}
     results: list[dict[str, Any]] = []
     for f in findings:
-        rule_id = f"MAS-SENTRY-{f['check'].upper()}"
+        check = f.get("check") or f.get("module") or "unknown"
+        rule_id = f"MAS-SENTRY-{check.upper()}"
         level = severity_to_sarif_level(f["severity"])
         rules.setdefault(
             rule_id,
             {
                 "id": rule_id,
-                "shortDescription": {"text": f["check"]},
+                "shortDescription": {"text": check},
                 "defaultConfiguration": {"level": level},
             },
         )
-        results.append(
-            {
-                "ruleId": rule_id,
-                "level": level,
-                "message": {"text": f["detail"]},
-            }
-        )
+        result: dict[str, Any] = {
+            "ruleId": rule_id,
+            "level": level,
+            "message": {"text": f.get("detail", "")},
+        }
+        if f.get("tags"):
+            result["properties"] = {"tags": f["tags"]}
+        results.append(result)
     return {
         "version": "2.1.0",
         "$schema": "https://json.schemastore.org/sarif-2.1.0.json",
