@@ -16,5 +16,12 @@ app.add_typer(report_app, name="report", help="Convert findings to report format
 
 
 @app.callback()
-def main() -> None:
+def main(
+    verbose: bool = typer.Option(False, "--verbose", "-v", help="Debug-level logging"),
+    quiet: bool = typer.Option(False, "--quiet", "-q", help="Errors only"),
+    no_color: bool = typer.Option(False, "--no-color", help="Disable ANSI colors"),
+) -> None:
     """Top-level CLI."""
+    from .global_opts import configure_logging
+
+    configure_logging(verbose=verbose, quiet=quiet, no_color=no_color)
