@@ -2,6 +2,7 @@
 """Smoke tests for every CLI command via typer.testing."""
 
 import json
+import re
 from pathlib import Path
 
 from typer.testing import CliRunner
@@ -9,6 +10,19 @@ from typer.testing import CliRunner
 from mas_sentry.cli import app
 
 runner = CliRunner()
+
+_ANSI_RE = re.compile(r"\x1b\[[0-9;]*m")
+
+
+def _plain(text: str) -> str:
+    """Strip ANSI color codes so substring assertions are terminal-agnostic.
+
+    Rich (used by typer for --help) splits styled tokens with escape codes,
+    e.g. '--verbose' renders as '-<ESC>-verbose'. On CI the runner has colors
+    enabled, so raw substring checks fail. Stripping ANSI makes the help text
+    match regardless of the runner's terminal detection.
+    """
+    return _ANSI_RE.sub("", text)
 
 
 def _sample_findings_file(path: Path, *, wrapped: bool = True) -> Path:
@@ -42,15 +56,17 @@ def _sample_findings_file(path: Path, *, wrapped: bool = True) -> Path:
 def test_help_lists_all_subcommands() -> None:
     r = runner.invoke(app, ["--help"])
     assert r.exit_code == 0
+    out = _plain(r.output)
     for cmd in ("abfp", "mcp", "agentic", "report", "doctor"):
-        assert cmd in r.output
+        assert cmd in out
 
 
 def test_global_flags_present() -> None:
     r = runner.invoke(app, ["--help"])
-    assert "--verbose" in r.output
-    assert "--quiet" in r.output
-    assert "--no-color" in r.output
+    out = _plain(r.output)
+    assert "--verbose" in out
+    assert "--quiet" in out
+    assert "--no-color" in out
 
 
 # ─────────────── doctor ───────────────
