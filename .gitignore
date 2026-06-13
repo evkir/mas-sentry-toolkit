@@ -11,3 +11,4 @@ reports/output/
 .idea/
 *.pcap
 *.bak
+site/
