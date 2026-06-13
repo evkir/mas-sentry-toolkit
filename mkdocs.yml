@@ -31,6 +31,12 @@ theme:
 
 plugins:
   - search
+  - mkdocstrings:
+      handlers:
+        python:
+          options:
+            show_source: true
+            docstring_style: google
 
 markdown_extensions:
   - admonition
@@ -58,5 +64,7 @@ nav:
       - ABFP Fingerprinting: usage/abfp-fingerprinting.md
       - Attack Scenarios: usage/attack-scenarios.md
   - Reference:
-      - API: api/README.md
+      - CLI: reference/cli.md
+      - API (auto): reference/api.md
+      - API (manual): api/README.md
       - HCAP Spec: hcap-spec.md

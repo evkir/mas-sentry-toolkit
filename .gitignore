@@ -12,3 +12,6 @@ reports/output/
 *.pcap
 *.bak
 site/
+.coverage
+coverage.xml
+.pytest_cache/
