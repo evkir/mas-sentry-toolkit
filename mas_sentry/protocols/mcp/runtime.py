@@ -4,10 +4,10 @@
 from __future__ import annotations
 
 import json
-from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+from mas_sentry.core.audit_log import write as audit_write
 from mas_sentry.core.scope import assert_in_scope
 
 from .audit.dns_rebind import test_dns_rebinding
@@ -19,8 +19,6 @@ from .fingerprint import fingerprint, known_cves_for
 from .transport_http import HttpConfig, open_http
 from .transport_stdio import StdioConfig, open_stdio
 
-AUDIT_LOG = Path("~/.mas-sentry/audit.jsonl").expanduser()
-
 
 def run_mcp_scan(
     scheme: str,
@@ -31,7 +29,7 @@ def run_mcp_scan(
     scope_confirmed: bool,
 ) -> list[dict[str, Any]]:
     _enforce_scope(scheme=scheme, command=command, confirmed=scope_confirmed)
-    _audit_log({"action": "mcp_scan_start", "target": target_label, "checks": checks})
+    audit_write({"action": "mcp_scan_start", "target": target_label, "checks": checks})
 
     findings: list[dict[str, Any]] = []
 
@@ -57,7 +55,7 @@ def run_mcp_scan(
 
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(findings, indent=2, default=str))
-    _audit_log({"action": "mcp_scan_done", "target": target_label, "findings": len(findings)})
+    audit_write({"action": "mcp_scan_done", "target": target_label, "findings": len(findings)})
     return findings
 
 
@@ -127,10 +125,3 @@ def _enforce_scope(scheme: str, command: str | list[str], confirmed: bool) -> No
         raise ValueError(f"Unsupported scheme: {scheme}")
     assert isinstance(command, str)
     assert_in_scope(command, confirmed=confirmed)
-
-
-def _audit_log(entry: dict[str, Any]) -> None:
-    AUDIT_LOG.parent.mkdir(parents=True, exist_ok=True)
-    entry["ts"] = datetime.now(UTC).isoformat()
-    with AUDIT_LOG.open("a") as f:
-        f.write(json.dumps(entry) + "\n")
