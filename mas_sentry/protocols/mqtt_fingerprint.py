@@ -6,13 +6,16 @@ import paho.mqtt.client as mqtt
 from rich.console import Console
 from rich.panel import Panel
 
+from mas_sentry.core.scope import assert_in_scope
+
 console = Console()
 
 
 class MQTTBrokerFingerprinter:
     """Identify broker type and version via $SYS topic analysis"""
 
-    def __init__(self, host: str, port: int = 1883):
+    def __init__(self, host: str, port: int = 1883, confirmed: bool = False):
+        assert_in_scope(host, confirmed=confirmed)
         self.host = host
         self.port = port
         self.sys_topics: dict[str, str] = {}

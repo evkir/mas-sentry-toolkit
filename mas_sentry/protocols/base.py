@@ -4,6 +4,8 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Any
 
+from mas_sentry.core.scope import assert_in_scope
+
 
 @dataclass
 class CapturedMessage:
@@ -24,7 +26,8 @@ class CapturedMessage:
 
 
 class BaseProtocolAnalyzer(ABC):
-    def __init__(self, host: str, port: int):
+    def __init__(self, host: str, port: int, confirmed: bool = False):
+        assert_in_scope(host, confirmed=confirmed)
         self.host = host
         self.port = port
         self.messages: list[CapturedMessage] = []

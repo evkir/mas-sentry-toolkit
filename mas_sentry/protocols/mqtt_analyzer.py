@@ -12,8 +12,15 @@ console = Console()
 
 
 class MQTTAnalyzer(BaseProtocolAnalyzer):
-    def __init__(self, host: str, port: int = 1883, username: str | None = None, password: str | None = None):
-        super().__init__(host, port)
+    def __init__(
+        self,
+        host: str,
+        port: int = 1883,
+        username: str | None = None,
+        password: str | None = None,
+        confirmed: bool = False,
+    ):
+        super().__init__(host, port, confirmed=confirmed)
         self.username = username
         self.password = password
         self.client = mqtt.Client(client_id="mas-sentry-analyzer")

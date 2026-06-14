@@ -27,8 +27,9 @@ class AMQPAnalyzer(BaseProtocolAnalyzer):
         password: str = "guest",
         mgmt_port: int = 15672,
         vhost: str = "%2F",
+        confirmed: bool = False,
     ):
-        super().__init__(host, port)
+        super().__init__(host, port, confirmed=confirmed)
         self.username = username
         self.password = password
         self.mgmt_port = mgmt_port

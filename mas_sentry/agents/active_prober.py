@@ -14,6 +14,8 @@ import paho.mqtt.client as mqtt
 from rich.console import Console
 from rich.table import Table
 
+from mas_sentry.core.scope import assert_in_scope
+
 console = Console()
 
 
@@ -46,7 +48,8 @@ class ActiveProber:
     Detects: command injection, state manipulation, hidden subscribers.
     """
 
-    def __init__(self, host: str, port: int = 1883):
+    def __init__(self, host: str, port: int = 1883, confirmed: bool = False):
+        assert_in_scope(host, confirmed=confirmed)
         self.host = host
         self.port = port
         self.results: list[ProbeResult] = []
