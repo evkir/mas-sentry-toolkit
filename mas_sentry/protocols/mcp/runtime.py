@@ -7,7 +7,8 @@ import json
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
-from urllib.parse import urlparse
+
+from mas_sentry.core.scope import assert_in_scope
 
 from .audit.dns_rebind import test_dns_rebinding
 from .audit.path_traversal import probe_arg_injection, probe_path_traversal
@@ -18,7 +19,6 @@ from .fingerprint import fingerprint, known_cves_for
 from .transport_http import HttpConfig, open_http
 from .transport_stdio import StdioConfig, open_stdio
 
-LAB_HOSTS = {"localhost", "127.0.0.1", "::1"}
 AUDIT_LOG = Path("~/.mas-sentry/audit.jsonl").expanduser()
 
 
@@ -120,21 +120,13 @@ def _run_all_checks(client: McpClient, transport: str, checks: str) -> list[dict
 
 
 def _enforce_scope(scheme: str, command: str | list[str], confirmed: bool) -> None:
-    if confirmed:
-        return
+    """Thin wrapper over the central scope-guard, kept for the MCP scheme/command shape."""
     if scheme == "stdio":
-        return  # local subprocess — always in scope
+        return  # local subprocess: always in scope
     if scheme not in ("http", "https"):
         raise ValueError(f"Unsupported scheme: {scheme}")
     assert isinstance(command, str)
-    host = urlparse(command).hostname or ""
-    if host in LAB_HOSTS:
-        return
-    if host.endswith((".lab", ".test", ".local")):
-        return
-    raise PermissionError(
-        f"Target '{command}' is outside the lab allowlist. Pass --confirm-scope if you have written authorisation."
-    )
+    assert_in_scope(command, confirmed=confirmed)
 
 
 def _audit_log(entry: dict[str, Any]) -> None:
