@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 import uuid
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
 
 
@@ -10,7 +10,7 @@ class ScanSession:
     session_id: str = field(default_factory=lambda: str(uuid.uuid4())[:8])
     target: str = ""
     protocol: str = ""
-    started_at: datetime = field(default_factory=datetime.utcnow)
+    started_at: datetime = field(default_factory=lambda: datetime.now(UTC))
     findings: list[dict[str, Any]] = field(default_factory=list)
     messages_captured: int = 0
     agents_discovered: int = 0
@@ -22,7 +22,7 @@ class ScanSession:
                 "severity": severity,
                 "title": title,
                 "description": description,
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": datetime.now(UTC).isoformat(),
                 "data": data,
             }
         )
@@ -32,7 +32,7 @@ class ScanSession:
             "session_id": self.session_id,
             "target": self.target,
             "protocol": self.protocol,
-            "duration_seconds": (datetime.utcnow() - self.started_at).seconds,
+            "duration_seconds": (datetime.now(UTC) - self.started_at).seconds,
             "findings_count": len(self.findings),
             "messages_captured": self.messages_captured,
             "agents_discovered": self.agents_discovered,

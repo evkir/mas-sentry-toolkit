@@ -6,7 +6,7 @@ DAY 15 — Commit 1
 """
 
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
 
 
@@ -27,8 +27,8 @@ class AgentProfile:
     """
 
     client_id: str
-    first_seen: datetime = field(default_factory=datetime.utcnow)
-    last_seen: datetime = field(default_factory=datetime.utcnow)
+    first_seen: datetime = field(default_factory=lambda: datetime.now(UTC))
+    last_seen: datetime = field(default_factory=lambda: datetime.now(UTC))
 
     # Topic behavior
     topics_pub: set[str] = field(default_factory=set)

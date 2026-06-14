@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 import json
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -11,7 +11,7 @@ class ReportExporter:
         self.output_dir.mkdir(parents=True, exist_ok=True)
 
     def to_json(self, summary: dict[str, Any], findings: list[dict[str, Any]], filename: str | None = None) -> Path:
-        ts = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
+        ts = datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
         fname = filename or f"report_{summary.get('session_id', 'unknown')}_{ts}.json"
         path = self.output_dir / fname
 
@@ -19,7 +19,7 @@ class ReportExporter:
             "meta": {
                 "tool": "MAS-Sentry-Toolkit",
                 "version": "0.1.0",
-                "generated_at": datetime.utcnow().isoformat() + "Z",
+                "generated_at": datetime.now(UTC).isoformat(),
             },
             "session": summary,
             "findings": findings,
@@ -32,7 +32,7 @@ class ReportExporter:
         return path
 
     def to_markdown(self, summary: dict[str, Any], findings: list[dict[str, Any]], filename: str | None = None) -> Path:
-        ts = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
+        ts = datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
         fname = filename or f"report_{summary.get('session_id', 'unknown')}_{ts}.md"
         path = self.output_dir / fname
 
@@ -40,7 +40,7 @@ class ReportExporter:
         lines = [
             "# MAS-Sentry-Toolkit — Security Audit Report",
             "",
-            f"**Generated:** {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')} UTC",
+            f"**Generated:** {datetime.now(UTC).strftime('%Y-%m-%d %H:%M:%S')} UTC",
             f"**Target:** `{summary.get('target', 'N/A')}`",
             f"**Protocol:** `{summary.get('protocol', 'N/A')}`",
             "",

@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 import time
-from datetime import datetime
+from datetime import UTC, datetime
 
 import paho.mqtt.client as mqtt
 from rich.console import Console
@@ -42,7 +42,7 @@ class MQTTAnalyzer(BaseProtocolAnalyzer):
             console.print(f"[bold red][MQTT] Connection failed: {status}[/bold red]")
 
     def _on_message(self, client, userdata, msg):
-        captured = CapturedMessage(topic=msg.topic, payload=msg.payload, qos=msg.qos, timestamp=datetime.utcnow())
+        captured = CapturedMessage(topic=msg.topic, payload=msg.payload, qos=msg.qos, timestamp=datetime.now(UTC))
         self.messages.append(captured)
         self.topics_seen.add(msg.topic)
 
