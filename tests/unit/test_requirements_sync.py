@@ -37,6 +37,17 @@ def _requirements_txt() -> dict[str, str]:
     return out
 
 
+def _lock_pins() -> set[str]:
+    out: set[str] = set()
+    for raw in (ROOT / "requirements-lock.txt").read_text(encoding="utf-8").splitlines():
+        line = raw.strip()
+        if not line or line.startswith(("#", "--hash")) or "==" not in line:
+            continue
+        name = line.split("==", 1)[0].strip()
+        out.add(name.lower().replace("_", "-"))
+    return out
+
+
 def test_requirements_txt_matches_pyproject() -> None:
     pyproject = _pyproject_runtime()
     reqs = _requirements_txt()
@@ -48,3 +59,9 @@ def test_requirements_txt_matches_pyproject() -> None:
         f"requirements_only={set(reqs) - set(pyproject)}, "
         f"spec_mismatch={spec_mismatch}"
     )
+
+
+def test_lock_covers_runtime_deps() -> None:
+    runtime = set(_pyproject_runtime())
+    missing = runtime - _lock_pins()
+    assert not missing, f"requirements-lock.txt missing runtime deps (regenerate it): {missing}"
