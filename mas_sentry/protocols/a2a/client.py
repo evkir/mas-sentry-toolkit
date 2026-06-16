@@ -17,6 +17,8 @@ from typing import Any
 
 import httpx
 
+from mas_sentry.core.scope import assert_in_scope
+
 
 class TaskState(StrEnum):
     SUBMITTED = "submitted"
@@ -61,7 +63,10 @@ class A2AClient:
         timeout: float = 15.0,
         verify_tls: bool = True,
         transport: httpx.BaseTransport | None = None,
+        confirmed: bool = False,
     ) -> None:
+        if transport is None:
+            assert_in_scope(base_url, confirmed=confirmed)
         self.base_url = base_url.rstrip("/")
         self._client = httpx.Client(
             headers=headers or {},
