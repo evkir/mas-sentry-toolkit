@@ -1,0 +1,103 @@
+name: Supply Chain
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - pyproject.toml
+      - requirements.txt
+      - requirements-lock.txt
+      - .github/workflows/supply-chain.yml
+  pull_request:
+    branches: [main]
+  schedule:
+    - cron: "17 6 * * 1"  # weekly Mon 06:17 UTC - catch new CVEs in unchanged deps
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  lockfile-integrity:
+    name: Lockfile hash-verified install
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install runtime deps with enforced hashes
+        run: |
+          python -m pip install --upgrade pip
+          pip install --require-hashes -r requirements-lock.txt
+      - name: Install package (no deps)
+        run: pip install . --no-deps
+      - name: Import smoke
+        run: python -c "import mas_sentry; print(mas_sentry.__name__, 'ok')"
+
+  vuln-audit:
+    name: Dependency CVE audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install pip-audit
+        run: |
+          python -m pip install --upgrade pip
+          pip install pip-audit
+      - name: Audit locked dependencies
+        run: pip-audit -r requirements-lock.txt
+
+  dogfood-asi08:
+    name: Self-audit (mas-sentry ASI08)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install package
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e .
+      - name: Scan own lockfile for supply-chain risk
+        run: |
+          mkdir -p reports
+          mas-sentry agentic scan \
+            --target self-audit \
+            --requirements requirements-lock.txt \
+            --asi asi08 \
+            --out reports/self-asi08.json
+      - name: Gate on findings
+        run: |
+          python - reports/self-asi08.json <<'EOF'
+          import json, sys, pathlib
+          findings = json.loads(pathlib.Path(sys.argv[1]).read_text())
+          if findings:
+              print(f"::error::ASI08 self-audit found {len(findings)} finding(s)")
+              for f in findings:
+                  print(f"  - [{f['severity']}] {f['title']}")
+              sys.exit(1)
+          print("ASI08 self-audit clean: 0 findings")
+          EOF
+      - name: Upload self-audit report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: self-asi08-report
+          path: reports/self-asi08.json
+
+  dependency-review:
+    name: Dependency review
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/dependency-review-action@v4
+        with:
+          fail-on-severity: high

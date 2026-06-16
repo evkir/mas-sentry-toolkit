@@ -63,6 +63,8 @@ nav:
       - MQTT Scanning: usage/mqtt-scanning.md
       - ABFP Fingerprinting: usage/abfp-fingerprinting.md
       - Attack Scenarios: usage/attack-scenarios.md
+  - Security:
+      - Supply Chain: SUPPLY-CHAIN.md
   - Reference:
       - CLI: reference/cli.md
       - API (auto): reference/api.md
