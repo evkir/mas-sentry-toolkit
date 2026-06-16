@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import json
 import time
+from dataclasses import asdict
 from pathlib import Path
 from urllib.parse import urlparse
 
@@ -66,7 +67,7 @@ def _write_report(out_path: Path, findings: list[RogueFinding], baseline_status,
     out_path.parent.mkdir(parents=True, exist_ok=True)
     payload = {
         "target": target,
-        "baseline": [s.__dict__ for s in baseline_status],
+        "baseline": [asdict(s) for s in baseline_status],
         "findings": [
             {
                 "agent_id": f.agent_id,
