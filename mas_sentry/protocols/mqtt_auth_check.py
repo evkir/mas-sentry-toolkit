@@ -28,9 +28,9 @@ class MQTTAuthChecker:
 
     def _try_connect(self, username: str | None = None, password: str | None = None, label: str = "test") -> bool:
         result = {"ok": False}
-        client = mqtt.Client(client_id=f"mas-check-{label[:6]}")
+        client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2, client_id=f"mas-check-{label[:6]}")
 
-        def on_connect(c, u, f, rc):
+        def on_connect(c, u, f, rc, properties=None):
             result["ok"] = rc == 0
 
         client.on_connect = on_connect

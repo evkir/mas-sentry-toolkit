@@ -21,11 +21,11 @@ class MQTTBrokerFingerprinter:
         self.sys_topics: dict[str, str] = {}
 
     def fingerprint(self) -> dict[str, Any]:
-        client = mqtt.Client(client_id="mas-sentry-fp")
+        client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2, client_id="mas-sentry-fp")
         client.on_message = lambda c, u, msg: self.sys_topics.__setitem__(
             msg.topic, msg.payload.decode(errors="replace")
         )
-        client.on_connect = lambda c, u, f, rc: c.subscribe("$SYS/#", qos=0)
+        client.on_connect = lambda c, u, f, rc, properties=None: c.subscribe("$SYS/#", qos=0)
 
         try:
             client.connect(self.host, self.port, keepalive=5)

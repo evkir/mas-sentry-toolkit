@@ -23,10 +23,10 @@ class MQTTTopicWalker:
         self.discovered: set[str] = set()
 
     def walk(self, duration: int = 20) -> list[str]:
-        client = mqtt.Client(client_id="mas-sentry-walker")
+        client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2, client_id="mas-sentry-walker")
         client.on_message = lambda c, u, msg: self.discovered.add(msg.topic)
 
-        def on_connect(c, u, f, rc):
+        def on_connect(c, u, f, rc, properties=None):
             if rc == 0:
                 for wc in self.WILDCARDS:
                     c.subscribe(wc, qos=0)

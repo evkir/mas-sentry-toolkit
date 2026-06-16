@@ -48,7 +48,7 @@ class ABFPFingerprinter:
 
     def collect(self, duration: int = 60, topic_filter: str = "#") -> dict[str, AgentFingerprint]:
         """Phase 1: Passive collection"""
-        client = mqtt.Client(client_id="mas-sentry-abfp")
+        client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2, client_id="mas-sentry-abfp")
 
         def on_message(c, u, msg):
             now = time.time()
@@ -81,7 +81,7 @@ class ABFPFingerprinter:
             )
             self._total_messages += 1
 
-        def on_connect(c, u, f, rc):
+        def on_connect(c, u, f, rc, properties=None):
             if rc == 0:
                 c.subscribe(topic_filter, qos=0)
                 console.print(

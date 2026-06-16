@@ -23,7 +23,7 @@ class MQTTAnalyzer(BaseProtocolAnalyzer):
         super().__init__(host, port, confirmed=confirmed)
         self.username = username
         self.password = password
-        self.client = mqtt.Client(client_id="mas-sentry-analyzer")
+        self.client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2, client_id="mas-sentry-analyzer")
         self.topics_seen: set[str] = set()
         self._setup_callbacks()
 
@@ -32,28 +32,19 @@ class MQTTAnalyzer(BaseProtocolAnalyzer):
         self.client.on_message = self._on_message
         self.client.on_disconnect = self._on_disconnect
 
-    def _on_connect(self, client, userdata, flags, rc):
-        codes = {
-            0: "Connected",
-            1: "Bad protocol",
-            2: "Client ID rejected",
-            3: "Server unavailable",
-            4: "Bad credentials",
-            5: "Not authorized",
-        }
-        status = codes.get(rc, f"Unknown ({rc})")
-        if rc == 0:
-            console.print(f"[bold green][MQTT] {status} to {self.host}:{self.port}[/bold green]")
+    def _on_connect(self, client, userdata, flags, reason_code, properties=None):
+        if reason_code == 0:
+            console.print(f"[bold green][MQTT] Connected to {self.host}:{self.port}[/bold green]")
             self.is_running = True
         else:
-            console.print(f"[bold red][MQTT] Connection failed: {status}[/bold red]")
+            console.print(f"[bold red][MQTT] Connection failed: {reason_code}[/bold red]")
 
     def _on_message(self, client, userdata, msg):
         captured = CapturedMessage(topic=msg.topic, payload=msg.payload, qos=msg.qos, timestamp=datetime.now(UTC))
         self.messages.append(captured)
         self.topics_seen.add(msg.topic)
 
-    def _on_disconnect(self, client, userdata, rc):
+    def _on_disconnect(self, client, userdata, disconnect_flags, reason_code, properties=None):
         self.is_running = False
 
     def connect(self) -> bool:

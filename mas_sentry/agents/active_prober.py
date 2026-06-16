@@ -57,7 +57,7 @@ class ActiveProber:
 
     def _make_client(self, client_id: str | None = None) -> mqtt.Client:
         cid = client_id or f"mas-probe-{uuid.uuid4().hex[:6]}"
-        c = mqtt.Client(client_id=cid)
+        c = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2, client_id=cid)
         return c
 
     def probe_topic(self, topic: str, payload: str, listen_topic: str = "#", wait_seconds: float = 3.0) -> ProbeResult:
@@ -78,7 +78,7 @@ class ActiveProber:
                 )
 
         sub.on_message = on_message
-        sub.on_connect = lambda c, u, f, rc: c.subscribe(listen_topic, qos=0)
+        sub.on_connect = lambda c, u, f, rc, properties=None: c.subscribe(listen_topic, qos=0)
 
         try:
             sub.connect(self.host, self.port)

@@ -85,8 +85,8 @@ class ProtocolDetector:
 
     def _try_mqtt(self, port: int) -> bool:
         connected = {"ok": False}
-        client = mqtt.Client(client_id="mas-sentry-detect")
-        client.on_connect = lambda c, u, f, rc: connected.update({"ok": rc == 0})
+        client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2, client_id="mas-sentry-detect")
+        client.on_connect = lambda c, u, f, rc, properties=None: connected.update({"ok": rc == 0})
         try:
             client.connect(self.host, port, keepalive=3)
             client.loop_start()
