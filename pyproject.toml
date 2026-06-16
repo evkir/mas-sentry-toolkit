@@ -89,6 +89,11 @@ minversion = "8.0"
 testpaths = ["tests"]
 addopts = "-ra --strict-markers --cov=mas_sentry --cov-report=term-missing"
 asyncio_mode = "auto"
+markers = [
+    "unit: unit tests (no network required)",
+    "integration: integration tests (requires Docker lab)",
+    "slow: tests that take more than 5 seconds",
+]
 
 [tool.coverage.report]
 fail_under = 80
