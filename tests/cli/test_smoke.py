@@ -153,3 +153,21 @@ def test_report_convert_missing_source_fails(tmp_path: Path) -> None:
         ],
     )
     assert r.exit_code != 0
+
+
+def test_version_flag() -> None:
+    """--version prints package name + a semver-ish version and exits 0."""
+    from importlib.metadata import version
+
+    result = runner.invoke(app, ["--version"])
+    assert result.exit_code == 0
+    out = _plain(result.stdout)
+    assert "mas-sentry-toolkit" in out
+    assert version("mas-sentry-toolkit") in out
+
+
+def test_version_short_circuits_subcommands() -> None:
+    """--version is eager: it wins even with a subcommand token present."""
+    result = runner.invoke(app, ["--version", "agentic"])
+    assert result.exit_code == 0
+    assert "mas-sentry-toolkit" in _plain(result.stdout)

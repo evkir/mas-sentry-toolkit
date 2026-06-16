@@ -17,8 +17,23 @@ app.add_typer(report_app, name="report", help="Convert findings to report format
 app.add_typer(doctor_app, name="doctor", help="Environment self-check")
 
 
+def _version_callback(value: bool) -> None:
+    if value:
+        from importlib.metadata import version
+
+        typer.echo(f"mas-sentry-toolkit {version('mas-sentry-toolkit')}")
+        raise typer.Exit
+
+
 @app.callback()
 def main(
+    version: bool = typer.Option(
+        False,
+        "--version",
+        help="Show version and exit",
+        callback=_version_callback,
+        is_eager=True,
+    ),
     verbose: bool = typer.Option(False, "--verbose", "-v", help="Debug-level logging"),
     quiet: bool = typer.Option(False, "--quiet", "-q", help="Errors only"),
     no_color: bool = typer.Option(False, "--no-color", help="Disable ANSI colors"),

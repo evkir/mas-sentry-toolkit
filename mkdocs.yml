@@ -63,6 +63,7 @@ nav:
       - MQTT Scanning: usage/mqtt-scanning.md
       - ABFP Fingerprinting: usage/abfp-fingerprinting.md
       - Attack Scenarios: usage/attack-scenarios.md
+      - Shell Completion: usage/shell-completion.md
   - Security:
       - Supply Chain: SUPPLY-CHAIN.md
   - Reference:

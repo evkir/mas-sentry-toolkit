@@ -53,6 +53,8 @@ Homepage = "https://github.com/evkir/mas-sentry-toolkit"
 Repository = "https://github.com/evkir/mas-sentry-toolkit"
 Issues = "https://github.com/evkir/mas-sentry-toolkit/issues"
 Changelog = "https://github.com/evkir/mas-sentry-toolkit/blob/main/CHANGELOG.md"
+Security = "https://github.com/evkir/mas-sentry-toolkit/blob/main/SECURITY.md"
+"Threat Model" = "https://github.com/evkir/mas-sentry-toolkit/blob/main/THREAT_MODEL.md"
 
 [project.scripts]
 mas-sentry = "mas_sentry.cli:app"
