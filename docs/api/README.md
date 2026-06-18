@@ -1,43 +1,53 @@
-# MAS-Sentry-Toolkit API Reference
+# MAS-Sentry Toolkit -- API Reference
 
-## Core Modules
+Hand-picked usage examples for the most common entry points. For the full,
+auto-generated symbol reference see [API (generated)](../reference/api.md).
 
-### `mas_sentry.core.engine.SentryEngine`
-Main engine class orchestrating all scan operations.
+## Entry point: UnifiedThreatEngine
 
-```python
-from mas_sentry.core.engine import SentryEngine
-from mas_sentry.core.config import SentryConfig
-
-engine = SentryEngine(config=SentryConfig())
-session = engine.start_session(target="127.0.0.1", protocol="mqtt")
-engine.end_session()
-```
-
-### `mas_sentry.core.session.ScanSession`
-Tracks scan state and findings.
+The engine composes independent audit modules. A module is any callable taking a
+context dict and yielding `Finding` objects.
 
 ```python
-session.add_finding(
-    severity="CRITICAL",
-    title="Anonymous Access",
-    description="Broker allows unauthenticated connections",
-    data={"port": 1883}
-)
-summary = session.summary()
+from mas_sentry.core.threat_engine import UnifiedThreatEngine
+from mas_sentry.core.finding import Finding, Severity
+
+engine = UnifiedThreatEngine()
+
+def example_module(ctx: dict) -> list[Finding]:
+    return [
+        Finding(
+            module="example",
+            title="Anonymous access",
+            detail="Broker allows unauthenticated connections",
+            severity=Severity.CRITICAL,
+            target=ctx["target"],
+            evidence={"port": 1883},
+        )
+    ]
+
+engine.register("example", example_module)
+run = engine.run(target="127.0.0.1", ctx={"target": "127.0.0.1"})
+
+print(run.max_severity)               # highest severity across findings
+print(run.by_severity(Severity.HIGH)) # filter
+print(run.errors)                     # per-module failures, isolated
 ```
+
+For a real wiring of the agentic ASI modules, see `mas_sentry/agentic/run.py`.
+
+## Core helpers
 
 ### `mas_sentry.core.types`
-Type aliases and typed helpers.
 
 ```python
 from mas_sentry.core.types import get_critical, filter_findings
 
-critical = get_critical(session.findings)
-high = filter_findings(session.findings, "HIGH")
+critical = get_critical(findings)
+high = filter_findings(findings, "HIGH")
 ```
 
-## Threat Modeling
+## Threat modeling
 
 ### `mas_sentry.threat_modeling.stride_mapper.STRIDEMapper`
 
@@ -57,7 +67,7 @@ from mas_sentry.threat_modeling.cvss_calculator import CVSSVector, calculate_cvs
 
 vector = CVSSVector(attack_vector="N", confidentiality="H",
                     integrity="H", availability="H")
-score = calculate_cvss(vector)  # → 9.8
+score = calculate_cvss(vector)  # 9.8
 ```
 
 ### `mas_sentry.threat_modeling.threat_aggregator`
@@ -71,7 +81,7 @@ print(score.weighted_score)  # float
 print(score.top_threats)     # top 3 by CVSS
 ```
 
-## ABFP Engine
+## ABFP engine
 
 ### `mas_sentry.agents.fingerprinter.ABFPFingerprinter`
 

@@ -1,63 +1,89 @@
-# MAS-Sentry-Toolkit — Architecture (DAY 12)
+# MAS-Sentry Toolkit -- Architecture
 
-## Component Map
-┌─────────────────────────────────────────┐
-│         MAS-Sentry-Toolkit v0.1.0       │
-└─────────────────────────────────────────┘
-┌─────────┐
-          │   CLI   │  sniff / audit / abfp
-          └────┬────┘
-               │
-     ┌─────────▼──────────┐
-     │   SentryEngine     │
-     │  core/engine.py    │
-     └──┬─────────────────┘
-        │
-┌────────▼────────┐
-│   ScanSession   │
-│  core/session   │
-└──┬──────────────┘
-│
-┌────┴──────────────────────────────┐
-│             │                     │
-▼             ▼                     ▼
-display     exporter          Protocol Layer
-core/       core/             protocols/
-display.py  exporter.py
-│                 MQTTAnalyzer
-severity    .to_json()        AMQPAnalyzer
-color       .to_md()          TopicWalker
-table                         BruteForcer
-panel                         RetainedScan
+Unified offensive-security toolkit for multi-agent systems (MAS). The current
+architecture is module-oriented: independent audit modules emit a common
+`Finding` type and are composed by a single `UnifiedThreatEngine`. This replaced
+the pre-pivot single-protocol `SentryEngine` design.
 
-## Data Flow
+## Component map
 
-Target → Protocol Analyzer → ScanSession.add_finding()
-│
-┌─────────▼──────────┐
-│   ReportExporter    │
-│  .to_json()  → *.json
-│  .to_md()    → *.md
-│  .to_html()  → Day 26
-└─────────────────────┘
+```
+                         +-------------------------------+
+                         |   CLI (typer)                 |
+                         |   abfp / mcp / agentic /      |
+                         |   report / doctor             |
+                         +---------------+---------------+
+                                         |
+                         +---------------v---------------+
+                         |   UnifiedThreatEngine         |
+                         |   core/threat_engine.py       |
+                         |   register(name, fn) / run()  |
+                         +---------------+---------------+
+                                         | runs modules, dedups,
+                                         | isolates failures
+        +--------------------+-----------+-----------+--------------------+
+        |                    |                       |                    |
+        v                    v                       v                    v
+  protocols/mcp/       agentic/               agents/abfp/         protocols/a2a/
+  audit pack           ASI01-ASI10            behavioural          agent-card
+  (RCE/SSRF/           detection              fingerprinting       audit + probes
+   poisoning/          modules                (Phases 1-5)
+   traversal)
+        |                    |                       |                    |
+        +--------------------+-----------+-----------+--------------------+
+                                         |
+                            each module yields core/finding.Finding
+                                         |
+                         +---------------v---------------+
+                         |   reporting/                  |
+                         |   report_model -> HTML / MD / |
+                         |   JSON / SARIF / JUnit         |
+                         +-------------------------------+
+```
 
-## Module Status
+## Core (core/)
 
-| Module                         | Status  | Day |
-|--------------------------------|---------|-----|
-| core/config.py                 | ✅ Done | 2   |
-| core/session.py                | ✅ Done | 2   |
-| core/engine.py                 | ✅ Done | 2   |
-| core/display.py                | ✅ Done | 12  |
-| core/exporter.py               | ✅ Done | 12  |
-| protocols/base.py              | ✅ Done | 4   |
-| protocols/mqtt_analyzer.py     | ✅ Done | 5   |
-| protocols/mqtt_fingerprint.py  | ✅ Done | 6   |
-| protocols/mqtt_topic_walker.py | ✅ Done | 6   |
-| protocols/mqtt_retained.py     | ✅ Done | 6   |
-| protocols/amqp_analyzer.py     | ✅ Done | 7   |
-| exploits/mqtt_bruteforce.py    | ✅ Done | 8   |
-| exploits/mqtt_fuzzer.py        | ✅ Done | 9   |
-| agents/fingerprinter.py        | 🔄 Next | 15  |
-| threat_modeling/stride.py      | 🔄 Next | 22  |
-| reporting/html_report.py       | 🔄 Next | 26  |
+| Module            | Role                                                        |
+|-------------------|-------------------------------------------------------------|
+| finding.py        | `Finding` + `Severity` model, `max_severity` helper         |
+| threat_engine.py  | `UnifiedThreatEngine`: registers module callables, runs them, deduplicates findings, isolates per-module failures into `EngineRun.errors` |
+| adapters.py       | Convert module-native findings (agentic, mcp, abfp) into the common `Finding` |
+| audit_log.py      | Append-only audit trail of scan actions                     |
+| scope.py          | Scope-confirmation guard for non-lab targets                |
+| types.py          | Shared type aliases + severity filters                      |
+
+A module is any `Callable[[dict], Iterable[Finding]]`. The engine never imports
+the modules directly; callers register them (see `agentic/run.py`), which keeps
+the engine decoupled from any individual protocol or detector.
+
+## Audit layers
+
+- `protocols/mcp/` -- independent MCP client + audit pack: stdio RCE, SSRF,
+  tool poisoning, prompt injection, path traversal, DNS rebinding, config
+  injection, metadata tampering.
+- `agentic/` -- OWASP Agentic Top 10 (2026) detectors, ASI01-ASI10. Static-input
+  modules (ASI02/03/05/06/08/09) wire into the engine via `agentic/run.py`; live
+  probes (ASI01/04/07) need an agent transport and run separately.
+- `agents/abfp/` -- Agent Behavioural Fingerprinting Protocol: passive observation,
+  baseline collection, timing/payload/topic-graph analysis, rogue + impersonation
+  scoring mapped to STRIDE/ASI tags.
+- `protocols/a2a/` -- A2A agent-card audit and probes.
+- `protocols/` (mqtt/amqp analyzers) and `exploits/` -- transport-level MQTT/AMQP
+  tooling retained from the toolkit's IoT-messaging origins.
+
+## Threat modeling (threat_modeling/)
+
+STRIDE mapping, CVSS v3.1 scoring, attack trees, and a `threat_aggregator` that
+rolls per-threat CVSS into a single `ThreatScore` (`risk_level`,
+`weighted_score`, `top_threats`).
+
+## Reporting (reporting/)
+
+`report_model` is the single normalized model rendered to HTML, Markdown, JSON,
+SARIF, and JUnit. Module-specific renderers (`mcp_html`, `unified_html`) build on
+the same model.
+
+## Lab (lab/)
+
+Vulnerable MCP lab plus a scenario runner used for dogfooding and end-to-end
+verification of the audit pack.
