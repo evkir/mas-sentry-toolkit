@@ -29,7 +29,6 @@ jobs:
       - name: Ruff format
         run: ruff format --check .
       - name: Mypy
-        continue-on-error: true
         run: mypy mas_sentry
 
   test:
