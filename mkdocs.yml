@@ -64,6 +64,12 @@ nav:
       - ABFP Fingerprinting: usage/abfp-fingerprinting.md
       - Attack Scenarios: usage/attack-scenarios.md
       - Shell Completion: usage/shell-completion.md
+  - Examples:
+      - Environment Doctor: examples/01-environment-doctor.md
+      - MCP STDIO RCE: examples/02-mcp-stdio-rce.md
+      - ABFP Baseline: examples/03-abfp-baseline.md
+      - Agentic Static Scan: examples/04-agentic-static.md
+      - Bug Bounty Prep: examples/05-bug-bounty-prep.md
   - Security:
       - Supply Chain: SUPPLY-CHAIN.md
   - Reference:
