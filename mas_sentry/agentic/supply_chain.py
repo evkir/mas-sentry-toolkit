@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import json
 import re
+import tomllib
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -55,18 +56,16 @@ def audit_supply_chain(ctx: SupplyChainContext, target: str) -> list[AgenticFind
 
 
 def _audit_requirements(path: Path, target: str) -> list[AgenticFinding]:
+    specs = _extract_specs(path)
     out: list[AgenticFinding] = []
     floating = 0
     git_direct = 0
     total = 0
-    for raw_line in path.read_text(encoding="utf-8").splitlines():
-        line = raw_line.strip()
-        if not line or line.startswith("#"):
-            continue
+    for spec in specs:
         total += 1
-        if line.startswith(("git+", "-e ")):
+        if spec.startswith(("git+", "-e ")) or "git+" in spec:
             git_direct += 1
-        elif not re.search(r"==\d", line) and not re.search(r"--hash", line):
+        elif not re.search(r"==\d", spec) and "--hash" not in spec:
             floating += 1
     if floating > 0:
         out.append(
@@ -97,6 +96,61 @@ def _audit_requirements(path: Path, target: str) -> list[AgenticFinding]:
             )
         )
     return out
+
+
+# A requirements.txt line is a real spec only if it begins with a PEP 508 name
+# token or a direct git/editable ref. This rejects TOML scaffolding, option
+# lines (-r/-c/--index-url), and --hash continuations that would otherwise be
+# miscounted as dependencies.
+_REQ_LINE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*(\[[^\]]+\])?\s*([<>=!~@;].*)?$")
+
+
+def _is_pyproject(path: Path) -> bool:
+    if path.name == "pyproject.toml":
+        return True
+    if path.suffix != ".toml":
+        return False
+    try:
+        data = tomllib.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return False
+    return "project" in data or "build-system" in data
+
+
+def _specs_from_pyproject(path: Path) -> list[str]:
+    try:
+        data = tomllib.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return []
+    project = data.get("project", {})
+    specs: list[str] = list(project.get("dependencies", []) or [])
+    for group in (project.get("optional-dependencies", {}) or {}).values():
+        specs.extend(group or [])
+    return [s for s in specs if isinstance(s, str)]
+
+
+def _specs_from_requirements(path: Path) -> list[str]:
+    out: list[str] = []
+    for raw_line in path.read_text(encoding="utf-8").splitlines():
+        line = raw_line.strip().rstrip("\\").strip()
+        if not line or line.startswith("#"):
+            continue
+        if line.startswith(("git+", "-e ")):
+            out.append(line)
+            continue
+        if line.startswith("-"):  # -r, -c, --index-url, --hash continuations
+            continue
+        if " = " in line or line.startswith(("[", '"', "'")):  # TOML scaffolding
+            continue
+        if _REQ_LINE.match(line):
+            out.append(line)
+    return out
+
+
+def _extract_specs(path: Path) -> list[str]:
+    if _is_pyproject(path):
+        return _specs_from_pyproject(path)
+    return _specs_from_requirements(path)
 
 
 def _is_floating_npm_version(v: str) -> bool:

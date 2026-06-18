@@ -74,6 +74,65 @@ def test_supply_chain_lockfile_satisfies(tmp_path: Path) -> None:
     assert not any("No lockfile" in f.title for f in findings)
 
 
+def test_supply_chain_pyproject_parsed_as_deps_not_lines(tmp_path: Path) -> None:
+    # Regression: feeding a pyproject.toml must audit project.dependencies +
+    # optional-dependencies, NOT count TOML scaffolding lines (the old parser
+    # reported "88/88" by treating every non-comment line as a requirement).
+    pj = tmp_path / "pyproject.toml"
+    pj.write_text(
+        "\n".join(
+            [
+                "[build-system]",
+                'requires = ["hatchling"]',
+                "",
+                "[project]",
+                'name = "demo"',
+                'version = "0.1.0"',
+                "dependencies = [",
+                '    "pydantic>=2.10",',
+                '    "paho-mqtt==2.1",',
+                '    "typer",',
+                "]",
+                "",
+                "[project.optional-dependencies]",
+                'dev = ["pytest==8.0", "ruff"]',
+            ]
+        ),
+        encoding="utf-8",
+    )
+    findings = audit_supply_chain(SupplyChainContext(requirements_path=pj), target="lab")
+    floating = [f for f in findings if "without exact" in f.title]
+    assert floating
+    # 5 specs total: pydantic, paho-mqtt, typer, pytest, ruff.
+    # Pinned: paho-mqtt==2.1, pytest==8.0. Floating: pydantic, typer, ruff = 3.
+    assert floating[0].evidence["total"] == 5
+    assert floating[0].evidence["floating"] == 3
+
+
+def test_supply_chain_requirements_skips_options_and_hashes(tmp_path: Path) -> None:
+    req = tmp_path / "requirements.txt"
+    req.write_text(
+        "\n".join(
+            [
+                "-r base.txt",
+                "--index-url https://pypi.org/simple",
+                "# a comment",
+                "pydantic==2.10.0 \\",
+                "    --hash=sha256:deadbeef \\",
+                "    --hash=sha256:cafef00d",
+                "requests",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    findings = audit_supply_chain(SupplyChainContext(requirements_path=req), target="lab")
+    floating = [f for f in findings if "without exact" in f.title]
+    # Only pydantic (pinned) and requests (floating) are real specs.
+    assert floating
+    assert floating[0].evidence["total"] == 2
+    assert floating[0].evidence["floating"] == 1
+
+
 # ─────────────── ASI09 — trust exploit ───────────────
 
 
