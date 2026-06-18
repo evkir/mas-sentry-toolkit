@@ -14,6 +14,31 @@
 - THREAT_MODEL.md (ASI01-ASI10, MCP CVEs, ABFP-STRIDE table).
 - CI matrix Python 3.11/3.12/3.13/3.14.
 - scripts/add_spdx_header.sh (idempotent, shebang-aware).
+- Pre-commit hooks (ruff/format) and Renovate dependency automation.
+- Integration tests against a live Mosquitto broker via docker compose.
+- Supply-chain security: hash-pinned `requirements-lock.txt`, `requirements.txt`
+  mirror with a drift-guard test, and `supply-chain.yml` CI (hash-verified
+  install, pip-audit CVE scan, ASI08 dogfood self-audit, dependency-review).
+- `docs/SUPPLY-CHAIN.md` documenting the pinning + verification model.
+- `release.yml`: wheel + sdist build, `twine check`, and a CycloneDX SBOM
+  generated from the locked deps, attached to the GitHub Release on tag.
+- CLI `--version` (via importlib.metadata) and documented shell completion.
+- `project.urls` Security + Threat Model entries for PyPI sidebar discovery.
+- Five verified usage example workflows under `docs/examples/`.
+- Dogfood ASI08 self-audit (`reports/SELF-AUDIT.md`) - 0 findings on the
+  hash-pinned lockfile.
+
+### Changed (hardening)
+- mypy is now a hard CI gate (previously advisory / continue-on-error).
+- ASI08 supply-chain scanner is pyproject-aware and ignores non-requirement
+  lines (option flags, `--hash` continuations, TOML scaffolding).
+- pytest config consolidated into `pyproject.toml` (asyncio auto,
+  strict-markers, coverage gate 60%); removed the shadowing `pytest.ini`.
+
+### Fixed
+- ASI08 parser miscounted TOML and option lines as dependencies, producing a
+  false "N/N unpinned" finding when pointed at a `pyproject.toml`.
+- ABFP report serialization of slotted `BaselineStatus` via `asdict`.
 
 
 All notable changes to MAS-Sentry-Toolkit are documented here.
