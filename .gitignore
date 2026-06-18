@@ -15,3 +15,6 @@ site/
 .coverage
 coverage.xml
 .pytest_cache/
+
+# transient lab scenario run artifacts (curated demo/self-supply reports stay tracked)
+reports/lab_*.json
