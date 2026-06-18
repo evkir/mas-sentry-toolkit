@@ -24,8 +24,6 @@ _DEPS = [
     "httpx",
     "networkx",
     "scipy",
-    "sqlalchemy",
-    "alembic",
     "structlog",
 ]
 
