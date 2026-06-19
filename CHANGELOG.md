@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.2.0-dev] — 2026-05-17 — Pivot to Agentic MAS Security
+## [0.2.0] — 2026-06-19 — Pivot to Agentic MAS Security
 
 ### Changed
 - Relicensed from MIT to **AGPL-3.0-or-later** (sole contributor consent).
@@ -34,11 +34,38 @@
   lines (option flags, `--hash` continuations, TOML scaffolding).
 - pytest config consolidated into `pyproject.toml` (asyncio auto,
   strict-markers, coverage gate 60%); removed the shadowing `pytest.ini`.
+- Rewrote `ARCHITECTURE.md` and `docs/api/README.md` to the current
+  `UnifiedThreatEngine` module model; the old docs described the deleted
+  `SentryEngine` and shipped copy-paste examples that would ImportError.
 
 ### Fixed
 - ASI08 parser miscounted TOML and option lines as dependencies, producing a
   false "N/N unpinned" finding when pointed at a `pyproject.toml`.
 - ABFP report serialization of slotted `BaselineStatus` via `asdict`.
+- SARIF emitter no longer hardcodes the tool version; it is derived from
+  package metadata (importlib.metadata), so emitted reports never drift.
+
+### Removed (pre-release dead-code audit)
+- Pre-pivot `SentryEngine 1.0` MQTT/AMQP cluster: `core/engine.py`,
+  `core/session.py`, `core/config.py`, `core/display.py`, `core/exporter.py`,
+  `core/multi_target.py`, `protocols/auto_detect.py`, `agents/profiles.py` --
+  all superseded by `UnifiedThreatEngine` and the `reporting/` package.
+- Unwired SQLAlchemy persistence (`agents/abfp/storage.py`) and its
+  `sqlalchemy` + `alembic` runtime dependencies (alembic was a phantom dep:
+  no migrations, no alembic.ini).
+- Duplicate / unsafe ABFP fragments: `agents/abfp/stride_map.py` (duplicated
+  the live `abfp_stride_mapper`) and `reporting/abfp_html.py` (duplicated
+  `unified_html` without jinja2 autoescape).
+- Unwired ABFP features `agents/abfp/impersonation.py` and
+  `agents/abfp/graph_metrics.py`, deferred to v0.3.0 as properly wired+tested
+  modules (code preserved in git history).
+- Second divergent click CLI in `__main__.py` (sniff/abfp/fingerprint/walk/
+  audit/probe/learn/config) frozen at a hardcoded v0.1.0 banner and the
+  pre-pivot MQTT/AMQP command set; `python -m mas_sentry` now delegates to the
+  real `mas-sentry` CLI (mas_sentry.cli:app).
+- Net effect: real line coverage rose from ~66.9% to ~77% (dead 0%-modules
+  out of the denominator) and the runtime dependency surface dropped by two
+  direct + two transitive packages. CI coverage gate raised 60 -> 70.
 
 
 All notable changes to MAS-Sentry-Toolkit are documented here.
