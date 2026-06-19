@@ -80,7 +80,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#mas-sentry-toolkit-architecture-day-12" class="md-skip">
+        <a href="#mas-sentry-toolkit-architecture" class="md-skip">
           Skip to content
         </a>
       
@@ -521,7 +521,7 @@
   <a href="#component-map" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Component Map
+        Component map
       
     </span>
   </a>
@@ -529,10 +529,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#data-flow" class="md-nav__link">
+  <a href="#core-core" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Data Flow
+        Core (core/)
       
     </span>
   </a>
@@ -540,10 +540,43 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#module-status" class="md-nav__link">
+  <a href="#audit-layers" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Module Status
+        Audit layers
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#threat-modeling-threat_modeling" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Threat modeling (threat_modeling/)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#reporting-reporting" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Reporting (reporting/)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#lab-lab" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Lab (lab/)
       
     </span>
   </a>
@@ -1474,7 +1507,7 @@
   <a href="#component-map" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Component Map
+        Component map
       
     </span>
   </a>
@@ -1482,10 +1515,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#data-flow" class="md-nav__link">
+  <a href="#core-core" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Data Flow
+        Core (core/)
       
     </span>
   </a>
@@ -1493,10 +1526,43 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#module-status" class="md-nav__link">
+  <a href="#audit-layers" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Module Status
+        Audit layers
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#threat-modeling-threat_modeling" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Threat modeling (threat_modeling/)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#reporting-reporting" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Reporting (reporting/)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#lab-lab" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Lab (lab/)
       
     </span>
   </a>
@@ -1523,137 +1589,108 @@
   
 
 
-<h1 id="mas-sentry-toolkit-architecture-day-12">MAS-Sentry-Toolkit — Architecture (DAY 12)</h1>
-<h2 id="component-map">Component Map</h2>
-<p>┌─────────────────────────────────────────┐
-│         MAS-Sentry-Toolkit v0.1.0       │
-└─────────────────────────────────────────┘
-┌─────────┐
-          │   CLI   │  sniff / audit / abfp
-          └────┬────┘
-               │
-     ┌─────────▼──────────┐
-     │   SentryEngine     │
-     │  core/engine.py    │
-     └──┬─────────────────┘
-        │
-┌────────▼────────┐
-│   ScanSession   │
-│  core/session   │
-└──┬──────────────┘
-│
-┌────┴──────────────────────────────┐
-│             │                     │
-▼             ▼                     ▼
-display     exporter          Protocol Layer
-core/       core/             protocols/
-display.py  exporter.py
-│                 MQTTAnalyzer
-severity    .to_json()        AMQPAnalyzer
-color       .to_md()          TopicWalker
-table                         BruteForcer
-panel                         RetainedScan</p>
-<h2 id="data-flow">Data Flow</h2>
-<p>Target → Protocol Analyzer → ScanSession.add_finding()
-│
-┌─────────▼──────────┐
-│   ReportExporter    │
-│  .to_json()  → <em>.json
-│  .to_md()    → </em>.md
-│  .to_html()  → Day 26
-└─────────────────────┘</p>
-<h2 id="module-status">Module Status</h2>
+<h1 id="mas-sentry-toolkit-architecture">MAS-Sentry Toolkit -- Architecture</h1>
+<p>Unified offensive-security toolkit for multi-agent systems (MAS). The current
+architecture is module-oriented: independent audit modules emit a common
+<code>Finding</code> type and are composed by a single <code>UnifiedThreatEngine</code>. This replaced
+the pre-pivot single-protocol <code>SentryEngine</code> design.</p>
+<h2 id="component-map">Component map</h2>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>                         +-------------------------------+
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>                         |   CLI (typer)                 |
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>                         |   abfp / mcp / agentic /      |
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>                         |   report / doctor             |
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>                         +---------------+---------------+
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>                                         |
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>                         +---------------v---------------+
+<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>                         |   UnifiedThreatEngine         |
+<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>                         |   core/threat_engine.py       |
+<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>                         |   register(name, fn) / run()  |
+<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>                         +---------------+---------------+
+<a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>                                         | runs modules, dedups,
+<a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a>                                         | isolates failures
+<a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a>        +--------------------+-----------+-----------+--------------------+
+<a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a>        |                    |                       |                    |
+<a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a>        v                    v                       v                    v
+<a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a>  protocols/mcp/       agentic/               agents/abfp/         protocols/a2a/
+<a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a>  audit pack           ASI01-ASI10            behavioural          agent-card
+<a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a>  (RCE/SSRF/           detection              fingerprinting       audit + probes
+<a id="__codelineno-0-20" name="__codelineno-0-20" href="#__codelineno-0-20"></a>   poisoning/          modules                (Phases 1-5)
+<a id="__codelineno-0-21" name="__codelineno-0-21" href="#__codelineno-0-21"></a>   traversal)
+<a id="__codelineno-0-22" name="__codelineno-0-22" href="#__codelineno-0-22"></a>        |                    |                       |                    |
+<a id="__codelineno-0-23" name="__codelineno-0-23" href="#__codelineno-0-23"></a>        +--------------------+-----------+-----------+--------------------+
+<a id="__codelineno-0-24" name="__codelineno-0-24" href="#__codelineno-0-24"></a>                                         |
+<a id="__codelineno-0-25" name="__codelineno-0-25" href="#__codelineno-0-25"></a>                            each module yields core/finding.Finding
+<a id="__codelineno-0-26" name="__codelineno-0-26" href="#__codelineno-0-26"></a>                                         |
+<a id="__codelineno-0-27" name="__codelineno-0-27" href="#__codelineno-0-27"></a>                         +---------------v---------------+
+<a id="__codelineno-0-28" name="__codelineno-0-28" href="#__codelineno-0-28"></a>                         |   reporting/                  |
+<a id="__codelineno-0-29" name="__codelineno-0-29" href="#__codelineno-0-29"></a>                         |   report_model -&gt; HTML / MD / |
+<a id="__codelineno-0-30" name="__codelineno-0-30" href="#__codelineno-0-30"></a>                         |   JSON / SARIF / JUnit         |
+<a id="__codelineno-0-31" name="__codelineno-0-31" href="#__codelineno-0-31"></a>                         +-------------------------------+
+</code></pre></div>
+<h2 id="core-core">Core (core/)</h2>
 <table>
 <thead>
 <tr>
 <th>Module</th>
-<th>Status</th>
-<th>Day</th>
+<th>Role</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td>core/config.py</td>
-<td>✅ Done</td>
-<td>2</td>
+<td>finding.py</td>
+<td><code>Finding</code> + <code>Severity</code> model, <code>max_severity</code> helper</td>
 </tr>
 <tr>
-<td>core/session.py</td>
-<td>✅ Done</td>
-<td>2</td>
+<td>threat_engine.py</td>
+<td><code>UnifiedThreatEngine</code>: registers module callables, runs them, deduplicates findings, isolates per-module failures into <code>EngineRun.errors</code></td>
 </tr>
 <tr>
-<td>core/engine.py</td>
-<td>✅ Done</td>
-<td>2</td>
+<td>adapters.py</td>
+<td>Convert module-native findings (agentic, mcp, abfp) into the common <code>Finding</code></td>
 </tr>
 <tr>
-<td>core/display.py</td>
-<td>✅ Done</td>
-<td>12</td>
+<td>audit_log.py</td>
+<td>Append-only audit trail of scan actions</td>
 </tr>
 <tr>
-<td>core/exporter.py</td>
-<td>✅ Done</td>
-<td>12</td>
+<td>scope.py</td>
+<td>Scope-confirmation guard for non-lab targets</td>
 </tr>
 <tr>
-<td>protocols/base.py</td>
-<td>✅ Done</td>
-<td>4</td>
-</tr>
-<tr>
-<td>protocols/mqtt_analyzer.py</td>
-<td>✅ Done</td>
-<td>5</td>
-</tr>
-<tr>
-<td>protocols/mqtt_fingerprint.py</td>
-<td>✅ Done</td>
-<td>6</td>
-</tr>
-<tr>
-<td>protocols/mqtt_topic_walker.py</td>
-<td>✅ Done</td>
-<td>6</td>
-</tr>
-<tr>
-<td>protocols/mqtt_retained.py</td>
-<td>✅ Done</td>
-<td>6</td>
-</tr>
-<tr>
-<td>protocols/amqp_analyzer.py</td>
-<td>✅ Done</td>
-<td>7</td>
-</tr>
-<tr>
-<td>exploits/mqtt_bruteforce.py</td>
-<td>✅ Done</td>
-<td>8</td>
-</tr>
-<tr>
-<td>exploits/mqtt_fuzzer.py</td>
-<td>✅ Done</td>
-<td>9</td>
-</tr>
-<tr>
-<td>agents/fingerprinter.py</td>
-<td>🔄 Next</td>
-<td>15</td>
-</tr>
-<tr>
-<td>threat_modeling/stride.py</td>
-<td>🔄 Next</td>
-<td>22</td>
-</tr>
-<tr>
-<td>reporting/html_report.py</td>
-<td>🔄 Next</td>
-<td>26</td>
+<td>types.py</td>
+<td>Shared type aliases + severity filters</td>
 </tr>
 </tbody>
 </table>
+<p>A module is any <code>Callable[[dict], Iterable[Finding]]</code>. The engine never imports
+the modules directly; callers register them (see <code>agentic/run.py</code>), which keeps
+the engine decoupled from any individual protocol or detector.</p>
+<h2 id="audit-layers">Audit layers</h2>
+<ul>
+<li><code>protocols/mcp/</code> -- independent MCP client + audit pack: stdio RCE, SSRF,
+  tool poisoning, prompt injection, path traversal, DNS rebinding, config
+  injection, metadata tampering.</li>
+<li><code>agentic/</code> -- OWASP Agentic Top 10 (2026) detectors, ASI01-ASI10. Static-input
+  modules (ASI02/03/05/06/08/09) wire into the engine via <code>agentic/run.py</code>; live
+  probes (ASI01/04/07) need an agent transport and run separately.</li>
+<li><code>agents/abfp/</code> -- Agent Behavioural Fingerprinting Protocol: passive observation,
+  baseline collection, timing/payload/topic-graph analysis, rogue + impersonation
+  scoring mapped to STRIDE/ASI tags.</li>
+<li><code>protocols/a2a/</code> -- A2A agent-card audit and probes.</li>
+<li><code>protocols/</code> (mqtt/amqp analyzers) and <code>exploits/</code> -- transport-level MQTT/AMQP
+  tooling retained from the toolkit's IoT-messaging origins.</li>
+</ul>
+<h2 id="threat-modeling-threat_modeling">Threat modeling (threat_modeling/)</h2>
+<p>STRIDE mapping, CVSS v3.1 scoring, attack trees, and a <code>threat_aggregator</code> that
+rolls per-threat CVSS into a single <code>ThreatScore</code> (<code>risk_level</code>,
+<code>weighted_score</code>, <code>top_threats</code>).</p>
+<h2 id="reporting-reporting">Reporting (reporting/)</h2>
+<p><code>report_model</code> is the single normalized model rendered to HTML, Markdown, JSON,
+SARIF, and JUnit. Module-specific renderers (<code>mcp_html</code>, <code>unified_html</code>) build on
+the same model.</p>
+<h2 id="lab-lab">Lab (lab/)</h2>
+<p>Vulnerable MCP lab plus a scenario runner used for dogfooding and end-to-end
+verification of the audit pack.</p>
 
 
 
