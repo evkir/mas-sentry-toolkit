@@ -4,8 +4,18 @@
 from __future__ import annotations
 
 import json
+from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
 from typing import Any
+
+
+def _pkg_version() -> str:
+    """Resolve the installed package version; never hardcode it."""
+    try:
+        return version("mas-sentry-toolkit")
+    except PackageNotFoundError:
+        return "0.0.0"
+
 
 _SARIF_LEVELS: dict[str, str] = {
     "CRITICAL": "error",
@@ -20,7 +30,9 @@ def severity_to_sarif_level(severity: str) -> str:
     return _SARIF_LEVELS.get(severity.upper(), "note")
 
 
-def to_sarif(findings: list[dict[str, Any]], tool_version: str = "0.2.0.dev0") -> dict[str, Any]:
+def to_sarif(findings: list[dict[str, Any]], tool_version: str | None = None) -> dict[str, Any]:
+    if tool_version is None:
+        tool_version = _pkg_version()
     rules: dict[str, dict[str, Any]] = {}
     results: list[dict[str, Any]] = []
     for f in findings:
