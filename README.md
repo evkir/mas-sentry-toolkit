@@ -1,10 +1,11 @@
 # 🛡️ MAS-Sentry-Toolkit
 
-[![Version](https://img.shields.io/badge/version-0.2.0--dev-blue?style=for-the-badge)](https://github.com/evkir/mas-sentry-toolkit/releases)
-[![Python](https://img.shields.io/badge/python-3.11%2B-green?style=for-the-badge)](https://www.python.org/)
+[![PyPI](https://img.shields.io/pypi/v/mas-sentry-toolkit?style=for-the-badge)](https://pypi.org/project/mas-sentry-toolkit/)
+[![Python](https://img.shields.io/pypi/pyversions/mas-sentry-toolkit?style=for-the-badge)](https://pypi.org/project/mas-sentry-toolkit/)
 [![License](https://img.shields.io/badge/license-AGPL--3.0-orange?style=for-the-badge)](LICENSE)
 [![OWASP](https://img.shields.io/badge/OWASP-Agentic%20Top%2010-red?style=for-the-badge)](https://genai.owasp.org/resource/owasp-top-10-for-agentic-applications-for-2026/)
 [![CI](https://github.com/evkir/mas-sentry-toolkit/actions/workflows/ci.yml/badge.svg)](https://github.com/evkir/mas-sentry-toolkit/actions)
+[![Downloads](https://img.shields.io/pypi/dm/mas-sentry-toolkit?style=for-the-badge)](https://pypi.org/project/mas-sentry-toolkit/)
 
 > **Unified offensive-security toolkit for Multi-Agent Systems** — from MQTT-based IoT swarms to MCP-driven LLM agents. Aligned with OWASP Top 10 for Agentic Applications (2026) and powered by **ABFP** behavioral fingerprinting.
 
