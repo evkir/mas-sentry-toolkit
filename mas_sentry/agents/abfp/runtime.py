@@ -5,7 +5,7 @@ from __future__ import annotations
 
 import json
 import time
-from dataclasses import asdict
+from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
@@ -14,7 +14,7 @@ import paho.mqtt.client as mqtt
 from rich.console import Console
 
 from .baseline import BaselineCollector
-from .graph_metrics import all_metrics, graph_summary
+from .graph_metrics import AgentGraphMetrics, all_metrics, graph_summary
 from .identity import infer_agent_id
 from .observer import MessageEvent, MessageObserver
 from .rogue import RogueFinding, detect_rogue
@@ -23,12 +23,20 @@ from .topic_graph import TopicGraphBuilder
 console = Console()
 
 
+@dataclass(frozen=True, slots=True)
+class AbfpScanResult:
+    """Outcome of a single ABFP scan: rogue findings + per-agent graph metrics."""
+
+    findings: list[RogueFinding]
+    metrics: dict[str, AgentGraphMetrics]
+
+
 def run_abfp_scan(
     target: str,
     duration: int,
     baseline_threshold: int,
     out_path: Path,
-) -> list[RogueFinding]:
+) -> AbfpScanResult:
     parsed = urlparse(target)
     host = parsed.hostname or "127.0.0.1"
     port = parsed.port or 1883
@@ -59,14 +67,15 @@ def run_abfp_scan(
 
     bc = BaselineCollector(observer, threshold=baseline_threshold)
     current_graph = graph_builder.build()
+    metrics = all_metrics(current_graph)
     graph_block: dict[str, Any] = {
         "summary": graph_summary(current_graph),
-        "agents": {aid: asdict(m) for aid, m in all_metrics(current_graph).items()},
+        "agents": {aid: asdict(m) for aid, m in metrics.items()},
     }
     # First-run: baseline == current. Drift detection requires a prior run.
     findings = detect_rogue(baseline_graph=current_graph, current_graph=current_graph)
     _write_report(out_path, findings, baseline_status=bc.all_statuses(), target=target, graph=graph_block)
-    return findings
+    return AbfpScanResult(findings=findings, metrics=metrics)
 
 
 def _write_report(

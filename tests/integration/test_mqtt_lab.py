@@ -46,7 +46,8 @@ def test_abfp_scan_runs_against_real_broker(broker_ready, tmp_path: Path):
     pub.disconnect()
 
     out = tmp_path / "abfp.json"
-    findings = run_abfp_scan("mqtt://127.0.0.1:1883", duration=3, baseline_threshold=5, out_path=out)
+    result = run_abfp_scan("mqtt://127.0.0.1:1883", duration=3, baseline_threshold=5, out_path=out)
     assert out.exists()
     json.loads(out.read_text())
-    assert isinstance(findings, list)
+    assert isinstance(result.findings, list)
+    assert isinstance(result.metrics, dict)

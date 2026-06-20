@@ -21,12 +21,13 @@ def abfp_scan(
     """Run a single-shot ABFP scan: passive learn -> fingerprint -> score."""
     from mas_sentry.agents.abfp.runtime import run_abfp_scan
 
-    findings = run_abfp_scan(
+    result = run_abfp_scan(
         target=target,
         duration=duration,
         baseline_threshold=baseline_threshold,
         out_path=out,
     )
+    findings = result.findings
     table = Table(title=f"ABFP — {target}")
     table.add_column("Agent")
     table.add_column("Score", justify="right")
@@ -34,3 +35,22 @@ def abfp_scan(
     for f in findings:
         table.add_row(f.agent_id, str(f.score.total), f.score.severity.value)
     console.print(table)
+
+    if result.metrics:
+        metrics_table = Table(title="Agent graph metrics")
+        metrics_table.add_column("Agent")
+        metrics_table.add_column("Pub", justify="right")
+        metrics_table.add_column("Sub", justify="right")
+        metrics_table.add_column("Topics", justify="right")
+        metrics_table.add_column("Betweenness", justify="right")
+        metrics_table.add_column("Eigenvector", justify="right")
+        for agent_id, m in sorted(result.metrics.items()):
+            metrics_table.add_row(
+                agent_id,
+                str(m.pub_degree),
+                str(m.sub_degree),
+                str(m.distinct_topics),
+                f"{m.betweenness:.3f}",
+                f"{m.eigenvector:.3f}",
+            )
+        console.print(metrics_table)
