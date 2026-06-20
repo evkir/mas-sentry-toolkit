@@ -20,3 +20,22 @@ def test_write_report_serializes_slotted_baseline(tmp_path: Path):
     assert data["findings"] == []
     assert data["baseline"][0] == {"agent_id": "agent_a", "observed": 3, "threshold": 5, "ready": False}
     assert data["baseline"][1]["ready"] is True
+
+
+def test_write_report_includes_graph_block(tmp_path: Path) -> None:
+    out = tmp_path / "abfp.json"
+    graph = {
+        "summary": {"agents": 1, "topics": 2, "edges": 2},
+        "agents": {"agent_a": {"pub_degree": 2, "sub_degree": 0}},
+    }
+    _write_report(out, [], [], target="lab", graph=graph)
+    data = json.loads(out.read_text())
+    assert data["graph"]["summary"]["agents"] == 1
+    assert data["graph"]["agents"]["agent_a"]["pub_degree"] == 2
+
+
+def test_write_report_omits_graph_when_none(tmp_path: Path) -> None:
+    out = tmp_path / "abfp.json"
+    _write_report(out, [], [], target="lab")
+    data = json.loads(out.read_text())
+    assert "graph" not in data

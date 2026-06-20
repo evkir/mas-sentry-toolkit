@@ -7,12 +7,14 @@ import json
 import time
 from dataclasses import asdict
 from pathlib import Path
+from typing import Any
 from urllib.parse import urlparse
 
 import paho.mqtt.client as mqtt
 from rich.console import Console
 
 from .baseline import BaselineCollector
+from .graph_metrics import all_metrics, graph_summary
 from .identity import infer_agent_id
 from .observer import MessageEvent, MessageObserver
 from .rogue import RogueFinding, detect_rogue
@@ -57,15 +59,25 @@ def run_abfp_scan(
 
     bc = BaselineCollector(observer, threshold=baseline_threshold)
     current_graph = graph_builder.build()
+    graph_block: dict[str, Any] = {
+        "summary": graph_summary(current_graph),
+        "agents": {aid: asdict(m) for aid, m in all_metrics(current_graph).items()},
+    }
     # First-run: baseline == current. Drift detection requires a prior run.
     findings = detect_rogue(baseline_graph=current_graph, current_graph=current_graph)
-    _write_report(out_path, findings, baseline_status=bc.all_statuses(), target=target)
+    _write_report(out_path, findings, baseline_status=bc.all_statuses(), target=target, graph=graph_block)
     return findings
 
 
-def _write_report(out_path: Path, findings: list[RogueFinding], baseline_status, target: str) -> None:
+def _write_report(
+    out_path: Path,
+    findings: list[RogueFinding],
+    baseline_status,
+    target: str,
+    graph: dict[str, Any] | None = None,
+) -> None:
     out_path.parent.mkdir(parents=True, exist_ok=True)
-    payload = {
+    payload: dict[str, Any] = {
         "target": target,
         "baseline": [asdict(s) for s in baseline_status],
         "findings": [
@@ -78,4 +90,6 @@ def _write_report(out_path: Path, findings: list[RogueFinding], baseline_status,
             for f in findings
         ],
     }
+    if graph is not None:
+        payload["graph"] = graph
     out_path.write_text(json.dumps(payload, indent=2, default=str))
