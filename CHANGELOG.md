@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.2.1] - 2026-06-20 - First PyPI release
+
+### Added
+- `release.yml`: isolated `publish-pypi` job using OIDC trusted publishing
+  (`pypa/gh-action-pypi-publish`), tag-only, no API tokens. The package is
+  now installable from PyPI.
+
+### Notes
+- No runtime code changes from 0.2.0; this release exists to ship the PyPI
+  distribution path via the tag-triggered pipeline.
+
 ## [0.2.0] — 2026-06-19 — Pivot to Agentic MAS Security
 
 ### Changed
