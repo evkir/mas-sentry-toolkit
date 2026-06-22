@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
 
+import networkx as nx
 import paho.mqtt.client as mqtt
 from rich.console import Console
 
@@ -18,7 +19,7 @@ from .graph_metrics import AgentGraphMetrics, all_metrics, graph_summary
 from .identity import infer_agent_id
 from .observer import MessageEvent, MessageObserver
 from .rogue import RogueFinding, detect_rogue
-from .snapshot import build_snapshot
+from .snapshot import ScanSnapshot, build_snapshot
 from .topic_graph import TopicGraphBuilder
 
 console = Console()
@@ -38,6 +39,7 @@ def run_abfp_scan(
     baseline_threshold: int,
     out_path: Path,
     snapshot_path: Path | None = None,
+    baseline_path: Path | None = None,
 ) -> AbfpScanResult:
     parsed = urlparse(target)
     host = parsed.hostname or "127.0.0.1"
@@ -76,10 +78,18 @@ def run_abfp_scan(
         "summary": graph_summary(current_graph),
         "agents": {aid: asdict(m) for aid, m in metrics.items()},
     }
-    # First-run: baseline == current. Drift detection requires a prior run.
-    findings = detect_rogue(baseline_graph=current_graph, current_graph=current_graph)
+    # Compare against a prior snapshot when given; without one, baseline == current (no drift).
+    baseline_graph = _resolve_baseline_graph(baseline_path, current_graph)
+    findings = detect_rogue(baseline_graph=baseline_graph, current_graph=current_graph)
     _write_report(out_path, findings, baseline_status=bc.all_statuses(), target=target, graph=graph_block)
     return AbfpScanResult(findings=findings, metrics=metrics)
+
+
+def _resolve_baseline_graph(baseline_path: Path | None, current_graph: nx.DiGraph) -> nx.DiGraph:
+    """Return a prior snapshot's graph if available, else fall back to current (first-run)."""
+    if baseline_path is not None and baseline_path.exists():
+        return ScanSnapshot.load(baseline_path).graph
+    return current_graph
 
 
 def _write_report(

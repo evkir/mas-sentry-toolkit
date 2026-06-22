@@ -20,6 +20,9 @@ def abfp_scan(
     snapshot: Path = typer.Option(
         Path("reports/abfp_snapshot.json"), "--snapshot", help="Where to write the behavioral baseline snapshot"
     ),
+    baseline: Path | None = typer.Option(
+        None, "--baseline", help="Prior snapshot to compare against (enables drift detection)"
+    ),
 ) -> None:
     """Run a single-shot ABFP scan: passive learn -> fingerprint -> score."""
     from mas_sentry.agents.abfp.runtime import run_abfp_scan
@@ -30,6 +33,7 @@ def abfp_scan(
         baseline_threshold=baseline_threshold,
         out_path=out,
         snapshot_path=snapshot,
+        baseline_path=baseline,
     )
     findings = result.findings
     table = Table(title=f"ABFP — {target}")
