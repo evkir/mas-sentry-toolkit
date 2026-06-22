@@ -49,3 +49,7 @@ def test_impersonation_only_agent_becomes_rogue_suspect() -> None:
     assert {"timing", "identity"} <= set(dims)
     assert dims["topic"].raw == 0.0  # no spurious topology signal
     assert by_agent["agent_a"].score.total > 0
+
+
+def test_empty_baseline_yields_no_dimensions() -> None:
+    assert _impersonation_dimensions({}, {"agent_a": _digest()}) == {}

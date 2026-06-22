@@ -1,5 +1,27 @@
 # Changelog
 
+## [Unreleased]
+
+### Added
+- ABFP per-agent graph-centrality metrics (`graph_metrics`) wired into the scan
+  report and a CLI table (pub/sub degree, distinct topics, betweenness,
+  eigenvector).
+- `ScanSnapshot` behavioral baseline (topic graph + per-agent timing/payload
+  digest), persisted each scan via `--snapshot`.
+- Cross-run comparison via `--baseline`: a prior snapshot revives rogue-agent
+  drift detection (previously a no-op on first run) and feeds the impersonation
+  detector.
+- Impersonation detector restored as digest-native dimensions (timing, payload,
+  identity) that fold into the rogue score via `detect_rogue`'s
+  `extra_dimensions` hook, surfacing agents whose fingerprint diverges even
+  without a topology change.
+- Finding `dimensions` emitted in the JSON report and a `Drivers` column in the
+  CLI showing which signals drove each score.
+
+### Fixed
+- Rogue topic dimension no longer emits a spurious signal for agents with no new
+  topics.
+
 ## [0.2.1] - 2026-06-20 - First PyPI release
 
 ### Added

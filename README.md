@@ -97,10 +97,13 @@ Active modules require explicit scope confirmation. Use only on assets you own o
 # 1. Start the lab broker (Mosquitto + 3 sample agents)
 docker compose -f lab/docker-compose.yml up -d
 
-# 2. Run a 60-second ABFP passive scan
+# 2. Run a 60-second ABFP passive scan (writes a behavioral baseline snapshot)
 mas-sentry abfp scan --target mqtt://localhost:1883 --duration 60
 
-# 3. Open the generated HTML report
+# 3. Re-scan later against the baseline to flag topology drift and impersonation
+mas-sentry abfp scan --target mqtt://localhost:1883 --duration 60 --baseline reports/abfp_snapshot.json
+
+# 4. Open the generated HTML report
 xdg-open reports/abfp.html
 ```
 

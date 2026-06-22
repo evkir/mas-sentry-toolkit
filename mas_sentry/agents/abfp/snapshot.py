@@ -53,6 +53,9 @@ class ScanSnapshot:
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> ScanSnapshot:
+        version = int(data.get("version", SNAPSHOT_VERSION))
+        if version > SNAPSHOT_VERSION:
+            raise ValueError(f"snapshot version {version} is newer than supported {SNAPSHOT_VERSION}")
         graph: nx.DiGraph = nx.node_link_graph(data["graph"], edges="edges", directed=True)
         agents = {
             aid: AgentDigest(
@@ -61,9 +64,7 @@ class ScanSnapshot:
             )
             for aid, d in data.get("agents", {}).items()
         }
-        return cls(
-            target=str(data["target"]), graph=graph, agents=agents, version=int(data.get("version", SNAPSHOT_VERSION))
-        )
+        return cls(target=str(data["target"]), graph=graph, agents=agents, version=version)
 
     def save(self, path: Path) -> None:
         path.parent.mkdir(parents=True, exist_ok=True)

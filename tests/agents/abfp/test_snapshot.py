@@ -6,6 +6,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import networkx as nx
+import pytest
 
 from mas_sentry.agents.abfp.observer import MessageEvent, MessageObserver
 from mas_sentry.agents.abfp.snapshot import (
@@ -77,3 +78,14 @@ def test_from_dict_defaults_version() -> None:
     )
     assert snap.version == SNAPSHOT_VERSION
     assert snap.agents == {}
+
+
+def test_from_dict_rejects_newer_version() -> None:
+    data = {
+        "version": SNAPSHOT_VERSION + 1,
+        "target": "t",
+        "graph": nx.node_link_data(nx.DiGraph(), edges="edges"),
+        "agents": {},
+    }
+    with pytest.raises(ValueError, match="newer than supported"):
+        ScanSnapshot.from_dict(data)
