@@ -1,6 +1,6 @@
 # Changelog
 
-## [Unreleased]
+## [0.3.0] - 2026-06-22 - Behavioral baselines + reconnected ABFP detectors
 
 ### Added
 - ABFP per-agent graph-centrality metrics (`graph_metrics`) wired into the scan
@@ -17,6 +17,9 @@
   without a topology change.
 - Finding `dimensions` emitted in the JSON report and a `Drivers` column in the
   CLI showing which signals drove each score.
+- Authorized-use reminder on active scans (stderr) plus liability-waiver and
+  heuristic-findings disclaimers (no-warranty, false-positive/negative caveat)
+  in the README.
 
 ### Fixed
 - Rogue topic dimension no longer emits a spurious signal for agents with no new
