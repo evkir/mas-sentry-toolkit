@@ -9,6 +9,7 @@ from rich.table import Table
 
 app = typer.Typer(no_args_is_help=True)
 console = Console()
+err_console = Console(stderr=True)
 
 
 @app.command("scan")
@@ -25,6 +26,11 @@ def abfp_scan(
     ),
 ) -> None:
     """Run a single-shot ABFP scan: passive learn -> fingerprint -> score."""
+    err_console.print(
+        f"[authorized use] Active ABFP scan against {target}. Run only on systems you own or are authorized to test.",
+        markup=False,
+        soft_wrap=True,
+    )
     from mas_sentry.agents.abfp.runtime import run_abfp_scan
 
     result = run_abfp_scan(

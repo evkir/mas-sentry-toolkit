@@ -57,3 +57,13 @@ def test_abfp_scan_shows_finding_drivers(monkeypatch: pytest.MonkeyPatch) -> Non
     assert result.exit_code == 0
     assert "agent_a" in result.stdout
     assert "identity" in result.stdout
+
+
+def test_abfp_scan_emits_authorized_use_reminder_to_stderr(monkeypatch: pytest.MonkeyPatch) -> None:
+    fake = AbfpScanResult(findings=[], metrics={})
+    monkeypatch.setattr(abfp_runtime, "run_abfp_scan", lambda **kwargs: fake)
+    result = runner.invoke(app, ["abfp", "scan", "--target", "mqtt://127.0.0.1:1883", "--duration", "0"])
+    assert result.exit_code == 0
+    assert "authorized use" in result.stderr
+    assert "Run only on systems you own" in result.stderr
+    assert "authorized use" not in result.stdout

@@ -87,6 +87,20 @@ mas-sentry mcp scan --target stdio://lab/vuln-mcp/server.py
 
 Active modules require explicit scope confirmation. Use only on assets you own or have written authorization to test. Designed for legal contexts: HackerOne / Bugcrowd / Intigriti / Immunefi programs and internal red-team engagements. See [SECURITY.md](SECURITY.md).
 
+The authors and MASec Lab LLC accept no liability for any misuse of this
+software or for damage arising from its use. Responsibility for operating
+within applicable laws and within an authorized scope rests solely with the
+user.
+
+### Heuristic findings
+
+ABFP behavioral fingerprinting, impersonation and rogue-agent scoring are
+probabilistic signals derived from observed traffic. They may produce false
+positives and false negatives and do not constitute proof that an agent is or
+is not compromised. Treat scores as leads for human review, not verdicts. The
+software is provided "as is", without warranty, as set out in the AGPL-3.0
+license.
+
 ## License
 
 [GNU Affero General Public License v3.0 or later](LICENSE). The author retains copyright and may grant commercial licenses separately.
