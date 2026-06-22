@@ -39,3 +39,20 @@ def test_write_report_omits_graph_when_none(tmp_path: Path) -> None:
     _write_report(out, [], [], target="lab")
     data = json.loads(out.read_text())
     assert "graph" not in data
+
+
+def test_write_report_emits_finding_dimensions(tmp_path: Path) -> None:
+    from mas_sentry.agents.abfp.rogue import RogueFinding
+    from mas_sentry.agents.abfp.scoring import DimensionScore, compose
+
+    score = compose("agent_a", [DimensionScore(name="identity", raw=0.6, reason="divergent fingerprint")])
+    finding = RogueFinding(
+        agent_id="agent_a",
+        score=score,
+        diff_summary={"new_topics": [], "removed_topics": []},
+        is_rogue=False,
+    )
+    out = tmp_path / "abfp.json"
+    _write_report(out, [finding], [], target="lab")
+    dims = json.loads(out.read_text())["findings"][0]["dimensions"]
+    assert {"name": "identity", "raw": 0.6, "reason": "divergent fingerprint"} in dims

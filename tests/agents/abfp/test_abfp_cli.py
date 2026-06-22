@@ -37,3 +37,23 @@ def test_abfp_scan_renders_metrics_table(monkeypatch: pytest.MonkeyPatch) -> Non
     assert result.exit_code == 0
     assert "Agent graph metrics" in result.stdout
     assert "robot_r1" in result.stdout
+
+
+def test_abfp_scan_shows_finding_drivers(monkeypatch: pytest.MonkeyPatch) -> None:
+    from mas_sentry.agents.abfp.rogue import RogueFinding
+    from mas_sentry.agents.abfp.scoring import DimensionScore, compose
+
+    score = compose("agent_a", [DimensionScore(name="identity", raw=0.6, reason="x")])
+    finding = RogueFinding(
+        agent_id="agent_a",
+        score=score,
+        diff_summary={"new_topics": [], "removed_topics": []},
+        is_rogue=False,
+    )
+    fake = AbfpScanResult(findings=[finding], metrics={})
+
+    monkeypatch.setattr(abfp_runtime, "run_abfp_scan", lambda **kwargs: fake)
+    result = runner.invoke(app, ["abfp", "scan", "--target", "mqtt://127.0.0.1:1883", "--duration", "0"])
+    assert result.exit_code == 0
+    assert "agent_a" in result.stdout
+    assert "identity" in result.stdout

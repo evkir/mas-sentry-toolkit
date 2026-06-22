@@ -133,6 +133,7 @@ def _write_report(
                 "total": f.score.total,
                 "severity": f.score.severity.value,
                 "diff": f.diff_summary,
+                "dimensions": [{"name": d.name, "raw": d.raw, "reason": d.reason} for d in f.score.dimensions],
             }
             for f in findings
         ],

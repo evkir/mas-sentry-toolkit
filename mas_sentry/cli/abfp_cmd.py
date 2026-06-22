@@ -40,8 +40,10 @@ def abfp_scan(
     table.add_column("Agent")
     table.add_column("Score", justify="right")
     table.add_column("Severity")
+    table.add_column("Drivers")
     for f in findings:
-        table.add_row(f.agent_id, str(f.score.total), f.score.severity.value)
+        drivers = ", ".join(d.name for d in f.score.dimensions if d.raw > 0.0) or "-"
+        table.add_row(f.agent_id, str(f.score.total), f.score.severity.value, drivers)
     console.print(table)
 
     if result.metrics:
