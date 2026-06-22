@@ -27,7 +27,7 @@ def detect_rogue(
     diff = diff_graphs(baseline_graph, current_graph)
     extra = extra_dimensions or {}
     findings: list[RogueFinding] = []
-    suspects = diff.new_agents | set(diff.new_topics_per_agent.keys())
+    suspects = diff.new_agents | set(diff.new_topics_per_agent.keys()) | set(extra.keys())
     for agent_id in suspects:
         topic_raw = _topic_dimension(agent_id, diff)
         dims = [DimensionScore(name="topic", raw=topic_raw, reason=_topic_reason(agent_id, diff))]
@@ -48,6 +48,8 @@ def _topic_dimension(agent_id: str, diff: GraphDiff) -> float:
     if agent_id in diff.new_agents:
         return 1.0
     new_topics = diff.new_topics_per_agent.get(agent_id, set())
+    if not new_topics:
+        return 0.0
     return min(1.0, 0.3 + len(new_topics) * 0.15)
 
 
@@ -55,6 +57,8 @@ def _topic_reason(agent_id: str, diff: GraphDiff) -> str:
     if agent_id in diff.new_agents:
         return "Agent absent from baseline (never seen before)"
     nt = diff.new_topics_per_agent.get(agent_id, set())
+    if not nt:
+        return "No new topics"
     return f"Published to {len(nt)} new topic(s): {sorted(nt)[:3]}"
 
 

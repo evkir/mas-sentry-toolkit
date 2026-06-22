@@ -10,16 +10,17 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
 
-import networkx as nx
 import paho.mqtt.client as mqtt
 from rich.console import Console
 
 from .baseline import BaselineCollector
 from .graph_metrics import AgentGraphMetrics, all_metrics, graph_summary
 from .identity import infer_agent_id
+from .impersonation import impersonation_dimensions
 from .observer import MessageEvent, MessageObserver
 from .rogue import RogueFinding, detect_rogue
-from .snapshot import ScanSnapshot, build_snapshot
+from .scoring import DimensionScore
+from .snapshot import AgentDigest, ScanSnapshot, build_snapshot
 from .topic_graph import TopicGraphBuilder
 
 console = Console()
@@ -71,25 +72,48 @@ def run_abfp_scan(
 
     bc = BaselineCollector(observer, threshold=baseline_threshold)
     current_graph = graph_builder.build()
+    current_snapshot = build_snapshot(target, observer, current_graph)
     if snapshot_path is not None:
-        build_snapshot(target, observer, current_graph).save(snapshot_path)
+        current_snapshot.save(snapshot_path)
     metrics = all_metrics(current_graph)
     graph_block: dict[str, Any] = {
         "summary": graph_summary(current_graph),
         "agents": {aid: asdict(m) for aid, m in metrics.items()},
     }
     # Compare against a prior snapshot when given; without one, baseline == current (no drift).
-    baseline_graph = _resolve_baseline_graph(baseline_path, current_graph)
-    findings = detect_rogue(baseline_graph=baseline_graph, current_graph=current_graph)
+    baseline = _load_baseline(baseline_path)
+    baseline_graph = baseline.graph if baseline is not None else current_graph
+    extra_dimensions = (
+        _impersonation_dimensions(baseline.agents, current_snapshot.agents) if baseline is not None else {}
+    )
+    findings = detect_rogue(
+        baseline_graph=baseline_graph, current_graph=current_graph, extra_dimensions=extra_dimensions
+    )
     _write_report(out_path, findings, baseline_status=bc.all_statuses(), target=target, graph=graph_block)
     return AbfpScanResult(findings=findings, metrics=metrics)
 
 
-def _resolve_baseline_graph(baseline_path: Path | None, current_graph: nx.DiGraph) -> nx.DiGraph:
-    """Return a prior snapshot's graph if available, else fall back to current (first-run)."""
+def _load_baseline(baseline_path: Path | None) -> ScanSnapshot | None:
+    """Load a prior snapshot when a readable path is given, else None (first-run)."""
     if baseline_path is not None and baseline_path.exists():
-        return ScanSnapshot.load(baseline_path).graph
-    return current_graph
+        return ScanSnapshot.load(baseline_path)
+    return None
+
+
+def _impersonation_dimensions(
+    baseline_agents: dict[str, AgentDigest],
+    current_agents: dict[str, AgentDigest],
+) -> dict[str, list[DimensionScore]]:
+    """Impersonation dimensions for agents seen in both runs that show real divergence."""
+    extra: dict[str, list[DimensionScore]] = {}
+    for agent_id, base in baseline_agents.items():
+        current = current_agents.get(agent_id)
+        if current is None:
+            continue
+        dims = impersonation_dimensions(base, current)
+        if any(d.raw > 0.0 for d in dims):
+            extra[agent_id] = dims
+    return extra
 
 
 def _write_report(
