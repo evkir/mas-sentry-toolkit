@@ -18,6 +18,7 @@ from .graph_metrics import AgentGraphMetrics, all_metrics, graph_summary
 from .identity import infer_agent_id
 from .observer import MessageEvent, MessageObserver
 from .rogue import RogueFinding, detect_rogue
+from .snapshot import build_snapshot
 from .topic_graph import TopicGraphBuilder
 
 console = Console()
@@ -36,6 +37,7 @@ def run_abfp_scan(
     duration: int,
     baseline_threshold: int,
     out_path: Path,
+    snapshot_path: Path | None = None,
 ) -> AbfpScanResult:
     parsed = urlparse(target)
     host = parsed.hostname or "127.0.0.1"
@@ -67,6 +69,8 @@ def run_abfp_scan(
 
     bc = BaselineCollector(observer, threshold=baseline_threshold)
     current_graph = graph_builder.build()
+    if snapshot_path is not None:
+        build_snapshot(target, observer, current_graph).save(snapshot_path)
     metrics = all_metrics(current_graph)
     graph_block: dict[str, Any] = {
         "summary": graph_summary(current_graph),

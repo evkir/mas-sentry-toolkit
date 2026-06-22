@@ -17,6 +17,9 @@ def abfp_scan(
     duration: int = typer.Option(60, "--duration", "-d", help="Passive collection seconds"),
     baseline_threshold: int = typer.Option(500, "--threshold", help="Min messages per agent"),
     out: Path = typer.Option(Path("reports/abfp.json"), "--out", "-o"),
+    snapshot: Path = typer.Option(
+        Path("reports/abfp_snapshot.json"), "--snapshot", help="Where to write the behavioral baseline snapshot"
+    ),
 ) -> None:
     """Run a single-shot ABFP scan: passive learn -> fingerprint -> score."""
     from mas_sentry.agents.abfp.runtime import run_abfp_scan
@@ -26,6 +29,7 @@ def abfp_scan(
         duration=duration,
         baseline_threshold=baseline_threshold,
         out_path=out,
+        snapshot_path=snapshot,
     )
     findings = result.findings
     table = Table(title=f"ABFP — {target}")
