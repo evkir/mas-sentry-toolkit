@@ -3,7 +3,7 @@ from dataclasses import replace
 
 from mas_sentry.agents.abfp import MessageEvent
 from mas_sentry.agents.abfp.timing import TimingVector
-from mas_sentry.agents.abfp.timing_compare import compare_timings
+from mas_sentry.agents.abfp.timing_compare import compare_timing_series, compare_timings
 
 
 def _periodic(n: int = 100, period: float = 1.0, agent: str = "a") -> list[MessageEvent]:
@@ -46,3 +46,17 @@ def test_ks_compares_distributions():
     diff = compare_timings(_periodic(period=1.0), _periodic(period=5.0, agent="b"))
     assert same is not None and same.similar
     assert diff is not None and not diff.similar
+
+
+def test_series_matches_event_path():
+    a = [i * 1.0 for i in range(100)]
+    b = [i * 1.0 for i in range(100)]
+    c = [i * 5.0 for i in range(100)]
+    same = compare_timing_series(a, b)
+    diff = compare_timing_series(a, c)
+    assert same is not None and same.similar
+    assert diff is not None and not diff.similar
+
+
+def test_series_too_few_samples_returns_none():
+    assert compare_timing_series([0.0, 1.0, 2.0], [0.0, 1.0, 2.0]) is None

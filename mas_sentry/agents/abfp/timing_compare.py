@@ -17,15 +17,21 @@ class TimingSimilarity:
     similar: bool  # p > 0.05 → cannot reject same-distribution null
 
 
-def compare_timings(a: list[MessageEvent], b: list[MessageEvent], alpha: float = 0.05) -> TimingSimilarity | None:
-    ipis_a = _ipis(a)
-    ipis_b = _ipis(b)
+def compare_timing_series(ts_a: list[float], ts_b: list[float], alpha: float = 0.05) -> TimingSimilarity | None:
+    """Kolmogorov-Smirnov over inter-arrival intervals of two timestamp series."""
+    ipis_a = _ipis(ts_a)
+    ipis_b = _ipis(ts_b)
     if len(ipis_a) < 5 or len(ipis_b) < 5:
         return None
     stat, p = ks_2samp(ipis_a, ipis_b)
     return TimingSimilarity(ks_statistic=float(stat), p_value=float(p), similar=p > alpha)
 
 
-def _ipis(events: list[MessageEvent]) -> list[float]:
-    ts = sorted(e.timestamp for e in events)
+def compare_timings(a: list[MessageEvent], b: list[MessageEvent], alpha: float = 0.05) -> TimingSimilarity | None:
+    """Backward-compatible wrapper: compare two MessageEvent streams by their timestamps."""
+    return compare_timing_series([e.timestamp for e in a], [e.timestamp for e in b], alpha)
+
+
+def _ipis(timestamps: list[float]) -> list[float]:
+    ts = sorted(timestamps)
     return [ts[i] - ts[i - 1] for i in range(1, len(ts))]
