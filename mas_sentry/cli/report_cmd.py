@@ -60,7 +60,29 @@ def _to_sev(s: Any) -> Severity:
         return Severity.INFO
 
 
+def _abfp_to_finding(d: dict[str, Any]) -> Finding:
+    """Adapt an ABFP rogue-scan finding (agent_id/diff/dimensions) to a canonical Finding."""
+    agent_id = str(d.get("agent_id", "?"))
+    evidence: dict[str, Any] = {"agent_id": agent_id, "total": d.get("total")}
+    dims = d.get("dimensions")
+    if dims:
+        evidence["dimensions"] = dims
+    return Finding(
+        module="abfp.rogue",
+        title=f"Rogue agent: {agent_id}",
+        detail=str(d.get("diff", "")),
+        severity=_to_sev(d.get("severity", "INFO")),
+        target=str(d.get("target", "")),
+        tags=["ASI10_Rogue_Agent"],
+        evidence=evidence,
+        references=[],
+        captured_at=str(d.get("captured_at", "")),
+    )
+
+
 def _to_finding(d: dict[str, Any]) -> Finding:
+    if "agent_id" in d and "module" not in d:
+        return _abfp_to_finding(d)
     return Finding(
         module=d.get("module", "unknown"),
         title=d.get("title", ""),

@@ -40,3 +40,37 @@ def test_pipeline_json_to_all_formats(tmp_path: Path):
         r = runner.invoke(app, ["report", "convert", str(findings_json), "-f", fmt, "-o", str(out), "--target", "lab"])
         assert r.exit_code == 0, f"{fmt} failed: {r.stdout}"
         assert out.exists() and out.stat().st_size > 0
+
+
+def test_abfp_shaped_finding_adapts_to_html(tmp_path: Path):
+    src = tmp_path / "abfp.json"
+    src.write_text(
+        json.dumps(
+            {
+                "target": "mqtt://demo:1883",
+                "findings": [
+                    {
+                        "agent_id": "agent-7",
+                        "total": 82.5,
+                        "severity": "HIGH",
+                        "diff": "betweenness drift; 2 new topics",
+                        "dimensions": [
+                            {"name": "timing", "raw": 0.61, "reason": "interval variance 3x"},
+                            {"name": "identity", "raw": 0.9, "reason": "client-id mismatch"},
+                        ],
+                    }
+                ],
+            }
+        )
+    )
+    out = tmp_path / "out.html"
+    r = runner.invoke(
+        app, ["report", "convert", str(src), "-f", "html", "-o", str(out), "--target", "mqtt://demo:1883"]
+    )
+    assert r.exit_code == 0, r.stdout
+    html = out.read_text()
+    assert "agent-7" in html
+    assert "Rogue agent" in html
+    assert "betweenness drift" in html
+    assert "interval variance 3x" in html
+    assert "client-id mismatch" in html
