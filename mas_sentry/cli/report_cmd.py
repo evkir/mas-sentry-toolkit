@@ -38,9 +38,10 @@ def report_convert(
     if not isinstance(items, list):
         raise typer.BadParameter("expected a JSON array of findings or an object with a 'findings' array")
     findings = [_to_finding(d) for d in items]
+    graph = raw.get("graph") if isinstance(raw, dict) else None
 
     if fmt == "html":
-        render_unified_html(findings, target, out)
+        render_unified_html(findings, target, out, graph=graph)
     elif fmt == "md":
         render_markdown(findings, target, out)
     elif fmt == "json":

@@ -6,6 +6,7 @@ from __future__ import annotations
 from collections import Counter
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Any
 
 from jinja2 import Environment, select_autoescape
 
@@ -52,6 +53,9 @@ code{background:#0b1220;padding:.1rem .3rem;border-radius:3px;font-size:.85rem}
 .drivers ul{margin:.3rem 0 0 1.1rem;padding:0}
 .drv-name{color:#a78bfa;font-weight:bold}
 .drv-raw{color:#94a3b8;font-size:.85rem;margin-left:.3rem}
+table{border-collapse:collapse;width:100%;margin:.5rem 0}
+th,td{text-align:left;padding:.4rem .6rem;border-bottom:1px solid #334155}
+th{color:#94a3b8;font-weight:600}
 pre{background:#0b1220;padding:.8rem;border-radius:4px;overflow-x:auto;font-size:.8rem}
 footer{margin-top:3rem;color:#64748b;font-size:.85rem;border-top:1px solid #334155;padding-top:1rem}
 </style></head><body>
@@ -71,6 +75,32 @@ footer{margin-top:3rem;color:#64748b;font-size:.85rem;border-top:1px solid #3341
   </div>
   {% endfor %}
 </div>
+
+{% if graph and graph.agents %}
+<h2>ABFP Graph Centrality</h2>
+<p class="meta">
+  {% if graph.summary %}
+  <strong>Agents:</strong> {{ graph.summary.get('agents', '?') }} &middot;
+  <strong>Topics:</strong> {{ graph.summary.get('topics', '?') }} &middot;
+  <strong>Edges:</strong> {{ graph.summary.get('edges', '?') }}
+  {% endif %}
+</p>
+<table class="centrality"><thead><tr>
+  <th>Agent</th><th>Pub&deg;</th><th>Sub&deg;</th><th>Topics</th>
+  <th>Betweenness</th><th>Eigenvector</th>
+</tr></thead><tbody>
+{% for aid, m in graph.agents.items() %}
+<tr>
+  <td>{{ aid }}</td>
+  <td>{{ m.get('pub_degree', 0) }}</td>
+  <td>{{ m.get('sub_degree', 0) }}</td>
+  <td>{{ m.get('distinct_topics', 0) }}</td>
+  <td>{{ '%.3f'|format(m.get('betweenness', 0)) }}</td>
+  <td>{{ '%.3f'|format(m.get('eigenvector', 0)) }}</td>
+</tr>
+{% endfor %}
+</tbody></table>
+{% endif %}
 
 {% for sev in severities %}{% if counts[sev] %}
 <h2>{{ sev }} ({{ counts[sev] }})</h2>
@@ -113,7 +143,9 @@ footer{margin-top:3rem;color:#64748b;font-size:.85rem;border-top:1px solid #3341
 _TEMPLATE = _ENV.from_string(_TEMPLATE_SRC)
 
 
-def render_unified_html(findings: list[Finding], target: str, out_path: Path) -> None:
+def render_unified_html(
+    findings: list[Finding], target: str, out_path: Path, graph: dict[str, Any] | None = None
+) -> None:
     counts = Counter(f.severity.value for f in findings)
     by_sev: dict[Severity, list[Finding]] = {sev: [] for sev in _SEV_ORDER}
     for f in findings:
@@ -129,5 +161,6 @@ def render_unified_html(findings: list[Finding], target: str, out_path: Path) ->
             severities=[s.value for s in _SEV_ORDER],
             max_sev=max_sev.value,
             generated_at=datetime.now(UTC).isoformat(timespec="seconds"),
+            graph=graph,
         )
     )
