@@ -1,5 +1,16 @@
 # Changelog
 
+## [Unreleased]
+
+### Added
+- ABFP rogue-scan findings now render in HTML reports: the `report convert`
+  bridge adapts ABFP-shaped findings (agent id, diff, dimensions) to the
+  canonical finding model, so they no longer produce blank cards.
+- Per-finding `Drivers` section in the HTML report listing each scoring
+  dimension (name, raw value, reason).
+- ABFP graph-centrality table in the HTML report (pub/sub degree, distinct
+  topics, betweenness, eigenvector) when a scan emits a graph block.
+
 ## [0.3.0] - 2026-06-22 - Behavioral baselines + reconnected ABFP detectors
 
 ### Added
