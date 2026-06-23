@@ -48,6 +48,10 @@ h1{border-bottom:2px solid #334155;padding-bottom:.5rem}
 .tag.asi{background:#7f1d1d;color:#fee}
 .tag.cwe{background:#1e3a8a;color:#dbeafe}
 code{background:#0b1220;padding:.1rem .3rem;border-radius:3px;font-size:.85rem}
+.drivers{margin:.5rem 0}
+.drivers ul{margin:.3rem 0 0 1.1rem;padding:0}
+.drv-name{color:#a78bfa;font-weight:bold}
+.drv-raw{color:#94a3b8;font-size:.85rem;margin-left:.3rem}
 pre{background:#0b1220;padding:.8rem;border-radius:4px;overflow-x:auto;font-size:.8rem}
 footer{margin-top:3rem;color:#64748b;font-size:.85rem;border-top:1px solid #334155;padding-top:1rem}
 </style></head><body>
@@ -82,6 +86,18 @@ footer{margin-top:3rem;color:#64748b;font-size:.85rem;border-top:1px solid #3341
       {% else %}<span class="tag">{{ t }}</span>{% endif %}
     {% endfor %}
   </p>
+  {% if f.evidence.dimensions %}
+  <div class="drivers"><strong>Drivers</strong>
+  <ul>
+    {% for dim in f.evidence.dimensions %}
+    <li>
+      <span class="drv-name">{{ dim.get('name', '?') }}</span>
+      <span class="drv-raw">{{ '%.2f'|format(dim.get('raw', 0)) }}</span>
+      &mdash; {{ dim.get('reason', '') }}
+    </li>
+    {% endfor %}
+  </ul></div>
+  {% endif %}
   {% if f.evidence %}<details><summary>Evidence</summary>
   <pre>{{ f.evidence | tojson(indent=2) }}</pre></details>{% endif %}
 </div>

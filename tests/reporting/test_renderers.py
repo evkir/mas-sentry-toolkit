@@ -162,3 +162,28 @@ def test_junit_neutralises_xml_injection(tmp_path: Path) -> None:
     dom = parseString(out.read_text())  # raises if injection broke the XML
     tc = dom.getElementsByTagName("testcase")[0]
     assert tc.getAttribute("name") == '"><inject/>break'
+
+
+def test_unified_html_renders_drivers(tmp_path: Path) -> None:
+    f = Finding(
+        module="abfp.rogue",
+        title="Rogue agent: agent-7",
+        detail="drift",
+        severity=Severity.HIGH,
+        target="demo",
+        evidence={
+            "agent_id": "agent-7",
+            "dimensions": [
+                {"name": "timing", "raw": 0.61, "reason": "interval variance"},
+                {"name": "identity", "raw": 0.9, "reason": "<img src=x onerror=alert(1)>"},
+            ],
+        },
+    )
+    out = tmp_path / "r.html"
+    render_unified_html([f], "demo", out)
+    html = out.read_text()
+    assert 'class="drivers"' in html
+    assert "timing" in html and "identity" in html
+    assert "0.61" in html
+    assert "<img src=x onerror=alert(1)>" not in html
+    assert "&lt;img" in html
