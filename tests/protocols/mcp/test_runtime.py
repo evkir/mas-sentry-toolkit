@@ -108,6 +108,35 @@ def test_sarif_document_shape():
     assert len(doc["runs"][0]["results"]) == 2
 
 
+def test_sarif_maps_abfp_dimensions() -> None:
+    from mas_sentry.reporting.sarif import to_sarif
+
+    doc = to_sarif(
+        [
+            {
+                "module": "abfp.rogue",
+                "severity": "HIGH",
+                "detail": "fingerprint drift",
+                "tags": ["ASI10_Rogue_Agent"],
+                "evidence": {
+                    "agent_id": "agent-7",
+                    "total": 82.5,
+                    "dimensions": [
+                        {"name": "burst", "raw": 0.55, "reason": "lost cadence"},
+                        {"name": "identity", "raw": 0.9, "reason": "id mismatch"},
+                    ],
+                },
+            }
+        ]
+    )
+    r = doc["runs"][0]["results"][0]
+    assert "drivers burst(0.55), identity(0.90)" in r["message"]["text"]
+    props = r["properties"]
+    assert props["agent_id"] == "agent-7"
+    assert props["score"] == 82.5
+    assert [d["name"] for d in props["drivers"]] == ["burst", "identity"]
+
+
 def test_sarif_write_creates_file(tmp_path: Path):
     from mas_sentry.reporting.sarif import write_sarif
 

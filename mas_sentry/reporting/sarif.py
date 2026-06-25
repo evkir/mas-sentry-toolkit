@@ -30,6 +30,14 @@ def severity_to_sarif_level(severity: str) -> str:
     return _SARIF_LEVELS.get(severity.upper(), "note")
 
 
+def _driver_summary(dimensions: list[dict[str, Any]]) -> str:
+    """Render fired scoring drivers as a compact one-line summary."""
+    parts = [
+        f"{d.get('name', '?')}({float(d.get('raw', 0.0)):.2f})" for d in dimensions if float(d.get("raw", 0.0)) > 0.0
+    ]
+    return "; drivers " + ", ".join(parts) if parts else ""
+
+
 def to_sarif(findings: list[dict[str, Any]], tool_version: str | None = None) -> dict[str, Any]:
     if tool_version is None:
         tool_version = _pkg_version()
@@ -47,13 +55,25 @@ def to_sarif(findings: list[dict[str, Any]], tool_version: str | None = None) ->
                 "defaultConfiguration": {"level": level},
             },
         )
+        evidence = f.get("evidence") or {}
+        dimensions = evidence.get("dimensions") or []
+        message = f.get("detail", "") + _driver_summary(dimensions)
         result: dict[str, Any] = {
             "ruleId": rule_id,
             "level": level,
-            "message": {"text": f.get("detail", "")},
+            "message": {"text": message},
         }
+        properties: dict[str, Any] = {}
         if f.get("tags"):
-            result["properties"] = {"tags": f["tags"]}
+            properties["tags"] = f["tags"]
+        if dimensions:
+            properties["drivers"] = dimensions
+        if evidence.get("agent_id") is not None:
+            properties["agent_id"] = evidence["agent_id"]
+        if evidence.get("total") is not None:
+            properties["score"] = evidence["total"]
+        if properties:
+            result["properties"] = properties
         results.append(result)
     return {
         "version": "2.1.0",
