@@ -60,3 +60,15 @@ def test_series_matches_event_path():
 
 def test_series_too_few_samples_returns_none():
     assert compare_timing_series([0.0, 1.0, 2.0], [0.0, 1.0, 2.0]) is None
+
+
+def test_from_timestamps_matches_from_events():
+    events = _bursty()
+    via_events = TimingVector.from_events(events)
+    via_ts = TimingVector.from_timestamps([e.timestamp for e in events])
+    assert via_events == via_ts
+
+
+def test_from_timestamps_too_few():
+    assert TimingVector.from_timestamps([1.0, 2.0]) is None
+    assert TimingVector.from_timestamps([]) is None

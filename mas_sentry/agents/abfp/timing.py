@@ -24,9 +24,14 @@ class TimingVector:
 
     @classmethod
     def from_events(cls, events: list[MessageEvent]) -> Self | None:
-        if len(events) < 3:
+        return cls.from_timestamps([e.timestamp for e in events])
+
+    @classmethod
+    def from_timestamps(cls, timestamps: list[float]) -> Self | None:
+        """Build a timing fingerprint from raw message timestamps (digest-native entry)."""
+        if len(timestamps) < 3:
             return None
-        ts = sorted(e.timestamp for e in events)
+        ts = sorted(timestamps)
         ipis = [ts[i] - ts[i - 1] for i in range(1, len(ts))]
         if not ipis:
             return None
@@ -39,7 +44,7 @@ class TimingVector:
         # heuristic: periodic if stddev / mean < 0.15 (CoV)
         periodic = mean > 0 and (sd / mean) < 0.15
         return cls(
-            n=len(events),
+            n=len(ts),
             ipi_mean=mean,
             ipi_stddev=sd,
             ipi_p50=p50,
