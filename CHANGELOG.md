@@ -13,6 +13,12 @@
 - Burst-cadence dimension in impersonation/rogue scoring: flags an agent that
   develops bursty traffic or loses its periodic cadence relative to the
   baseline (weight 0.15), surfaced through the existing Drivers output.
+- ABFP scoring drivers now flow into SARIF: a compact driver summary in the
+  result message plus structured `drivers`, `agent_id`, and `score` under
+  result properties, so CI code-scanning shows why an agent was flagged.
+- ABFP findings are enriched with ASI/CWE taxonomy tags derived from the
+  dimensions that fired (e.g. identity -> CWE-290, burst -> CWE-400),
+  rendered as HTML badges and SARIF result tags.
 
 ## [0.3.0] - 2026-06-22 - Behavioral baselines + reconnected ABFP detectors
 
