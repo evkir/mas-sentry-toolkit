@@ -10,6 +10,9 @@
   dimension (name, raw value, reason).
 - ABFP graph-centrality table in the HTML report (pub/sub degree, distinct
   topics, betweenness, eigenvector) when a scan emits a graph block.
+- Burst-cadence dimension in impersonation/rogue scoring: flags an agent that
+  develops bursty traffic or loses its periodic cadence relative to the
+  baseline (weight 0.15), surfaced through the existing Drivers output.
 
 ## [0.3.0] - 2026-06-22 - Behavioral baselines + reconnected ABFP detectors
 
