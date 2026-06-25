@@ -61,6 +61,27 @@ def _to_sev(s: Any) -> Severity:
         return Severity.INFO
 
 
+_DIMENSION_CWE = {
+    "identity": "CWE-290",  # Authentication Bypass by Spoofing
+    "burst": "CWE-400",  # Uncontrolled Resource Consumption
+    "payload": "CWE-400",  # Uncontrolled Resource Consumption
+    "timing": "CWE-799",  # Improper Control of Interaction Frequency
+    "topic": "CWE-269",  # Improper Privilege Management
+}
+_TAG_FIRE_THRESHOLD = 0.3
+
+
+def _abfp_taxonomy_tags(dimensions: list[dict[str, Any]]) -> list[str]:
+    """Derive ASI/CWE tags from the scoring dimensions that meaningfully fired."""
+    tags = ["ASI10_Rogue_Agent"]
+    for dim in dimensions:
+        if float(dim.get("raw", 0.0)) >= _TAG_FIRE_THRESHOLD:
+            cwe = _DIMENSION_CWE.get(str(dim.get("name", "")))
+            if cwe and cwe not in tags:
+                tags.append(cwe)
+    return tags
+
+
 def _abfp_to_finding(d: dict[str, Any]) -> Finding:
     """Adapt an ABFP rogue-scan finding (agent_id/diff/dimensions) to a canonical Finding."""
     agent_id = str(d.get("agent_id", "?"))
@@ -74,7 +95,7 @@ def _abfp_to_finding(d: dict[str, Any]) -> Finding:
         detail=str(d.get("diff", "")),
         severity=_to_sev(d.get("severity", "INFO")),
         target=str(d.get("target", "")),
-        tags=["ASI10_Rogue_Agent"],
+        tags=_abfp_taxonomy_tags(dims or []),
         evidence=evidence,
         references=[],
         captured_at=str(d.get("captured_at", "")),

@@ -116,3 +116,44 @@ def test_no_graph_block_omits_centrality(tmp_path: Path):
     r = runner.invoke(app, ["report", "convert", str(src), "-f", "html", "-o", str(out), "--target", "t"])
     assert r.exit_code == 0, r.stdout
     assert "ABFP Graph Centrality" not in out.read_text()
+
+
+def test_abfp_taxonomy_tags_from_dimensions():
+    from mas_sentry.cli.report_cmd import _abfp_taxonomy_tags
+
+    dims = [
+        {"name": "burst", "raw": 0.55},
+        {"name": "payload", "raw": 0.8},
+        {"name": "identity", "raw": 0.9},
+        {"name": "timing", "raw": 0.10},  # below threshold -> skipped
+    ]
+    tags = _abfp_taxonomy_tags(dims)
+    assert tags == ["ASI10_Rogue_Agent", "CWE-400", "CWE-290"]  # CWE-400 deduped, CWE-799 omitted
+
+
+def test_abfp_cwe_badge_in_html_and_sarif(tmp_path: Path):
+    src = tmp_path / "f.json"
+    src.write_text(
+        json.dumps(
+            {
+                "findings": [
+                    {
+                        "agent_id": "agent-7",
+                        "severity": "HIGH",
+                        "diff": "drift",
+                        "dimensions": [{"name": "identity", "raw": 0.9, "reason": "id mismatch"}],
+                    }
+                ]
+            }
+        )
+    )
+    html = tmp_path / "o.html"
+    r1 = runner.invoke(app, ["report", "convert", str(src), "-f", "html", "-o", str(html), "--target", "t"])
+    assert r1.exit_code == 0, r1.stdout
+    assert "CWE-290" in html.read_text()
+
+    sarif = tmp_path / "o.sarif"
+    r2 = runner.invoke(app, ["report", "convert", str(src), "-f", "sarif", "-o", str(sarif), "--target", "t"])
+    assert r2.exit_code == 0, r2.stdout
+    doc = json.loads(sarif.read_text())
+    assert "CWE-290" in doc["runs"][0]["results"][0]["properties"]["tags"]
