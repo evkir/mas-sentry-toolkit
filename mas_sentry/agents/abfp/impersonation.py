@@ -13,6 +13,7 @@ from dataclasses import dataclass
 
 from .scoring import AnomalyScore, DimensionScore, compose
 from .snapshot import AgentDigest
+from .timing import TimingVector
 from .timing_compare import compare_timing_series
 
 
@@ -22,6 +23,21 @@ class ImpersonationFinding:
     score: AnomalyScore
     timing_mismatch: bool
     payload_mismatch: bool
+
+
+def _burst_dimension(baseline: AgentDigest, current: AgentDigest) -> DimensionScore:
+    """Score emergence of bursty cadence or loss of periodicity vs the baseline."""
+    bv = TimingVector.from_timestamps(baseline.timestamps)
+    cv = TimingVector.from_timestamps(current.timestamps)
+    if bv is None or cv is None:
+        return DimensionScore(name="burst", raw=0.0, reason="insufficient timing samples")
+    delta_burst = max(0.0, cv.burst_ratio - bv.burst_ratio)
+    periodicity_loss = bv.is_periodic and not cv.is_periodic
+    raw = min(1.0, delta_burst + (0.4 if periodicity_loss else 0.0))
+    reason = f"burst ratio {bv.burst_ratio:.2f}->{cv.burst_ratio:.2f}"
+    if periodicity_loss:
+        reason += "; lost periodic cadence"
+    return DimensionScore(name="burst", raw=raw, reason=reason)
 
 
 def _assess(baseline: AgentDigest, current: AgentDigest) -> tuple[list[DimensionScore], bool, bool]:
@@ -40,6 +56,7 @@ def _assess(baseline: AgentDigest, current: AgentDigest) -> tuple[list[Dimension
             raw=0.6 if (timing_mismatch or payload_mismatch) else 0.0,
             reason="Same agent_id, divergent fingerprint",
         ),
+        _burst_dimension(baseline, current),
     ]
     return dims, timing_mismatch, payload_mismatch
 

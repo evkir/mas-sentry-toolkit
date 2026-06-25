@@ -13,7 +13,7 @@ def _digest(period: float = 1.0, size: int = 10, n: int = 50) -> AgentDigest:
 
 def test_dimensions_named_and_zero_when_similar() -> None:
     dims = impersonation_dimensions(_digest(), _digest())
-    assert [d.name for d in dims] == ["timing", "payload", "identity"]
+    assert [d.name for d in dims] == ["timing", "payload", "identity", "burst"]
     assert all(d.raw == 0.0 for d in dims)
 
 
@@ -51,3 +51,34 @@ def test_empty_digests_are_safe() -> None:
 def test_zero_mean_baseline_payload_flags_divergence() -> None:
     finding = detect_impersonation("agent_a", _digest(size=0), _digest(size=10))
     assert finding.payload_mismatch
+
+
+def _ts_digest(timestamps: list[float], size: int = 10) -> AgentDigest:
+    return AgentDigest(timestamps=timestamps, payload_sizes=[size] * len(timestamps))
+
+
+def test_burst_dimension_fires_on_periodic_to_bursty() -> None:
+    baseline = _ts_digest([float(i) for i in range(60)])
+    bursty: list[float] = []
+    t = 0.0
+    for i in range(60):
+        bursty.append(t)
+        t += 0.01 if i % 10 else 5.0
+    current = _ts_digest(bursty)
+    by_name = {d.name: d for d in impersonation_dimensions(baseline, current)}
+    assert by_name["burst"].raw > 0.0
+    assert "lost periodic cadence" in by_name["burst"].reason
+
+
+def test_burst_dimension_zero_on_steady_to_steady() -> None:
+    baseline = _ts_digest([float(i) for i in range(60)])
+    current = _ts_digest([float(i) for i in range(60)])
+    by_name = {d.name: d for d in impersonation_dimensions(baseline, current)}
+    assert by_name["burst"].raw == 0.0
+
+
+def test_burst_dimension_zero_state_too_few_samples() -> None:
+    baseline = _ts_digest([0.0, 1.0])
+    current = _ts_digest([0.0, 0.01, 0.02, 5.0, 5.01])
+    by_name = {d.name: d for d in impersonation_dimensions(baseline, current)}
+    assert by_name["burst"].raw == 0.0

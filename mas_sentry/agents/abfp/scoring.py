@@ -20,6 +20,7 @@ WEIGHTS = {
     "payload": 0.20,
     "topic": 0.35,
     "identity": 0.20,
+    "burst": 0.15,
 }
 
 
