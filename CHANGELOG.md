@@ -1,5 +1,21 @@
 # Changelog
 
+## [Unreleased]
+
+### Added
+- ABFP findings now carry STRIDE taxonomy tags alongside the existing
+  ASI/CWE tags, derived from the dimensions that fired (identity ->
+  Spoofing, topic -> Elevation of Privilege, payload/burst/timing ->
+  Denial of Service). Tags render as dedicated HTML badges and flow into
+  SARIF result tags, giving rogue-agent findings a three-lens
+  (ASI/CWE/STRIDE) classification on the same fired signals.
+
+### Removed
+- Dead `abfp_stride_mapper` module and its false-contract test. The mapper
+  keyed off a `type` field the ABFP engine never emits, so it was unreachable
+  in production while its unit test inflated coverage. The dimension-driven
+  STRIDE tagging above supersedes it.
+
 ## [0.4.0] - 2026-06-22 - Full dimension parity across surfaces + burst-cadence detection
 
 ### Added
