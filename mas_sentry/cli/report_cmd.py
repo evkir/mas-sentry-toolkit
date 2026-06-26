@@ -69,16 +69,27 @@ _DIMENSION_CWE = {
     "topic": "CWE-269",  # Improper Privilege Management
 }
 _TAG_FIRE_THRESHOLD = 0.3
+_DIMENSION_STRIDE = {
+    "identity": "STRIDE_Spoofing",
+    "topic": "STRIDE_Elevation_Of_Privilege",
+    "payload": "STRIDE_Denial_Of_Service",
+    "burst": "STRIDE_Denial_Of_Service",
+    "timing": "STRIDE_Denial_Of_Service",
+}
 
 
 def _abfp_taxonomy_tags(dimensions: list[dict[str, Any]]) -> list[str]:
-    """Derive ASI/CWE tags from the scoring dimensions that meaningfully fired."""
+    """Derive ASI/CWE/STRIDE tags from the scoring dimensions that meaningfully fired."""
     tags = ["ASI10_Rogue_Agent"]
-    for dim in dimensions:
-        if float(dim.get("raw", 0.0)) >= _TAG_FIRE_THRESHOLD:
-            cwe = _DIMENSION_CWE.get(str(dim.get("name", "")))
-            if cwe and cwe not in tags:
-                tags.append(cwe)
+    fired = [d for d in dimensions if float(d.get("raw", 0.0)) >= _TAG_FIRE_THRESHOLD]
+    for dim in fired:
+        cwe = _DIMENSION_CWE.get(str(dim.get("name", "")))
+        if cwe and cwe not in tags:
+            tags.append(cwe)
+    for dim in fired:
+        stride = _DIMENSION_STRIDE.get(str(dim.get("name", "")))
+        if stride and stride not in tags:
+            tags.append(stride)
     return tags
 
 

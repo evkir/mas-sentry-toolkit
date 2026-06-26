@@ -128,7 +128,30 @@ def test_abfp_taxonomy_tags_from_dimensions():
         {"name": "timing", "raw": 0.10},  # below threshold -> skipped
     ]
     tags = _abfp_taxonomy_tags(dims)
-    assert tags == ["ASI10_Rogue_Agent", "CWE-400", "CWE-290"]  # CWE-400 deduped, CWE-799 omitted
+    # CWE pass then STRIDE pass; CWE-400/STRIDE_DoS deduped, timing below threshold omitted
+    assert tags == [
+        "ASI10_Rogue_Agent",
+        "CWE-400",
+        "CWE-290",
+        "STRIDE_Denial_Of_Service",
+        "STRIDE_Spoofing",
+    ]
+
+
+def test_abfp_stride_semantics():
+    from mas_sentry.cli.report_cmd import _abfp_taxonomy_tags
+
+    # timing maps to DoS (CWE-799 frequency control), topic to Elevation of Privilege
+    tags = _abfp_taxonomy_tags(
+        [
+            {"name": "timing", "raw": 0.6},
+            {"name": "topic", "raw": 0.7},
+        ]
+    )
+    assert "STRIDE_Denial_Of_Service" in tags
+    assert "STRIDE_Elevation_Of_Privilege" in tags
+    # below-threshold dimensions contribute no STRIDE tag
+    assert _abfp_taxonomy_tags([{"name": "identity", "raw": 0.1}]) == ["ASI10_Rogue_Agent"]
 
 
 def test_abfp_cwe_badge_in_html_and_sarif(tmp_path: Path):
