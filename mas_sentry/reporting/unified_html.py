@@ -48,6 +48,7 @@ h1{border-bottom:2px solid #334155;padding-bottom:.5rem}
      border-radius:3px;font-size:.8rem;margin-right:.3rem}
 .tag.asi{background:#7f1d1d;color:#fee}
 .tag.cwe{background:#1e3a8a;color:#dbeafe}
+.tag.stride{background:#065f46;color:#d1fae5}
 code{background:#0b1220;padding:.1rem .3rem;border-radius:3px;font-size:.85rem}
 .drivers{margin:.5rem 0}
 .drivers ul{margin:.3rem 0 0 1.1rem;padding:0}
@@ -113,6 +114,7 @@ footer{margin-top:3rem;color:#64748b;font-size:.85rem;border-top:1px solid #3341
     {% for t in f.tags %}
       {% if t.startswith('ASI') %}<span class="tag asi">{{ t }}</span>
       {% elif t.startswith('CWE') %}<span class="tag cwe">{{ t }}</span>
+      {% elif t.startswith('STRIDE') %}<span class="tag stride">{{ t }}</span>
       {% else %}<span class="tag">{{ t }}</span>{% endif %}
     {% endfor %}
   </p>

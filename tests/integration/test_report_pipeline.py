@@ -154,7 +154,7 @@ def test_abfp_stride_semantics():
     assert _abfp_taxonomy_tags([{"name": "identity", "raw": 0.1}]) == ["ASI10_Rogue_Agent"]
 
 
-def test_abfp_cwe_badge_in_html_and_sarif(tmp_path: Path):
+def test_abfp_taxonomy_badge_in_html_and_sarif(tmp_path: Path):
     src = tmp_path / "f.json"
     src.write_text(
         json.dumps(
@@ -180,3 +180,7 @@ def test_abfp_cwe_badge_in_html_and_sarif(tmp_path: Path):
     assert r2.exit_code == 0, r2.stdout
     doc = json.loads(sarif.read_text())
     assert "CWE-290" in doc["runs"][0]["results"][0]["properties"]["tags"]
+    # STRIDE parity: identity dimension also yields a Spoofing tag in HTML and SARIF
+    assert "STRIDE_Spoofing" in html.read_text()
+    assert "tag stride" in html.read_text()
+    assert "STRIDE_Spoofing" in doc["runs"][0]["results"][0]["properties"]["tags"]
