@@ -1,6 +1,6 @@
 # Changelog
 
-## [Unreleased]
+## [0.4.0] - 2026-06-22 - Full dimension parity across surfaces + burst-cadence detection
 
 ### Added
 - ABFP rogue-scan findings now render in HTML reports: the `report convert`
