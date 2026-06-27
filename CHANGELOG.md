@@ -15,6 +15,14 @@
   keyed off a `type` field the ABFP engine never emits, so it was unreachable
   in production while its unit test inflated coverage. The dimension-driven
   STRIDE tagging above supersedes it.
+- Removed the orphaned legacy threat-modeling and reporting pipeline:
+  the `threat_modeling` STRIDE subsystem (catalog, mappers, aggregator,
+  attack trees, CVSS calculator, ROS2 threats), the `MASAuditReport`
+  reporting stack (`report_model`, `HTMLReportGenerator`, markdown
+  report), and the superseded `AnomalyDetector`. ~440 statements with no
+  product consumers, kept green only by their own unit tests. The live
+  path (`abfp.scoring` + `report convert` -> unified HTML/SARIF/JSON/
+  JUnit/Markdown over `core.finding`) is the single supported pipeline.
 
 ## [0.4.0] - 2026-06-22 - Full dimension parity across surfaces + burst-cadence detection
 
