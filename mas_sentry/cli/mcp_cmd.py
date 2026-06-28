@@ -37,8 +37,13 @@ def mcp_scan(
         "-t",
         help="stdio://<cmd args...> | http(s)://host:port/mcp",
     ),
-    checks: str = typer.Option("all", "--checks", help="all|fingerprint|poisoning|ssrf|traversal|rebind"),
+    checks: str = typer.Option("all", "--checks", help="all|fingerprint|poisoning|ssrf|traversal|rebind|drift"),
     out: Path = typer.Option(Path("reports/mcp.json"), "--out", "-o"),
+    tool_baseline: Path | None = typer.Option(
+        None,
+        "--tool-baseline",
+        help="Path to a tool-descriptor baseline; captured on first run, diffed for rug-pull/drift after",
+    ),
     confirm_scope: bool = typer.Option(
         False,
         "--confirm-scope",
@@ -56,6 +61,7 @@ def mcp_scan(
         checks=checks,
         out=out,
         scope_confirmed=confirm_scope,
+        tool_baseline=tool_baseline,
     )
     table = Table(title=f"MCP scan — {target}")
     table.add_column("Check")

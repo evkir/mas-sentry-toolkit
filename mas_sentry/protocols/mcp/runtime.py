@@ -13,6 +13,7 @@ from mas_sentry.core.scope import assert_in_scope
 from .audit.dns_rebind import test_dns_rebinding
 from .audit.path_traversal import probe_arg_injection, probe_path_traversal
 from .audit.ssrf import probe_ssrf
+from .audit.tool_drift import detect_tool_drift
 from .audit.tool_poisoning import detect_tool_poisoning
 from .client import McpClient
 from .fingerprint import fingerprint, known_cves_for
@@ -27,6 +28,7 @@ def run_mcp_scan(
     checks: str,
     out: Path,
     scope_confirmed: bool,
+    tool_baseline: Path | None = None,
 ) -> list[dict[str, Any]]:
     _enforce_scope(scheme=scheme, command=command, confirmed=scope_confirmed)
     audit_write({"action": "mcp_scan_start", "target": target_label, "checks": checks})
@@ -35,11 +37,13 @@ def run_mcp_scan(
 
     if scheme == "stdio":
         with open_stdio(StdioConfig(command=command)) as t:
-            findings.extend(_run_all_checks(McpClient(t), transport="stdio", checks=checks))
+            findings.extend(
+                _run_all_checks(McpClient(t), transport="stdio", checks=checks, tool_baseline=tool_baseline)
+            )
     elif scheme in ("http", "https"):
         assert isinstance(command, str)  # CLI guarantees this for http(s)
         with open_http(HttpConfig(url=command)) as t:
-            findings.extend(_run_all_checks(McpClient(t), transport=scheme, checks=checks))
+            findings.extend(_run_all_checks(McpClient(t), transport=scheme, checks=checks, tool_baseline=tool_baseline))
             if checks in ("all", "rebind"):
                 rb = test_dns_rebinding(command)
                 if rb.vulnerable:
@@ -59,7 +63,9 @@ def run_mcp_scan(
     return findings
 
 
-def _run_all_checks(client: McpClient, transport: str, checks: str) -> list[dict[str, Any]]:
+def _run_all_checks(
+    client: McpClient, transport: str, checks: str, tool_baseline: Path | None = None
+) -> list[dict[str, Any]]:
     out: list[dict[str, Any]] = []
     fp = fingerprint(client, transport_name=transport)
     out.append(
@@ -113,6 +119,10 @@ def _run_all_checks(client: McpClient, transport: str, checks: str) -> list[dict
                         "detail": f"{tf.tool}: {tf.payload}",
                     }
                 )
+
+    if checks in ("all", "drift"):
+        for df in detect_tool_drift(client, tool_baseline):
+            out.append({"check": df.kind, "severity": df.severity, "detail": df.detail})
 
     return out
 
