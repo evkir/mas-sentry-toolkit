@@ -202,3 +202,13 @@ def test_to_sev_falls_back_to_info() -> None:
     assert _to_sev("") == Severity.INFO
     assert _to_sev("HIGH") == Severity.HIGH
     assert _to_sev("high") == Severity.HIGH
+
+
+def test_from_mcp_check_drift_taxonomy() -> None:
+    f = from_mcp_check({"check": "tool_rug_pull", "severity": "HIGH", "detail": "x changed"}, "stdio://srv")
+    assert f.tags == ["tool_rug_pull", "ASI08_Supply_Chain", "CWE-494", "STRIDE_Tampering"]
+    g = from_mcp_check({"check": "tool_shadowing", "severity": "HIGH", "detail": "dup"}, "stdio://srv")
+    assert "ASI02_Tool_Misuse" in g.tags and "STRIDE_Spoofing" in g.tags
+    # non-security drift checks carry only their own category tag
+    h = from_mcp_check({"check": "tool_baseline_captured", "severity": "INFO", "detail": "cap"}, "stdio://srv")
+    assert h.tags == ["tool_baseline_captured"]

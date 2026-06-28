@@ -35,6 +35,14 @@ def from_agentic(af: AgenticFinding) -> Finding:
     )
 
 
+# Three-lens taxonomy (ASI/CWE/STRIDE) for the security-meaningful MCP checks.
+# Drift checks reuse the same tag format the ABFP surface emits.
+_MCP_CHECK_TAGS = {
+    "tool_rug_pull": ["ASI08_Supply_Chain", "CWE-494", "STRIDE_Tampering"],
+    "tool_shadowing": ["ASI02_Tool_Misuse", "CWE-290", "STRIDE_Spoofing"],
+}
+
+
 def from_mcp_check(check_dict: dict[str, Any], target: str) -> Finding:
     """Map one entry of a `mas-sentry mcp scan --out` JSON array.
 
@@ -52,7 +60,7 @@ def from_mcp_check(check_dict: dict[str, Any], target: str) -> Finding:
         detail=detail,
         severity=_to_sev(check_dict.get("severity", "INFO")),
         target=target,
-        tags=[check_name],
+        tags=[check_name, *_MCP_CHECK_TAGS.get(check_name, [])],
         evidence=evidence,
     )
 
