@@ -3,6 +3,15 @@
 ## [Unreleased]
 
 ### Added
+- MCP tool-descriptor drift detection (`mcp scan --tool-baseline <path>`).
+  The first run captures a per-tool descriptor digest baseline; later runs
+  flag `tool_rug_pull` when a tool's description or input schema mutates
+  after approval (the post-approval rug pull most MCP clients miss),
+  `tool_shadowing` when two tools share a name in one enumeration, and
+  tool_added/tool_removed deltas. Security-meaningful drift carries
+  ASI/CWE/STRIDE tags (rug pull -> ASI08 Supply Chain / CWE-494 /
+  Tampering; shadowing -> ASI02 Tool Misuse / CWE-290 / Spoofing) across
+  the JSON, HTML, and SARIF surfaces.
 - ABFP findings now carry STRIDE taxonomy tags alongside the existing
   ASI/CWE tags, derived from the dimensions that fired (identity ->
   Spoofing, topic -> Elevation of Privilege, payload/burst/timing ->
