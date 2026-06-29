@@ -49,6 +49,9 @@ h1{border-bottom:2px solid #334155;padding-bottom:.5rem}
 .tag.asi{background:#7f1d1d;color:#fee}
 .tag.cwe{background:#1e3a8a;color:#dbeafe}
 .tag.stride{background:#065f46;color:#d1fae5}
+.cascade{margin-top:.4rem;font-size:.9rem}
+.cascade .br{color:#fca5a5;font-weight:600}
+.br-list{color:#cbd5e1;margin-top:.2rem}
 code{background:#0b1220;padding:.1rem .3rem;border-radius:3px;font-size:.85rem}
 .drivers{margin:.5rem 0}
 .drivers ul{margin:.3rem 0 0 1.1rem;padding:0}
@@ -129,6 +132,15 @@ footer{margin-top:3rem;color:#64748b;font-size:.85rem;border-top:1px solid #3341
     </li>
     {% endfor %}
   </ul></div>
+  {% endif %}
+  {% if f.evidence.blast_radius %}
+  <div class="cascade"><strong>Cascade blast radius</strong>
+    <span class="br">direct {{ f.evidence.blast_radius.direct_count }}
+      / transitive {{ f.evidence.blast_radius.transitive_count }}</span>
+    {% if f.evidence.blast_radius.transitive %}
+    <div class="br-list">reaches: {{ f.evidence.blast_radius.transitive | join(', ') }}</div>
+    {% endif %}
+  </div>
   {% endif %}
   {% if f.evidence %}<details><summary>Evidence</summary>
   <pre>{{ f.evidence | tojson(indent=2) }}</pre></details>{% endif %}

@@ -72,6 +72,8 @@ def to_sarif(findings: list[dict[str, Any]], tool_version: str | None = None) ->
             properties["agent_id"] = evidence["agent_id"]
         if evidence.get("total") is not None:
             properties["score"] = evidence["total"]
+        if evidence.get("blast_radius"):
+            properties["blast_radius"] = evidence["blast_radius"]
         if properties:
             result["properties"] = properties
         results.append(result)

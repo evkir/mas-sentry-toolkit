@@ -184,3 +184,41 @@ def test_abfp_taxonomy_badge_in_html_and_sarif(tmp_path: Path):
     assert "STRIDE_Spoofing" in html.read_text()
     assert "tag stride" in html.read_text()
     assert "STRIDE_Spoofing" in doc["runs"][0]["results"][0]["properties"]["tags"]
+
+
+def test_abfp_blast_radius_in_html_and_sarif(tmp_path: Path):
+    src = tmp_path / "f.json"
+    src.write_text(
+        json.dumps(
+            {
+                "findings": [
+                    {
+                        "agent_id": "rogue-1",
+                        "severity": "HIGH",
+                        "diff": "drift",
+                        "dimensions": [{"name": "topic", "raw": 0.8, "reason": "new topics"}],
+                        "blast_radius": {
+                            "topics": ["t/a"],
+                            "direct": ["sub-1"],
+                            "transitive": ["sub-1", "sub-2"],
+                            "direct_count": 1,
+                            "transitive_count": 2,
+                        },
+                    }
+                ]
+            }
+        )
+    )
+    html = tmp_path / "o.html"
+    r1 = runner.invoke(app, ["report", "convert", str(src), "-f", "html", "-o", str(html), "--target", "t"])
+    assert r1.exit_code == 0, r1.stdout
+    body = html.read_text()
+    assert "Cascade blast radius" in body
+    assert "transitive 2" in body
+    assert "sub-2" in body
+
+    sarif = tmp_path / "o.sarif"
+    r2 = runner.invoke(app, ["report", "convert", str(src), "-f", "sarif", "-o", str(sarif), "--target", "t"])
+    assert r2.exit_code == 0, r2.stdout
+    props = json.loads(sarif.read_text())["runs"][0]["results"][0]["properties"]
+    assert props["blast_radius"]["transitive_count"] == 2

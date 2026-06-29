@@ -100,6 +100,9 @@ def _abfp_to_finding(d: dict[str, Any]) -> Finding:
     dims = d.get("dimensions")
     if dims:
         evidence["dimensions"] = dims
+    bl = d.get("blast_radius")
+    if bl:
+        evidence["blast_radius"] = bl
     return Finding(
         module="abfp.rogue",
         title=f"Rogue agent: {agent_id}",
