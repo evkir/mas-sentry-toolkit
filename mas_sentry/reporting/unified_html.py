@@ -49,6 +49,7 @@ h1{border-bottom:2px solid #334155;padding-bottom:.5rem}
 .tag.asi{background:#7f1d1d;color:#fee}
 .tag.cwe{background:#1e3a8a;color:#dbeafe}
 .tag.stride{background:#065f46;color:#d1fae5}
+.tag.atlas{background:#5b21b6;color:#ede9fe}
 .cascade{margin-top:.4rem;font-size:.9rem}
 .cascade .br{color:#fca5a5;font-weight:600}
 .br-list{color:#cbd5e1;margin-top:.2rem}
@@ -117,6 +118,7 @@ footer{margin-top:3rem;color:#64748b;font-size:.85rem;border-top:1px solid #3341
     {% for t in f.tags %}
       {% if t.startswith('ASI') %}<span class="tag asi">{{ t }}</span>
       {% elif t.startswith('CWE') %}<span class="tag cwe">{{ t }}</span>
+      {% elif t.startswith('AML') %}<span class="tag atlas">{{ t }}</span>
       {% elif t.startswith('STRIDE') %}<span class="tag stride">{{ t }}</span>
       {% else %}<span class="tag">{{ t }}</span>{% endif %}
     {% endfor %}

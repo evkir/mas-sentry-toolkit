@@ -38,8 +38,8 @@ def from_agentic(af: AgenticFinding) -> Finding:
 # Three-lens taxonomy (ASI/CWE/STRIDE) for the security-meaningful MCP checks.
 # Drift checks reuse the same tag format the ABFP surface emits.
 _MCP_CHECK_TAGS = {
-    "tool_rug_pull": ["ASI08_Supply_Chain", "CWE-494", "STRIDE_Tampering"],
-    "tool_shadowing": ["ASI02_Tool_Misuse", "CWE-290", "STRIDE_Spoofing"],
+    "tool_rug_pull": ["ASI08_Supply_Chain", "CWE-494", "STRIDE_Tampering", "AML.T0110"],
+    "tool_shadowing": ["ASI02_Tool_Misuse", "CWE-290", "STRIDE_Spoofing", "AML.T0110"],
 }
 
 
