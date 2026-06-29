@@ -3,6 +3,15 @@
 ## [Unreleased]
 
 ### Added
+- MITRE ATLAS technique tags as a fourth taxonomy lens (alongside
+  ASI/CWE/STRIDE) on findings with a clean, verified match: MCP tool
+  rug-pull and shadowing -> AML.T0110 (AI Agent Tool Poisoning); agentic
+  goal hijack -> AML.T0051 (LLM Prompt Injection), memory poisoning ->
+  AML.T0080 (AI Agent Context Poisoning), supply chain -> AML.T0048 (ML
+  Supply Chain Compromise). Tags render as dedicated HTML badges and flow
+  into SARIF, giving findings the AI-native ATT&CK vocabulary that SOC and
+  audit workflows increasingly expect. Detectors without a defensible
+  technique match are deliberately left untagged.
 - Cascade blast-radius analysis for rogue-agent findings. Using the live
   agent-topic interaction graph, each rogue finding now reports how far a
   contamination it injects could spread: the topics it publishes into, the
@@ -28,6 +37,8 @@
   (ASI/CWE/STRIDE) classification on the same fired signals.
 
 ### Removed
+- Orphaned `agents/interaction_graph.py` (and its test), superseded by the
+  live `abfp/topic_graph` builder and unreachable from any product path.
 - Dead `abfp_stride_mapper` module and its false-contract test. The mapper
   keyed off a `type` field the ABFP engine never emits, so it was unreachable
   in production while its unit test inflated coverage. The dimension-driven
