@@ -212,3 +212,17 @@ def test_from_mcp_check_drift_taxonomy() -> None:
     # non-security drift checks carry only their own category tag
     h = from_mcp_check({"check": "tool_baseline_captured", "severity": "INFO", "detail": "cap"}, "stdio://srv")
     assert h.tags == ["tool_baseline_captured"]
+
+
+def test_from_agentic_maps_atlas_technique() -> None:
+    af = AgenticFinding(
+        asi=AsiCategory.ASI04,
+        severity="HIGH",
+        title="memory poisoning",
+        detail="persisted instruction",
+        target="agent-x",
+    )
+    assert "AML.T0080" in from_agentic(af).tags
+    # an ASI without a clean ATLAS match carries no AML tag
+    af2 = AgenticFinding(asi=AsiCategory.ASI06, severity="LOW", title="t", detail="d", target="x")
+    assert not any(t.startswith("AML.") for t in from_agentic(af2).tags)

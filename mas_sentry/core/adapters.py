@@ -16,6 +16,13 @@ from mas_sentry.protocols.a2a.card_audit import CardFinding
 
 from .finding import Finding, Severity
 
+# MITRE ATLAS technique IDs for agentic detectors with a clean, verified match.
+_ASI_ATLAS = {
+    "ASI01_Goal_Hijack": "AML.T0051",  # goal hijack via (indirect) prompt injection
+    "ASI04_Memory_Poisoning": "AML.T0080",  # AI Agent Context Poisoning
+    "ASI08_Supply_Chain": "AML.T0048",  # ML Supply Chain Compromise
+}
+
 
 def from_agentic(af: AgenticFinding) -> Finding:
     """Map an AgenticFinding (ASI01-ASI10) into the unified Finding."""
@@ -23,6 +30,9 @@ def from_agentic(af: AgenticFinding) -> Finding:
     tags = [af.asi.value]
     if af.cwe:
         tags.append(af.cwe)
+    atlas = _ASI_ATLAS.get(af.asi.value)
+    if atlas:
+        tags.append(atlas)
     return Finding(
         module=f"agentic.{asi_code}",
         title=af.title,
