@@ -14,6 +14,7 @@ import paho.mqtt.client as mqtt
 from rich.console import Console
 
 from .baseline import BaselineCollector
+from .cascade import BlastRadius, blast_radius
 from .graph_metrics import AgentGraphMetrics, all_metrics, graph_summary
 from .identity import infer_agent_id
 from .impersonation import impersonation_dimensions
@@ -89,7 +90,15 @@ def run_abfp_scan(
     findings = detect_rogue(
         baseline_graph=baseline_graph, current_graph=current_graph, extra_dimensions=extra_dimensions
     )
-    _write_report(out_path, findings, baseline_status=bc.all_statuses(), target=target, graph=graph_block)
+    cascade = {f.agent_id: blast_radius(current_graph, f.agent_id) for f in findings}
+    _write_report(
+        out_path,
+        findings,
+        baseline_status=bc.all_statuses(),
+        target=target,
+        graph=graph_block,
+        cascade=cascade,
+    )
     return AbfpScanResult(findings=findings, metrics=metrics)
 
 
@@ -116,12 +125,26 @@ def _impersonation_dimensions(
     return extra
 
 
+def _cascade_entry(cascade: dict[str, BlastRadius] | None, agent_id: str) -> dict[str, Any] | None:
+    if not cascade or agent_id not in cascade:
+        return None
+    br = cascade[agent_id]
+    return {
+        "topics": br.topics,
+        "direct": br.direct,
+        "transitive": br.transitive,
+        "direct_count": br.direct_count,
+        "transitive_count": br.transitive_count,
+    }
+
+
 def _write_report(
     out_path: Path,
     findings: list[RogueFinding],
     baseline_status,
     target: str,
     graph: dict[str, Any] | None = None,
+    cascade: dict[str, BlastRadius] | None = None,
 ) -> None:
     out_path.parent.mkdir(parents=True, exist_ok=True)
     payload: dict[str, Any] = {
@@ -134,6 +157,7 @@ def _write_report(
                 "severity": f.score.severity.value,
                 "diff": f.diff_summary,
                 "dimensions": [{"name": d.name, "raw": d.raw, "reason": d.reason} for d in f.score.dimensions],
+                "blast_radius": _cascade_entry(cascade, f.agent_id),
             }
             for f in findings
         ],

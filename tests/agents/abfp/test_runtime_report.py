@@ -56,3 +56,33 @@ def test_write_report_emits_finding_dimensions(tmp_path: Path) -> None:
     _write_report(out, [finding], [], target="lab")
     dims = json.loads(out.read_text())["findings"][0]["dimensions"]
     assert {"name": "identity", "raw": 0.6, "reason": "divergent fingerprint"} in dims
+
+
+def test_write_report_injects_blast_radius(tmp_path: Path) -> None:
+    from mas_sentry.agents.abfp.cascade import BlastRadius
+    from mas_sentry.agents.abfp.rogue import RogueFinding
+    from mas_sentry.agents.abfp.scoring import DimensionScore, compose
+
+    score = compose("agent_a", [DimensionScore(name="topic", raw=1.0, reason="new agent")])
+    finding = RogueFinding(agent_id="agent_a", score=score, diff_summary={}, is_rogue=True)
+    cascade = {
+        "agent_a": BlastRadius(
+            topics=["t/x"], direct=["agent_b"], transitive=["agent_b", "agent_c"], direct_count=1, transitive_count=2
+        )
+    }
+    out = tmp_path / "abfp.json"
+    _write_report(out, [finding], [], target="lab", cascade=cascade)
+    br = json.loads(out.read_text())["findings"][0]["blast_radius"]
+    assert br["direct"] == ["agent_b"]
+    assert br["transitive_count"] == 2
+
+
+def test_write_report_blast_radius_null_without_cascade(tmp_path: Path) -> None:
+    from mas_sentry.agents.abfp.rogue import RogueFinding
+    from mas_sentry.agents.abfp.scoring import DimensionScore, compose
+
+    score = compose("agent_a", [DimensionScore(name="topic", raw=0.5, reason="x")])
+    finding = RogueFinding(agent_id="agent_a", score=score, diff_summary={}, is_rogue=False)
+    out = tmp_path / "abfp.json"
+    _write_report(out, [finding], [], target="lab")
+    assert json.loads(out.read_text())["findings"][0]["blast_radius"] is None
