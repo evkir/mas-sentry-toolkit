@@ -3,6 +3,14 @@
 ## [Unreleased]
 
 ### Added
+- Cascade blast-radius analysis for rogue-agent findings. Using the live
+  agent-topic interaction graph, each rogue finding now reports how far a
+  contamination it injects could spread: the topics it publishes into, the
+  direct subscribers one hop away, and the full transitive set of
+  downstream agents it could reach. Surfaced in `evidence.blast_radius`
+  across the JSON, HTML (a per-finding cascade view), and SARIF
+  (`properties.blast_radius`) outputs, turning the descriptive graph into a
+  predictive contamination-reach signal.
 - MCP tool-descriptor drift detection (`mcp scan --tool-baseline <path>`).
   The first run captures a per-tool descriptor digest baseline; later runs
   flag `tool_rug_pull` when a tool's description or input schema mutates
