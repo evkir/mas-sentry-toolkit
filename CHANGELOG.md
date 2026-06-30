@@ -2,7 +2,17 @@
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-07-01 - Four taxonomy lenses, MCP tool-drift, cascade blast-radius, SARIF security-severity
+
 ### Added
+- SARIF rules now carry a GitHub `security-severity` score, so findings
+  rank in the GitHub code-scanning Security tab instead of appearing
+  unranked. The number is anchored on the finding's textual severity band
+  (CRITICAL >=9.0, HIGH 7.0-8.9, MEDIUM 4.0-6.9, LOW <=3.9) and, for
+  scored rogue-agent findings, positioned within that band by the real
+  composite anomaly score, so a higher-scoring rogue outranks a lower one.
+  Non-scored MCP checks take the band midpoint; a rule ranks at its worst
+  finding.
 - MITRE ATLAS technique tags as a fourth taxonomy lens (alongside
   ASI/CWE/STRIDE) on findings with a clean, verified match: MCP tool
   rug-pull and shadowing -> AML.T0110 (AI Agent Tool Poisoning); agentic
