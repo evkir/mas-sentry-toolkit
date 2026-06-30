@@ -30,6 +30,46 @@ def severity_to_sarif_level(severity: str) -> str:
     return _SARIF_LEVELS.get(severity.upper(), "note")
 
 
+# GitHub code-scanning maps a numeric security-severity (0.0-10.0) on the rule
+# to a band: >=9.0 critical, 7.0-8.9 high, 4.0-6.9 medium, <=3.9 low. We anchor
+# the band on the finding's textual severity so the GitHub badge stays coherent
+# with our own label, then position the real composite anomaly score within
+# that band so higher-scoring findings outrank lower ones inside the same band.
+_SECURITY_SEVERITY_BANDS: dict[str, tuple[float, float]] = {
+    "CRITICAL": (9.0, 10.0),
+    "HIGH": (7.0, 8.9),
+    "MEDIUM": (4.0, 6.9),
+    "LOW": (0.1, 3.9),
+    "INFO": (0.0, 0.0),
+}
+
+
+def _finding_total(f: dict[str, Any]) -> float | None:
+    """Extract the 0..100 composite anomaly score, if this finding carries one."""
+    total = (f.get("evidence") or {}).get("total")
+    if total is None:
+        return None
+    try:
+        return float(total)
+    except (TypeError, ValueError):
+        return None
+
+
+def _security_severity(severity: str, total: float | None) -> float:
+    """Map a finding to a GitHub security-severity number, band-anchored on severity.
+
+    Scored findings (ABFP, total in 0..100) land at total/10 clamped into the band
+    their textual severity implies. Non-scored findings (e.g. MCP checks) take the
+    band midpoint. INFO maps to 0.0 (no security ranking).
+    """
+    lo, hi = _SECURITY_SEVERITY_BANDS.get(severity.upper(), (0.0, 0.0))
+    if hi == 0.0:
+        return 0.0
+    if total is None:
+        return round((lo + hi) / 2, 1)
+    return round(min(hi, max(lo, total / 10.0)), 1)
+
+
 def _driver_summary(dimensions: list[dict[str, Any]]) -> str:
     """Render fired scoring drivers as a compact one-line summary."""
     parts = [
@@ -47,7 +87,7 @@ def to_sarif(findings: list[dict[str, Any]], tool_version: str | None = None) ->
         check = f.get("check") or f.get("module") or "unknown"
         rule_id = f"MAS-SENTRY-{check.upper()}"
         level = severity_to_sarif_level(f["severity"])
-        rules.setdefault(
+        rule = rules.setdefault(
             rule_id,
             {
                 "id": rule_id,
@@ -55,6 +95,11 @@ def to_sarif(findings: list[dict[str, Any]], tool_version: str | None = None) ->
                 "defaultConfiguration": {"level": level},
             },
         )
+        sev_num = _security_severity(f["severity"], _finding_total(f))
+        if sev_num > 0.0:
+            rprops = rule.setdefault("properties", {})
+            if sev_num > float(rprops.get("security-severity", "0")):
+                rprops["security-severity"] = f"{sev_num:.1f}"
         evidence = f.get("evidence") or {}
         dimensions = evidence.get("dimensions") or []
         message = f.get("detail", "") + _driver_summary(dimensions)
