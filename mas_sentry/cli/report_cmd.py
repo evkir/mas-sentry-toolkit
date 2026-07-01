@@ -67,6 +67,7 @@ _DIMENSION_CWE = {
     "payload": "CWE-400",  # Uncontrolled Resource Consumption
     "timing": "CWE-799",  # Improper Control of Interaction Frequency
     "topic": "CWE-269",  # Improper Privilege Management
+    "injection": "CWE-1427",  # Improper Neutralization of Input Used for LLM Prompting
 }
 _TAG_FIRE_THRESHOLD = 0.3
 _DIMENSION_STRIDE = {
@@ -75,13 +76,26 @@ _DIMENSION_STRIDE = {
     "payload": "STRIDE_Denial_Of_Service",
     "burst": "STRIDE_Denial_Of_Service",
     "timing": "STRIDE_Denial_Of_Service",
+    "injection": "STRIDE_Tampering",
+}
+# ATLAS technique per dimension (only where a clean, verified match exists).
+_DIMENSION_ATLAS = {
+    "injection": "AML.T0051",  # LLM Prompt Injection
+}
+# Additional ASI category a fired dimension implies beyond the base ASI10.
+_DIMENSION_ASI = {
+    "injection": "ASI01_Goal_Hijack",
 }
 
 
 def _abfp_taxonomy_tags(dimensions: list[dict[str, Any]]) -> list[str]:
-    """Derive ASI/CWE/STRIDE tags from the scoring dimensions that meaningfully fired."""
+    """Derive ASI/CWE/STRIDE/ATLAS tags from the scoring dimensions that meaningfully fired."""
     tags = ["ASI10_Rogue_Agent"]
     fired = [d for d in dimensions if float(d.get("raw", 0.0)) >= _TAG_FIRE_THRESHOLD]
+    for dim in fired:
+        asi = _DIMENSION_ASI.get(str(dim.get("name", "")))
+        if asi and asi not in tags:
+            tags.append(asi)
     for dim in fired:
         cwe = _DIMENSION_CWE.get(str(dim.get("name", "")))
         if cwe and cwe not in tags:
@@ -90,6 +104,10 @@ def _abfp_taxonomy_tags(dimensions: list[dict[str, Any]]) -> list[str]:
         stride = _DIMENSION_STRIDE.get(str(dim.get("name", "")))
         if stride and stride not in tags:
             tags.append(stride)
+    for dim in fired:
+        atlas = _DIMENSION_ATLAS.get(str(dim.get("name", "")))
+        if atlas and atlas not in tags:
+            tags.append(atlas)
     return tags
 
 

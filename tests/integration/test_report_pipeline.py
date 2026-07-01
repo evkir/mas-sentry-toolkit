@@ -154,6 +154,21 @@ def test_abfp_stride_semantics():
     assert _abfp_taxonomy_tags([{"name": "identity", "raw": 0.1}]) == ["ASI10_Rogue_Agent"]
 
 
+def test_abfp_injection_dimension_full_taxonomy():
+    from mas_sentry.cli.report_cmd import _abfp_taxonomy_tags
+
+    # A fired injection dimension carries the LLM-prompt-injection lens across
+    # all four taxonomies: ASI01 goal hijack, CWE-1427, STRIDE Tampering, ATLAS T0051.
+    tags = _abfp_taxonomy_tags([{"name": "injection", "raw": 0.8}])
+    assert "ASI10_Rogue_Agent" in tags  # base
+    assert "ASI01_Goal_Hijack" in tags
+    assert "CWE-1427" in tags
+    assert "STRIDE_Tampering" in tags
+    assert "AML.T0051" in tags
+    # below threshold -> no injection taxonomy leaks through
+    assert _abfp_taxonomy_tags([{"name": "injection", "raw": 0.1}]) == ["ASI10_Rogue_Agent"]
+
+
 def test_abfp_taxonomy_badge_in_html_and_sarif(tmp_path: Path):
     src = tmp_path / "f.json"
     src.write_text(
@@ -184,6 +199,37 @@ def test_abfp_taxonomy_badge_in_html_and_sarif(tmp_path: Path):
     assert "STRIDE_Spoofing" in html.read_text()
     assert "tag stride" in html.read_text()
     assert "STRIDE_Spoofing" in doc["runs"][0]["results"][0]["properties"]["tags"]
+
+
+def test_abfp_injection_badge_end_to_end(tmp_path: Path):
+    src = tmp_path / "inj.json"
+    src.write_text(
+        json.dumps(
+            {
+                "findings": [
+                    {
+                        "agent_id": "poisoned-relay",
+                        "severity": "HIGH",
+                        "diff": "ipi",
+                        "dimensions": [{"name": "injection", "raw": 0.9, "reason": "ignore-previous in payload"}],
+                    }
+                ]
+            }
+        )
+    )
+    html = tmp_path / "inj.html"
+    r1 = runner.invoke(app, ["report", "convert", str(src), "-f", "html", "-o", str(html), "--target", "t"])
+    assert r1.exit_code == 0, r1.stdout
+    body = html.read_text()
+    assert "CWE-1427" in body
+    assert "AML.T0051" in body
+
+    sarif = tmp_path / "inj.sarif"
+    r2 = runner.invoke(app, ["report", "convert", str(src), "-f", "sarif", "-o", str(sarif), "--target", "t"])
+    assert r2.exit_code == 0, r2.stdout
+    assert "AML.T0051" in sarif.read_text()
+    doc = json.loads(sarif.read_text())
+    assert "CWE-1427" in doc["runs"][0]["results"][0]["properties"]["tags"]
 
 
 def test_abfp_blast_radius_in_html_and_sarif(tmp_path: Path):

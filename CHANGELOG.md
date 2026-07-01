@@ -2,6 +2,30 @@
 
 ## [Unreleased]
 
+### Added
+- Passive indirect-prompt-injection (IPI) detection over live agent traffic.
+  Every MQTT payload observed during an ABFP scan is scanned in-flight for
+  injection directives (obfuscation via zero-width / Unicode-tag characters,
+  `ignore previous instructions`, system-role overrides, new-task directives,
+  tool-call hijacks). An agent that publishes such directives into the topic
+  graph - because it was poisoned upstream or is malicious - surfaces as a new
+  `injection` scoring dimension, and the existing cascade blast-radius then
+  quantifies the downstream contamination reach over the same graph. This
+  catches IPI travelling agent-to-agent, a class that input/output guardrails
+  on a single agent miss. Payloads are scanned but not retained, so the
+  message buffer keeps its size+hash-only memory discipline. The `injection`
+  dimension carries the full four-lens taxonomy: ASI01 Goal Hijack, CWE-1427
+  (Improper Neutralization of Input Used for LLM Prompting), STRIDE Tampering,
+  and MITRE ATLAS AML.T0051 (LLM Prompt Injection), rendering as HTML badges
+  and flowing into SARIF.
+
+### Changed
+- The IPI pattern scanner (`scan_string` / `InjectionMatch`) moved to
+  `mas_sentry.core.injection_scan` as a shared primitive consumed by both the
+  MCP tool-descriptor audit and the ABFP live-traffic detector, removing a
+  would-be `agents -> protocols.mcp` layering dependency. The MCP audit API is
+  unchanged (re-exported).
+
 ## [0.5.0] - 2026-07-01 - Four taxonomy lenses, MCP tool-drift, cascade blast-radius, SARIF security-severity
 
 ### Added

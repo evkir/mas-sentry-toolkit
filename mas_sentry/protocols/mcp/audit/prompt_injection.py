@@ -1,46 +1,18 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
-"""Detect indirect-prompt-injection patterns in tool descriptions and results.
+"""IPI scan of MCP tool definitions (description + parameter descriptions).
 
-These match the EchoLeak/Windsurf/Cursor disclosure pattern: hidden directives
-embedded in fields the LLM ingests but the user does not see.
+The pattern primitives live in mas_sentry.core.injection_scan (shared with the
+ABFP live-traffic detector); this module keeps only the MCP-specific traversal
+over the tool-definition shape.
 """
 
 from __future__ import annotations
 
-import re
-from dataclasses import dataclass
 from typing import Any
 
-# Unicode tags + zero-width — used to hide instructions from human review.
-_ZERO_WIDTH = re.compile(r"[\u200b-\u200f\u202a-\u202e\ufeff]")
-_TAG_CHARS = re.compile(r"[\U000e0020-\U000e007f]")
-_IGNORE_PREVIOUS = re.compile(r"(?i)ignore (all )?(previous|prior|above) (instructions|prompts|context)")
-_NEW_TASK = re.compile(r"(?i)new (task|objective|goal)\s*:")
-_SYSTEM_OVERRIDE = re.compile(r"(?i)(system|admin|developer)\s*:\s*(you must|always|never)")
-_TOOL_CALL_HIJACK = re.compile(r"(?i)(when called|on tool|after this).{0,40}(exfiltrate|send|leak|fetch)")
+from mas_sentry.core.injection_scan import InjectionMatch, scan_string
 
-
-@dataclass(frozen=True, slots=True)
-class InjectionMatch:
-    pattern: str
-    sample: str  # truncated
-
-
-def scan_string(s: str) -> list[InjectionMatch]:
-    out: list[InjectionMatch] = []
-    if _ZERO_WIDTH.search(s):
-        out.append(InjectionMatch("zero-width-chars", s[:80]))
-    if _TAG_CHARS.search(s):
-        out.append(InjectionMatch("unicode-tag-chars", s[:80]))
-    for name, pat in [
-        ("ignore-previous", _IGNORE_PREVIOUS),
-        ("new-task-directive", _NEW_TASK),
-        ("system-role-override", _SYSTEM_OVERRIDE),
-        ("tool-call-hijack", _TOOL_CALL_HIJACK),
-    ]:
-        if pat.search(s):
-            out.append(InjectionMatch(name, s[:160]))
-    return out
+__all__ = ["InjectionMatch", "scan_string", "scan_tool_definitions"]
 
 
 def scan_tool_definitions(

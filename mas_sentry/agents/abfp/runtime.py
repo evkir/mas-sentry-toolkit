@@ -19,6 +19,7 @@ from .graph_metrics import AgentGraphMetrics, all_metrics, graph_summary
 from .identity import infer_agent_id
 from .impersonation import impersonation_dimensions
 from .observer import MessageEvent, MessageObserver
+from .payload_injection import PayloadInjectionTracker
 from .rogue import RogueFinding, detect_rogue
 from .scoring import DimensionScore
 from .snapshot import AgentDigest, ScanSnapshot, build_snapshot
@@ -49,6 +50,7 @@ def run_abfp_scan(
 
     observer = MessageObserver()
     graph_builder = TopicGraphBuilder()
+    injection_tracker = PayloadInjectionTracker()
 
     client = mqtt.Client(callback_api_version=mqtt.CallbackAPIVersion.VERSION2)
 
@@ -62,6 +64,7 @@ def run_abfp_scan(
         ev = MessageEvent.now(agent_id, msg.topic, msg.payload, msg.qos, bool(msg.retain))
         observer.record(ev)
         graph_builder.observe_publish(agent_id, msg.topic)
+        injection_tracker.observe(agent_id, msg.topic, msg.payload)
 
     client.on_connect = on_connect
     client.on_message = on_message
@@ -87,6 +90,9 @@ def run_abfp_scan(
     extra_dimensions = (
         _impersonation_dimensions(baseline.agents, current_snapshot.agents) if baseline is not None else {}
     )
+    # IPI directives seen in live traffic fire regardless of baseline presence.
+    for aid, dims in injection_tracker.dimensions().items():
+        extra_dimensions.setdefault(aid, []).extend(dims)
     findings = detect_rogue(
         baseline_graph=baseline_graph, current_graph=current_graph, extra_dimensions=extra_dimensions
     )

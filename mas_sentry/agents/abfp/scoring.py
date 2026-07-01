@@ -21,6 +21,10 @@ WEIGHTS = {
     "topic": 0.35,
     "identity": 0.20,
     "burst": 0.15,
+    # IPI directives observed in an agent's published traffic. Weighted high
+    # enough that a strong single hit reaches MEDIUM on its own and escalates
+    # to HIGH/CRITICAL when combined with topic/identity drift.
+    "injection": 0.60,
 }
 
 
