@@ -3,12 +3,21 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+
+from mas_sentry.core.injection_scan import scan_string
 
 from .client import AgentCard
 
 # AgentCard skill counts above this threshold are flagged for review.
 LARGE_SKILL_THRESHOLD = 20
+
+# Four-lens taxonomy for Agent Card Poisoning: injection directives embedded in
+# card metadata that hijack an orchestrator's LLM-based task routing. Same
+# directive class MAS-Sentry detects in MCP tool descriptors and agent traffic.
+_POISONING_TAGS = ["ASI01_Goal_Hijack", "CWE-1427", "STRIDE_Tampering", "AML.T0051"]
+# Cleartext card endpoint enables card tampering / impersonation in transit.
+_CLEARTEXT_TAGS = ["CWE-319", "STRIDE_Tampering"]
 
 
 @dataclass(frozen=True, slots=True)
@@ -16,6 +25,7 @@ class CardFinding:
     severity: str
     title: str
     detail: str
+    tags: list[str] = field(default_factory=list)
 
 
 def audit_agent_card(card: AgentCard) -> list[CardFinding]:
@@ -68,4 +78,58 @@ def audit_agent_card(card: AgentCard) -> list[CardFinding]:
             )
         )
 
+    out.extend(_scan_card_poisoning(card))
+    out.extend(_check_insecure_transport(card))
+
     return out
+
+
+def _scan_card_poisoning(card: AgentCard) -> list[CardFinding]:
+    """Detect injection directives embedded in LLM-ingested card metadata.
+
+    An orchestrator selects specialist agents by reasoning over card
+    descriptions; adversarial instructions in those fields hijack task routing
+    (Agent Card Poisoning). We scan the card description and every skill's name
+    and description with the shared injection primitive.
+    """
+    out: list[CardFinding] = []
+    fields: list[tuple[str, str]] = [("description", card.description or "")]
+    for i, skill in enumerate(card.skills):
+        if not isinstance(skill, dict):
+            continue
+        sid = str(skill.get("id") or skill.get("name") or i)
+        fields.append((f"skills[{sid}].name", str(skill.get("name", ""))))
+        fields.append((f"skills[{sid}].description", str(skill.get("description", ""))))
+
+    for location, text in fields:
+        matches = scan_string(text)
+        if not matches:
+            continue
+        patterns = sorted({m.pattern for m in matches})
+        out.append(
+            CardFinding(
+                severity="HIGH",
+                title=f"Agent Card Poisoning: injection directive in {location}",
+                detail=(
+                    f"Card metadata carries injection directive(s) [{', '.join(patterns)}] "
+                    "that can hijack an orchestrator's task-routing reasoning"
+                ),
+                tags=list(_POISONING_TAGS),
+            )
+        )
+    return out
+
+
+def _check_insecure_transport(card: AgentCard) -> list[CardFinding]:
+    """Flag a cleartext (http://) card endpoint - it invites card tampering."""
+    url = (card.url or "").strip().lower()
+    if url.startswith("http://"):
+        return [
+            CardFinding(
+                severity="MEDIUM",
+                title="AgentCard endpoint served over cleartext HTTP",
+                detail=("Card and task traffic are unencrypted; an on-path attacker can tamper the card or messages"),
+                tags=list(_CLEARTEXT_TAGS),
+            )
+        ]
+    return []

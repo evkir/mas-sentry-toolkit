@@ -88,7 +88,7 @@ def from_card_audit(card_finding: CardFinding, target: str) -> Finding:
         detail=card_finding.detail,
         severity=_to_sev(card_finding.severity),
         target=target,
-        tags=["a2a"],
+        tags=["a2a", *card_finding.tags],
     )
 
 

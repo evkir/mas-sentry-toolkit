@@ -3,6 +3,16 @@
 ## [Unreleased]
 
 ### Added
+- Agent Card Poisoning detection for the A2A card audit. The audit now scans
+  the AgentCard description and every skill's name/description with the shared
+  injection primitive (`mas_sentry.core.injection_scan`), flagging directives
+  that hijack an orchestrator's LLM-based task-routing reasoning - the same
+  detector now covers three surfaces: MCP tool descriptors, live agent traffic,
+  and A2A cards. Poisoning findings carry the four-lens taxonomy (ASI01 Goal
+  Hijack, CWE-1427, STRIDE Tampering, MITRE ATLAS AML.T0051). A cleartext
+  (`http://`) card endpoint is now flagged (CWE-319, STRIDE Tampering) as it
+  invites card tampering in transit. A2A card findings propagate their
+  per-finding taxonomy into the unified Finding tags.
 - Passive indirect-prompt-injection (IPI) detection over live agent traffic.
   Every MQTT payload observed during an ABFP scan is scanned in-flight for
   injection directives (obfuscation via zero-width / Unicode-tag characters,

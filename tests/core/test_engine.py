@@ -197,6 +197,17 @@ def test_from_card_audit_maps_to_a2a_module() -> None:
     assert "a2a" in uf.tags
 
 
+def test_from_card_audit_propagates_poisoning_taxonomy() -> None:
+    cf = CardFinding(
+        severity="HIGH",
+        title="Agent Card Poisoning: injection directive in description",
+        detail="x",
+        tags=["ASI01_Goal_Hijack", "CWE-1427", "STRIDE_Tampering", "AML.T0051"],
+    )
+    uf = from_card_audit(cf, target="agent-x")
+    assert uf.tags == ["a2a", "ASI01_Goal_Hijack", "CWE-1427", "STRIDE_Tampering", "AML.T0051"]
+
+
 def test_to_sev_falls_back_to_info() -> None:
     assert _to_sev("nonsense") == Severity.INFO
     assert _to_sev("") == Severity.INFO
