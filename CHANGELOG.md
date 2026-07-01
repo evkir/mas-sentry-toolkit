@@ -18,6 +18,13 @@
   (Improper Neutralization of Input Used for LLM Prompting), STRIDE Tampering,
   and MITRE ATLAS AML.T0051 (LLM Prompt Injection), rendering as HTML badges
   and flowing into SARIF.
+- Four-lens taxonomy tags for the MCP `tool_poisoning` check (ASI01 Goal
+  Hijack, CWE-1427, STRIDE Tampering, MITRE ATLAS AML.T0051), closing the
+  gap where MCP tool-poisoning findings - which carry IPI directives embedded
+  in tool-descriptor fields - previously shipped without an ATLAS technique
+  or CWE. The `arg_injection` check now carries command-injection tags
+  (ASI02 Tool Misuse, CWE-77, STRIDE Tampering); it is deliberately left
+  ATLAS-untagged as no verified technique cleanly matches.
 
 ### Changed
 - The IPI pattern scanner (`scan_string` / `InjectionMatch`) moved to

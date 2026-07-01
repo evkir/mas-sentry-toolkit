@@ -214,6 +214,17 @@ def test_from_mcp_check_drift_taxonomy() -> None:
     assert h.tags == ["tool_baseline_captured"]
 
 
+def test_from_mcp_check_injection_taxonomy() -> None:
+    # Tool-poisoning findings (IPI in descriptor fields) carry the full
+    # LLM-prompt-injection lens across all four taxonomies.
+    p = from_mcp_check({"check": "tool_poisoning", "severity": "HIGH", "detail": "hidden directive"}, "stdio://srv")
+    assert p.tags == ["tool_poisoning", "ASI01_Goal_Hijack", "CWE-1427", "STRIDE_Tampering", "AML.T0051"]
+    # Argument injection is command injection: CWE-77 + Tampering, deliberately no ATLAS.
+    a = from_mcp_check({"check": "arg_injection", "severity": "CRITICAL", "detail": "&& id"}, "stdio://srv")
+    assert a.tags == ["arg_injection", "ASI02_Tool_Misuse", "CWE-77", "STRIDE_Tampering"]
+    assert not any(t.startswith("AML.") for t in a.tags)
+
+
 def test_from_agentic_maps_atlas_technique() -> None:
     af = AgenticFinding(
         asi=AsiCategory.ASI04,
