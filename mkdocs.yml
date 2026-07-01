@@ -54,6 +54,7 @@ nav:
   - Architecture: ARCHITECTURE.md
   - Methodology:
       - ABFP: methodology/ABFP.md
+      - Indirect Prompt Injection: methodology/indirect-prompt-injection.md
       - Threat Modeling: methodology/threat-modeling.md
   - Modules:
       - Agentic (ASI01-ASI10): agentic/README.md
