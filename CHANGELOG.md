@@ -3,6 +3,24 @@
 ## [Unreleased]
 
 ### Added
+- Live `mas-sentry a2a scan` command activating the full Agent-to-Agent
+  vertical, previously a dormant library. The scan discovers an endpoint's
+  AgentCard, audits it passively, and - with `--active` - runs live probes
+  (task-id collision, unauthorized cancel, indirect-injection canary),
+  mapping every result through the A2A adapters into unified Findings. Output
+  is written to `reports/a2a.json` and flows straight into `mas-sentry report
+  convert` (HTML / Markdown / SARIF / JUnit) with no re-adaptation. Scope is
+  enforced centrally by the A2A client, so non-lab targets require
+  `--confirm-scope` even for the passive card fetch; `--active` governs
+  intrusiveness and prints an authorized-use notice. Probe outcomes carry
+  taxonomy only when a probe fails (task-id collision ASI03 / CWE-345, cancel
+  CWE-862, indirect-injection ASI01 / CWE-1427 / AML.T0051); a probe that
+  holds is recorded INFO. The structural AgentCard findings (missing or
+  anonymous auth, uncapped streaming, unsigned push callbacks, excessive skill
+  surface) now also carry the four-lens taxonomy, so every A2A finding - not
+  only poisoning and insecure transport - is ranked by SARIF security-severity
+  and visible to cross-taxonomy filters. Documented in the new A2A Scanning
+  methodology page.
 - Agent Card Poisoning detection for the A2A card audit. The audit now scans
   the AgentCard description and every skill's name/description with the shared
   injection primitive (`mas_sentry.core.injection_scan`), flagging directives
