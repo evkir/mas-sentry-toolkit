@@ -10,31 +10,31 @@
       
       
       
-        <link rel="canonical" href="https://evkir.github.io/mas-sentry-toolkit/ARCHITECTURE/">
+        <link rel="canonical" href="https://evkir.github.io/mas-sentry-toolkit/methodology/a2a-scanning/">
       
       
-        <link rel="prev" href="..">
+        <link rel="prev" href="../indirect-prompt-injection/">
       
       
-        <link rel="next" href="../methodology/ABFP/">
+        <link rel="next" href="../threat-modeling/">
       
       
         
       
       
-      <link rel="icon" href="../assets/images/favicon.png">
+      <link rel="icon" href="../../assets/images/favicon.png">
       <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
     
     
       
-        <title>Architecture - MAS-Sentry Toolkit</title>
+        <title>A2A Scanning - MAS-Sentry Toolkit</title>
       
     
     
-      <link rel="stylesheet" href="../assets/stylesheets/main.484c7ddc.min.css">
+      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
       
         
-        <link rel="stylesheet" href="../assets/stylesheets/palette.ab4e12ef.min.css">
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
       
       
 
@@ -53,9 +53,9 @@
       
     
     
-      <link rel="stylesheet" href="../assets/_mkdocstrings.css">
+      <link rel="stylesheet" href="../../assets/_mkdocstrings.css">
     
-    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
     
       
 
@@ -80,7 +80,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#mas-sentry-toolkit-architecture" class="md-skip">
+        <a href="#a2a-protocol-scanning" class="md-skip">
           Skip to content
         </a>
       
@@ -94,7 +94,7 @@
 
 <header class="md-header" data-md-component="header">
   <nav class="md-header__inner md-grid" aria-label="Header">
-    <a href=".." title="MAS-Sentry Toolkit" class="md-header__button md-logo" aria-label="MAS-Sentry Toolkit" data-md-component="logo">
+    <a href="../.." title="MAS-Sentry Toolkit" class="md-header__button md-logo" aria-label="MAS-Sentry Toolkit" data-md-component="logo">
       
   
   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
@@ -114,7 +114,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Architecture
+              A2A Scanning
             
           </span>
         </div>
@@ -225,7 +225,7 @@
   
   
     <li class="md-tabs__item">
-      <a href=".." class="md-tabs__link">
+      <a href="../.." class="md-tabs__link">
         
   
   
@@ -242,11 +242,9 @@
   
   
   
-    
   
-  
-    <li class="md-tabs__item md-tabs__item--active">
-      <a href="./" class="md-tabs__link">
+    <li class="md-tabs__item">
+      <a href="../../ARCHITECTURE/" class="md-tabs__link">
         
   
   
@@ -263,11 +261,13 @@
   
   
   
+    
+  
   
     
     
-      <li class="md-tabs__item">
-        <a href="../methodology/ABFP/" class="md-tabs__link">
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../ABFP/" class="md-tabs__link">
           
   
   
@@ -287,7 +287,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../agentic/" class="md-tabs__link">
+        <a href="../../agentic/" class="md-tabs__link">
           
   
   
@@ -307,7 +307,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../usage/mqtt-scanning/" class="md-tabs__link">
+        <a href="../../usage/mqtt-scanning/" class="md-tabs__link">
           
   
   
@@ -327,7 +327,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../examples/01-environment-doctor/" class="md-tabs__link">
+        <a href="../../examples/01-environment-doctor/" class="md-tabs__link">
           
   
   
@@ -347,7 +347,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../SUPPLY-CHAIN/" class="md-tabs__link">
+        <a href="../../SUPPLY-CHAIN/" class="md-tabs__link">
           
   
   
@@ -367,7 +367,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../reference/cli/" class="md-tabs__link">
+        <a href="../../reference/cli/" class="md-tabs__link">
           
   
   
@@ -401,7 +401,7 @@
 
 <nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
   <label class="md-nav__title" for="__drawer">
-    <a href=".." title="MAS-Sentry Toolkit" class="md-nav__button md-logo" aria-label="MAS-Sentry Toolkit" data-md-component="logo">
+    <a href="../.." title="MAS-Sentry Toolkit" class="md-nav__button md-logo" aria-label="MAS-Sentry Toolkit" data-md-component="logo">
       
   
   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
@@ -431,7 +431,7 @@
   
   
     <li class="md-nav__item">
-      <a href=".." class="md-nav__link">
+      <a href="../.." class="md-nav__link">
         
   
   
@@ -455,37 +455,10 @@
       
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-        
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Architecture
-  
-
-    
-  </span>
-  
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="./" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../../ARCHITECTURE/" class="md-nav__link">
         
   
   
@@ -501,92 +474,6 @@
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#component-map" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Component map
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#core-core" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Core (core/)
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#audit-layers" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Audit layers
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#threat-modeling-threat_modeling" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Threat modeling (threat_modeling/)
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#reporting-reporting" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Reporting (reporting/)
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#lab-lab" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Lab (lab/)
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
     </li>
   
 
@@ -595,26 +482,31 @@
       
   
   
+    
   
   
+  
     
     
     
     
+      
+        
+        
       
       
         
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" checked>
         
           
-          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="">
             
   
   
@@ -632,7 +524,7 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="true">
           <label class="md-nav__title" for="__nav_3">
             <span class="md-nav__icon md-icon"></span>
             
@@ -650,7 +542,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../methodology/ABFP/" class="md-nav__link">
+      <a href="../ABFP/" class="md-nav__link">
         
   
   
@@ -678,7 +570,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../methodology/indirect-prompt-injection/" class="md-nav__link">
+      <a href="../indirect-prompt-injection/" class="md-nav__link">
         
   
   
@@ -703,10 +595,37 @@
                 
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="../methodology/a2a-scanning/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    A2A Scanning
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
         
   
   
@@ -722,6 +641,120 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#discover-audit-and-probe-agent-to-agent-endpoints" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Discover, audit, and probe Agent-to-Agent endpoints
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Discover, audit, and probe Agent-to-Agent endpoints">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#abstract" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Abstract
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#1-threat-model" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Threat model
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2-passive-audit" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Passive audit
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#3-active-probes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. Active probes
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#4-running-a-scan" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. Running a scan
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#5-limitations" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. Limitations
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#6-related" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6. Related
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -734,7 +767,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../methodology/threat-modeling/" class="md-nav__link">
+      <a href="../threat-modeling/" class="md-nav__link">
         
   
   
@@ -821,7 +854,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../agentic/" class="md-nav__link">
+      <a href="../../agentic/" class="md-nav__link">
         
   
   
@@ -849,7 +882,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../mcp/ARCHITECTURE/" class="md-nav__link">
+      <a href="../../mcp/ARCHITECTURE/" class="md-nav__link">
         
   
   
@@ -877,7 +910,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../mcp/stdio-rce-writeup/" class="md-nav__link">
+      <a href="../../mcp/stdio-rce-writeup/" class="md-nav__link">
         
   
   
@@ -964,7 +997,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../usage/mqtt-scanning/" class="md-nav__link">
+      <a href="../../usage/mqtt-scanning/" class="md-nav__link">
         
   
   
@@ -992,7 +1025,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../usage/abfp-fingerprinting/" class="md-nav__link">
+      <a href="../../usage/abfp-fingerprinting/" class="md-nav__link">
         
   
   
@@ -1020,7 +1053,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../usage/attack-scenarios/" class="md-nav__link">
+      <a href="../../usage/attack-scenarios/" class="md-nav__link">
         
   
   
@@ -1048,7 +1081,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../usage/shell-completion/" class="md-nav__link">
+      <a href="../../usage/shell-completion/" class="md-nav__link">
         
   
   
@@ -1135,7 +1168,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../examples/01-environment-doctor/" class="md-nav__link">
+      <a href="../../examples/01-environment-doctor/" class="md-nav__link">
         
   
   
@@ -1163,7 +1196,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../examples/02-mcp-stdio-rce/" class="md-nav__link">
+      <a href="../../examples/02-mcp-stdio-rce/" class="md-nav__link">
         
   
   
@@ -1191,7 +1224,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../examples/03-abfp-baseline/" class="md-nav__link">
+      <a href="../../examples/03-abfp-baseline/" class="md-nav__link">
         
   
   
@@ -1219,7 +1252,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../examples/04-agentic-static/" class="md-nav__link">
+      <a href="../../examples/04-agentic-static/" class="md-nav__link">
         
   
   
@@ -1247,7 +1280,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../examples/05-bug-bounty-prep/" class="md-nav__link">
+      <a href="../../examples/05-bug-bounty-prep/" class="md-nav__link">
         
   
   
@@ -1334,7 +1367,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../SUPPLY-CHAIN/" class="md-nav__link">
+      <a href="../../SUPPLY-CHAIN/" class="md-nav__link">
         
   
   
@@ -1421,7 +1454,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../reference/cli/" class="md-nav__link">
+      <a href="../../reference/cli/" class="md-nav__link">
         
   
   
@@ -1449,7 +1482,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../reference/api/" class="md-nav__link">
+      <a href="../../reference/api/" class="md-nav__link">
         
   
   
@@ -1477,7 +1510,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../api/" class="md-nav__link">
+      <a href="../../api/" class="md-nav__link">
         
   
   
@@ -1505,7 +1538,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../hcap-spec/" class="md-nav__link">
+      <a href="../../hcap-spec/" class="md-nav__link">
         
   
   
@@ -1560,68 +1593,96 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#component-map" class="md-nav__link">
+  <a href="#discover-audit-and-probe-agent-to-agent-endpoints" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Component map
+        Discover, audit, and probe Agent-to-Agent endpoints
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Discover, audit, and probe Agent-to-Agent endpoints">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#abstract" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Abstract
       
     </span>
   </a>
   
 </li>
-      
-        <li class="md-nav__item">
-  <a href="#core-core" class="md-nav__link">
+        
+          <li class="md-nav__item">
+  <a href="#1-threat-model" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Core (core/)
+        1. Threat model
       
     </span>
   </a>
   
 </li>
-      
-        <li class="md-nav__item">
-  <a href="#audit-layers" class="md-nav__link">
+        
+          <li class="md-nav__item">
+  <a href="#2-passive-audit" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Audit layers
+        2. Passive audit
       
     </span>
   </a>
   
 </li>
-      
-        <li class="md-nav__item">
-  <a href="#threat-modeling-threat_modeling" class="md-nav__link">
+        
+          <li class="md-nav__item">
+  <a href="#3-active-probes" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Threat modeling (threat_modeling/)
+        3. Active probes
       
     </span>
   </a>
   
 </li>
-      
-        <li class="md-nav__item">
-  <a href="#reporting-reporting" class="md-nav__link">
+        
+          <li class="md-nav__item">
+  <a href="#4-running-a-scan" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Reporting (reporting/)
+        4. Running a scan
       
     </span>
   </a>
   
 </li>
-      
-        <li class="md-nav__item">
-  <a href="#lab-lab" class="md-nav__link">
+        
+          <li class="md-nav__item">
+  <a href="#5-limitations" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Lab (lab/)
+        5. Limitations
       
     </span>
   </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#6-related" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6. Related
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
   
 </li>
       
@@ -1645,108 +1706,176 @@
   
 
 
-<h1 id="mas-sentry-toolkit-architecture">MAS-Sentry Toolkit -- Architecture</h1>
-<p>Unified offensive-security toolkit for multi-agent systems (MAS). The current
-architecture is module-oriented: independent audit modules emit a common
-<code>Finding</code> type and are composed by a single <code>UnifiedThreatEngine</code>. This replaced
-the pre-pivot single-protocol <code>SentryEngine</code> design.</p>
-<h2 id="component-map">Component map</h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>                         +-------------------------------+
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>                         |   CLI (typer)                 |
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>                         |   abfp / mcp / agentic /      |
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>                         |   report / doctor             |
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>                         +---------------+---------------+
-<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>                                         |
-<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>                         +---------------v---------------+
-<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>                         |   UnifiedThreatEngine         |
-<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>                         |   core/threat_engine.py       |
-<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>                         |   register(name, fn) / run()  |
-<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>                         +---------------+---------------+
-<a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>                                         | runs modules, dedups,
-<a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a>                                         | isolates failures
-<a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a>        +--------------------+-----------+-----------+--------------------+
-<a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a>        |                    |                       |                    |
-<a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a>        v                    v                       v                    v
-<a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a>  protocols/mcp/       agentic/               agents/abfp/         protocols/a2a/
-<a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a>  audit pack           ASI01-ASI10            behavioural          agent-card
-<a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a>  (RCE/SSRF/           detection              fingerprinting       audit + probes
-<a id="__codelineno-0-20" name="__codelineno-0-20" href="#__codelineno-0-20"></a>   poisoning/          modules                (Phases 1-5)
-<a id="__codelineno-0-21" name="__codelineno-0-21" href="#__codelineno-0-21"></a>   traversal)
-<a id="__codelineno-0-22" name="__codelineno-0-22" href="#__codelineno-0-22"></a>        |                    |                       |                    |
-<a id="__codelineno-0-23" name="__codelineno-0-23" href="#__codelineno-0-23"></a>        +--------------------+-----------+-----------+--------------------+
-<a id="__codelineno-0-24" name="__codelineno-0-24" href="#__codelineno-0-24"></a>                                         |
-<a id="__codelineno-0-25" name="__codelineno-0-25" href="#__codelineno-0-25"></a>                            each module yields core/finding.Finding
-<a id="__codelineno-0-26" name="__codelineno-0-26" href="#__codelineno-0-26"></a>                                         |
-<a id="__codelineno-0-27" name="__codelineno-0-27" href="#__codelineno-0-27"></a>                         +---------------v---------------+
-<a id="__codelineno-0-28" name="__codelineno-0-28" href="#__codelineno-0-28"></a>                         |   reporting/                  |
-<a id="__codelineno-0-29" name="__codelineno-0-29" href="#__codelineno-0-29"></a>                         |   report_model -&gt; HTML / MD / |
-<a id="__codelineno-0-30" name="__codelineno-0-30" href="#__codelineno-0-30"></a>                         |   JSON / SARIF / JUnit         |
-<a id="__codelineno-0-31" name="__codelineno-0-31" href="#__codelineno-0-31"></a>                         +-------------------------------+
-</code></pre></div>
-<h2 id="core-core">Core (core/)</h2>
+<h1 id="a2a-protocol-scanning">A2A Protocol Scanning</h1>
+<h2 id="discover-audit-and-probe-agent-to-agent-endpoints">Discover, audit, and probe Agent-to-Agent endpoints</h2>
+<h3 id="abstract">Abstract</h3>
+<p>The Agent-to-Agent (A2A) protocol lets autonomous agents advertise their
+capabilities through a published <strong>AgentCard</strong> and accept delegated work as
+tasks. The protocol deliberately leaves trust, authentication, and transport
+security to the implementer - which is exactly where deployments go wrong.
+MAS-Sentry scans an A2A endpoint end to end: it discovers the AgentCard,
+audits it passively for insecure configuration and embedded injection, and -
+on explicit opt-in - runs live probes that submit tasks to observe how the
+agent actually behaves. Every result is mapped to the unified Finding, so an
+A2A scan lands in the same HTML / Markdown / SARIF / JUnit pipeline as the
+MCP and ABFP verticals.</p>
+<hr />
+<h3 id="1-threat-model">1. Threat model</h3>
+<p>An A2A agent is reachable at a base URL exposing <code>/.well-known/agent.json</code>.
+Three classes of weakness matter:</p>
+<ul>
+<li><strong>Card configuration.</strong> Missing or <code>none</code> authentication lets any caller
+  submit tasks; uncapped streaming invites resource exhaustion; unsigned push
+  callbacks can be spoofed; a cleartext (<code>http://</code>) endpoint invites card
+  tampering in transit; an oversized skill surface widens the attack surface.</li>
+<li><strong>Card poisoning.</strong> The AgentCard description and skill fields are ingested
+  by an orchestrator's LLM when it reasons about which agent to delegate to.
+  An injection directive hidden there hijacks that routing decision - the same
+  class MAS-Sentry detects in MCP tool descriptors and live agent traffic.</li>
+<li><strong>Runtime behavior.</strong> Whether the endpoint enforces task-id ownership,
+  rejects cancellation of tasks it did not issue, and treats task content as
+  data rather than instructions can only be established by interacting with it.</li>
+</ul>
+<p>Passive checks cover the first two; the third requires active probing.</p>
+<hr />
+<h3 id="2-passive-audit">2. Passive audit</h3>
+<p><code>audit_agent_card</code> inspects the discovered card and never submits a task. It
+emits a <code>CardFinding</code> per weakness, each carrying the four-lens taxonomy so
+SARIF ranks it and cross-taxonomy filters see it:</p>
 <table>
 <thead>
 <tr>
-<th>Module</th>
-<th>Role</th>
+<th>Finding</th>
+<th>Severity</th>
+<th>ASI</th>
+<th>CWE</th>
+<th>STRIDE</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td>finding.py</td>
-<td><code>Finding</code> + <code>Severity</code> model, <code>max_severity</code> helper</td>
+<td>No / <code>none</code> authentication</td>
+<td>HIGH</td>
+<td>ASI03</td>
+<td>CWE-306</td>
+<td>Spoofing</td>
 </tr>
 <tr>
-<td>threat_engine.py</td>
-<td><code>UnifiedThreatEngine</code>: registers module callables, runs them, deduplicates findings, isolates per-module failures into <code>EngineRun.errors</code></td>
+<td>Streaming without limits</td>
+<td>MEDIUM</td>
+<td>ASI07</td>
+<td>CWE-400</td>
+<td>Denial of Service</td>
 </tr>
 <tr>
-<td>adapters.py</td>
-<td>Convert module-native findings (agentic, mcp, abfp) into the common <code>Finding</code></td>
+<td>Unsigned push callbacks</td>
+<td>MEDIUM</td>
+<td>ASI03</td>
+<td>CWE-345</td>
+<td>Spoofing</td>
 </tr>
 <tr>
-<td>audit_log.py</td>
-<td>Append-only audit trail of scan actions</td>
+<td>Excessive skill surface</td>
+<td>LOW</td>
+<td>ASI02</td>
+<td>CWE-272</td>
+<td>Elevation of Privilege</td>
 </tr>
 <tr>
-<td>scope.py</td>
-<td>Scope-confirmation guard for non-lab targets</td>
+<td>Cleartext transport</td>
+<td>MEDIUM</td>
+<td>-</td>
+<td>CWE-319</td>
+<td>Tampering</td>
 </tr>
 <tr>
-<td>types.py</td>
-<td>Shared type aliases + severity filters</td>
+<td>Agent Card Poisoning</td>
+<td>HIGH</td>
+<td>ASI01</td>
+<td>CWE-1427</td>
+<td>Tampering (AML.T0051)</td>
 </tr>
 </tbody>
 </table>
-<p>A module is any <code>Callable[[dict], Iterable[Finding]]</code>. The engine never imports
-the modules directly; callers register them (see <code>agentic/run.py</code>), which keeps
-the engine decoupled from any individual protocol or detector.</p>
-<h2 id="audit-layers">Audit layers</h2>
+<p>Card poisoning reuses the shared <code>injection_scan</code> primitive, so any pattern
+added for MCP or live-traffic detection immediately hardens the card audit too.</p>
+<hr />
+<h3 id="3-active-probes">3. Active probes</h3>
+<p>Probes are gated behind <code>--active</code> and only run against endpoints in scope
+(localhost / lab targets, or an explicit <code>--confirm-scope</code>). Each submits a
+task and classifies the response as safe or unsafe. Taxonomy attaches only
+when the probe <strong>fails</strong> - a probe that holds is recorded INFO without a
+vulnerability class, keeping the report honest.</p>
+<table>
+<thead>
+<tr>
+<th>Probe</th>
+<th>Unsafe means</th>
+<th>Severity</th>
+<th>Taxonomy on failure</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>task-id collision</td>
+<td>Two tasks accepted under one id</td>
+<td>HIGH</td>
+<td>ASI03 / CWE-345 / Spoofing</td>
+</tr>
+<tr>
+<td>unauthorized cancel</td>
+<td>A foreign task can be cancelled</td>
+<td>HIGH</td>
+<td>CWE-862 / Elevation of Privilege</td>
+</tr>
+<tr>
+<td>indirect injection</td>
+<td>A canary directive is echoed back</td>
+<td>CRITICAL</td>
+<td>ASI01 / CWE-1427 / Tampering / AML.T0051</td>
+</tr>
+</tbody>
+</table>
+<p>The indirect-injection probe embeds a random canary token inside an injected
+instruction and inspects the returned artifacts: if the token comes back, the
+agent executed the injected directive rather than treating the task content as
+data. <code>unauthorized-cancel</code> is deliberately left without an ASI tag - a missing
+authorization check has no clean agentic-top-10 slot, so only CWE and STRIDE
+are asserted rather than forcing a poor fit.</p>
+<hr />
+<h3 id="4-running-a-scan">4. Running a scan</h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="c1"># Passive: discover + audit the card only (no task submission)</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>mas-sentry<span class="w"> </span>a2a<span class="w"> </span>scan<span class="w"> </span>-t<span class="w"> </span>http://localhost:9000
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="c1"># Active: also run the live probes (submits tasks)</span>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>mas-sentry<span class="w"> </span>a2a<span class="w"> </span>scan<span class="w"> </span>-t<span class="w"> </span>http://localhost:9000<span class="w"> </span>--active
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="c1"># Non-lab target: authorisation is required even for the passive fetch</span>
+<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>mas-sentry<span class="w"> </span>a2a<span class="w"> </span>scan<span class="w"> </span>-t<span class="w"> </span>https://agent.example.com<span class="w"> </span>--active<span class="w"> </span>--confirm-scope
+</code></pre></div>
+<p>Scope is enforced centrally by the A2A client on construction: any target
+outside the lab allowlist requires <code>--confirm-scope</code>, covering the passive
+card fetch as well as the probes. The scan writes unified findings to
+<code>reports/a2a.json</code>, which feeds <code>mas-sentry report convert</code> for HTML, Markdown,
+SARIF, or JUnit without any re-adaptation.</p>
+<hr />
+<h3 id="5-limitations">5. Limitations</h3>
 <ul>
-<li><code>protocols/mcp/</code> -- independent MCP client + audit pack: stdio RCE, SSRF,
-  tool poisoning, prompt injection, path traversal, DNS rebinding, config
-  injection, metadata tampering.</li>
-<li><code>agentic/</code> -- OWASP Agentic Top 10 (2026) detectors, ASI01-ASI10. Static-input
-  modules (ASI02/03/05/06/08/09) wire into the engine via <code>agentic/run.py</code>; live
-  probes (ASI01/04/07) need an agent transport and run separately.</li>
-<li><code>agents/abfp/</code> -- Agent Behavioural Fingerprinting Protocol: passive observation,
-  baseline collection, timing/payload/topic-graph analysis, rogue + impersonation
-  scoring mapped to STRIDE/ASI tags.</li>
-<li><code>protocols/a2a/</code> -- A2A agent-card audit and probes.</li>
-<li><code>protocols/</code> (mqtt/amqp analyzers) and <code>exploits/</code> -- transport-level MQTT/AMQP
-  tooling retained from the toolkit's IoT-messaging origins.</li>
+<li>Card poisoning detection is signature-based over the shared pattern set;
+  novel obfuscations outside the set are not caught.</li>
+<li>Probes establish behavior for the specific task shapes they submit; an agent
+  may enforce ownership on some code paths and not others.</li>
+<li>A single canary echo proves an injection vector executed, not that a
+  downstream consumer was compromised - the CRITICAL rating reflects the direct
+  observation, not a full impact assessment.</li>
 </ul>
-<h2 id="threat-modeling-threat_modeling">Threat modeling (threat_modeling/)</h2>
-<p>STRIDE mapping, CVSS v3.1 scoring, attack trees, and a <code>threat_aggregator</code> that
-rolls per-threat CVSS into a single <code>ThreatScore</code> (<code>risk_level</code>,
-<code>weighted_score</code>, <code>top_threats</code>).</p>
-<h2 id="reporting-reporting">Reporting (reporting/)</h2>
-<p><code>report_model</code> is the single normalized model rendered to HTML, Markdown, JSON,
-SARIF, and JUnit. Module-specific renderers (<code>mcp_html</code>, <code>unified_html</code>) build on
-the same model.</p>
-<h2 id="lab-lab">Lab (lab/)</h2>
-<p>Vulnerable MCP lab plus a scenario runner used for dogfooding and end-to-end
-verification of the audit pack.</p>
+<hr />
+<h3 id="6-related">6. Related</h3>
+<ul>
+<li><a href="../indirect-prompt-injection/">Indirect Prompt Injection</a> - the same
+  directive class detected in live agent traffic and MCP descriptors.</li>
+<li><a href="../threat-modeling/">Threat Modeling</a> - the broader MAS threat surface.</li>
+</ul>
 
 
 
@@ -1802,10 +1931,10 @@ verification of the audit pack.</p>
     
       
       
-      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["navigation.tabs", "navigation.sections", "navigation.top", "content.code.copy", "search.highlight"], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.tabs", "navigation.sections", "navigation.top", "content.code.copy", "search.highlight"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
     
     
-      <script src="../assets/javascripts/bundle.79ae519e.min.js"></script>
+      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
       
     
   </body>
