@@ -6,12 +6,15 @@ import json
 import httpx
 import pytest
 
+from mas_sentry.core.adapters import from_probe_result
+from mas_sentry.core.finding import Severity
 from mas_sentry.protocols.a2a import A2AClient, AgentCard, TaskState
 from mas_sentry.protocols.a2a.card_audit import (
     LARGE_SKILL_THRESHOLD,
     audit_agent_card,
 )
 from mas_sentry.protocols.a2a.probes import (
+    ProbeResult,
     probe_indirect_injection,
     probe_task_id_collision,
     probe_unauthorized_cancel,
@@ -279,3 +282,54 @@ def test_probe_indirect_injection_detects_canary_leak() -> None:
         )
     assert not result.passed
     assert "present" in result.detail
+
+
+# --------------- probe -> Finding adapter ---------------
+
+
+def test_from_probe_result_injection_failed_full_taxonomy() -> None:
+    pr = ProbeResult(name="indirect-injection", passed=False, detail="Canary present in artifacts")
+    f = from_probe_result(pr, target="http://lab")
+    assert f.severity == Severity.CRITICAL
+    assert f.module == "a2a.probe.indirect-injection"
+    assert "unsafe" in f.title
+    assert f.tags == [
+        "a2a",
+        "probe",
+        "indirect-injection",
+        "ASI01_Goal_Hijack",
+        "CWE-1427",
+        "STRIDE_Tampering",
+        "AML.T0051",
+    ]
+
+
+def test_from_probe_result_collision_failed_taxonomy() -> None:
+    pr = ProbeResult(name="task-id-collision", passed=False, detail="Both submissions accepted")
+    f = from_probe_result(pr, target="http://lab")
+    assert f.severity == Severity.HIGH
+    assert f.tags == ["a2a", "probe", "task-id-collision", "ASI03_Identity_Abuse", "CWE-345", "STRIDE_Spoofing"]
+
+
+def test_from_probe_result_cancel_failed_no_asi() -> None:
+    pr = ProbeResult(name="unauthorized-cancel", passed=False, detail="Cancel returned canceled")
+    f = from_probe_result(pr, target="http://lab")
+    assert f.severity == Severity.HIGH
+    assert f.tags == ["a2a", "probe", "unauthorized-cancel", "CWE-862", "STRIDE_Elevation_Of_Privilege"]
+    assert not any(t.startswith("ASI") for t in f.tags)
+
+
+def test_from_probe_result_passed_is_info_without_vuln_tags() -> None:
+    pr = ProbeResult(name="indirect-injection", passed=True, detail="Canary absent in artifacts")
+    f = from_probe_result(pr, target="http://lab")
+    assert f.severity == Severity.INFO
+    assert "safely" in f.title
+    assert f.tags == ["a2a", "probe", "indirect-injection"]
+    assert not any(t.startswith(("ASI", "CWE", "STRIDE", "AML")) for t in f.tags)
+
+
+def test_from_probe_result_unknown_probe_defaults_medium() -> None:
+    pr = ProbeResult(name="future-probe", passed=False, detail="x")
+    f = from_probe_result(pr, target="http://lab")
+    assert f.severity == Severity.MEDIUM
+    assert f.tags == ["a2a", "probe", "future-probe"]

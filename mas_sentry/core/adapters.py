@@ -13,6 +13,7 @@ from typing import Any
 
 from mas_sentry.agentic.base import AgenticFinding
 from mas_sentry.protocols.a2a.card_audit import CardFinding
+from mas_sentry.protocols.a2a.probes import ProbeResult
 
 from .finding import Finding, Severity
 
@@ -89,6 +90,55 @@ def from_card_audit(card_finding: CardFinding, target: str) -> Finding:
         severity=_to_sev(card_finding.severity),
         target=target,
         tags=["a2a", *card_finding.tags],
+    )
+
+
+# Per-probe taxonomy for A2A active probes. Tags attach only when the probe
+# FAILS (unsafe server behavior actually observed); a probe that holds is
+# recorded as INFO without a vulnerability class, so reports stay honest.
+_PROBE_TAGS = {
+    # Two tasks accepted under one id -> task-namespace identity confusion.
+    "task-id-collision": ["ASI03_Identity_Abuse", "CWE-345", "STRIDE_Spoofing"],
+    # Cancelling a task we never submitted -> missing authorization. No clean
+    # agentic-top-10 slot, so ASI is deliberately omitted (like arg_injection
+    # is left ATLAS-untagged).
+    "unauthorized-cancel": ["CWE-862", "STRIDE_Elevation_Of_Privilege"],
+    # Canary leaked into artifacts -> goal hijack via indirect prompt injection.
+    "indirect-injection": ["ASI01_Goal_Hijack", "CWE-1427", "STRIDE_Tampering", "AML.T0051"],
+}
+
+_PROBE_SEVERITY = {
+    "task-id-collision": Severity.HIGH,
+    "unauthorized-cancel": Severity.HIGH,
+    "indirect-injection": Severity.CRITICAL,
+}
+
+
+def from_probe_result(probe: ProbeResult, target: str) -> Finding:
+    """Map an A2A ProbeResult into the unified Finding.
+
+    `probe.passed is True` means the server behaved safely; that is recorded
+    as an INFO finding so the scan report shows every probe that ran, but it
+    carries no vulnerability taxonomy because nothing was exploited. A failed
+    probe is the real security finding and carries the mapped severity + tags.
+    """
+    base_tags = ["a2a", "probe", probe.name]
+    if probe.passed:
+        return Finding(
+            module=f"a2a.probe.{probe.name}",
+            title=f"{probe.name}: server behaved safely",
+            detail=probe.detail,
+            severity=Severity.INFO,
+            target=target,
+            tags=base_tags,
+        )
+    return Finding(
+        module=f"a2a.probe.{probe.name}",
+        title=f"{probe.name}: unsafe server behavior",
+        detail=probe.detail,
+        severity=_PROBE_SEVERITY.get(probe.name, Severity.MEDIUM),
+        target=target,
+        tags=[*base_tags, *_PROBE_TAGS.get(probe.name, [])],
     )
 
 
