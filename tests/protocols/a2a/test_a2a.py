@@ -11,6 +11,7 @@ from mas_sentry.core.finding import Severity
 from mas_sentry.protocols.a2a import A2AClient, AgentCard, TaskState
 from mas_sentry.protocols.a2a.card_audit import (
     LARGE_SKILL_THRESHOLD,
+    CardFinding,
     audit_agent_card,
 )
 from mas_sentry.protocols.a2a.probes import (
@@ -333,3 +334,32 @@ def test_from_probe_result_unknown_probe_defaults_medium() -> None:
     f = from_probe_result(pr, target="http://lab")
     assert f.severity == Severity.MEDIUM
     assert f.tags == ["a2a", "probe", "future-probe"]
+
+
+def test_card_structural_findings_carry_full_taxonomy() -> None:
+    """Every structural card finding carries ASI/CWE/STRIDE, not only poisoning."""
+
+    def _tags(findings: list[CardFinding], needle: str) -> list[str]:
+        match = [f for f in findings if needle in f.title.lower()]
+        assert match, f"finding {needle!r} not present"
+        return match[0].tags
+
+    no_auth_card = AgentCard(
+        name="x",
+        description="",
+        url="https://secure.local",
+        authentication={},
+        capabilities={"streaming": True, "pushNotifications": True},
+        skills=[{"id": str(i)} for i in range(LARGE_SKILL_THRESHOLD + 5)],
+    )
+    f = audit_agent_card(no_auth_card)
+    assert _tags(f, "no authentication") == ["ASI03_Identity_Abuse", "CWE-306", "STRIDE_Spoofing"]
+    assert _tags(f, "streaming enabled") == ["ASI07_Resource_Exhaustion", "CWE-400", "STRIDE_Denial_Of_Service"]
+    assert _tags(f, "push notifications") == ["ASI03_Identity_Abuse", "CWE-345", "STRIDE_Spoofing"]
+    assert _tags(f, "advertises") == ["ASI02_Tool_Misuse", "CWE-272", "STRIDE_Elevation_Of_Privilege"]
+
+    scheme_none_card = AgentCard(
+        name="x", description="", url="https://secure.local", authentication={"schemes": ["none"]}
+    )
+    g = audit_agent_card(scheme_none_card)
+    assert _tags(g, "scheme 'none'") == ["ASI03_Identity_Abuse", "CWE-306", "STRIDE_Spoofing"]

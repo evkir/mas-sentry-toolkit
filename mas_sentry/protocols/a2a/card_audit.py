@@ -19,6 +19,19 @@ _POISONING_TAGS = ["ASI01_Goal_Hijack", "CWE-1427", "STRIDE_Tampering", "AML.T00
 # Cleartext card endpoint enables card tampering / impersonation in transit.
 _CLEARTEXT_TAGS = ["CWE-319", "STRIDE_Tampering"]
 
+# Four-lens taxonomy for the structural card findings, so every A2A card
+# finding - not only poisoning/transport - carries ASI/CWE/STRIDE for
+# consistent SARIF ranking and cross-taxonomy filtering.
+# Missing / anonymous auth -> anyone can act as a client (impersonation).
+_MISSING_AUTH_TAGS = ["ASI03_Identity_Abuse", "CWE-306", "STRIDE_Spoofing"]
+# Uncapped streaming -> long-lived streams abused for resource exhaustion.
+_STREAMING_TAGS = ["ASI07_Resource_Exhaustion", "CWE-400", "STRIDE_Denial_Of_Service"]
+# Unsigned push callbacks -> receiver cannot verify sender authenticity.
+_PUSH_TAGS = ["ASI03_Identity_Abuse", "CWE-345", "STRIDE_Spoofing"]
+# Excessive advertised skill surface -> least-privilege violation, broader
+# abuse paths. Softest of the set; kept LOW and tagged honestly, not padded.
+_SKILL_SURFACE_TAGS = ["ASI02_Tool_Misuse", "CWE-272", "STRIDE_Elevation_Of_Privilege"]
+
 
 @dataclass(frozen=True, slots=True)
 class CardFinding:
@@ -39,6 +52,7 @@ def audit_agent_card(card: AgentCard) -> list[CardFinding]:
                 severity="HIGH",
                 title="AgentCard declares no authentication schemes",
                 detail="Anyone can submit tasks to this agent",
+                tags=_MISSING_AUTH_TAGS,
             )
         )
     elif "none" in [str(s).lower() for s in schemes]:
@@ -47,6 +61,7 @@ def audit_agent_card(card: AgentCard) -> list[CardFinding]:
                 severity="HIGH",
                 title="AgentCard explicitly allows scheme 'none'",
                 detail="Anonymous access enabled",
+                tags=_MISSING_AUTH_TAGS,
             )
         )
 
@@ -57,6 +72,7 @@ def audit_agent_card(card: AgentCard) -> list[CardFinding]:
                 severity="MEDIUM",
                 title="Streaming enabled without rate limits in capabilities",
                 detail=("Long-lived streams can be abused for resource exhaustion"),
+                tags=_STREAMING_TAGS,
             )
         )
 
@@ -66,6 +82,7 @@ def audit_agent_card(card: AgentCard) -> list[CardFinding]:
                 severity="MEDIUM",
                 title="Push notifications enabled without webhook signing",
                 detail=("Outgoing callbacks can be spoofed if no signing scheme is published"),
+                tags=_PUSH_TAGS,
             )
         )
 
@@ -75,6 +92,7 @@ def audit_agent_card(card: AgentCard) -> list[CardFinding]:
                 severity="LOW",
                 title=f"Agent advertises {len(card.skills)} skills",
                 detail=("Large skill surface increases attack surface; review for unused skills"),
+                tags=_SKILL_SURFACE_TAGS,
             )
         )
 
