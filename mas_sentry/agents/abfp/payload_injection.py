@@ -16,15 +16,23 @@ Taxonomy: CWE-1427 / STRIDE Tampering / ASI01 Goal Hijack / AML.T0051.
 
 from __future__ import annotations
 
+import hashlib
+import time
+from collections import deque
 from dataclasses import dataclass, field
 
 from mas_sentry.core.injection_scan import STRONG_PATTERNS, scan_string
 
+from .injection_propagation import InjectionEvent
 from .scoring import DimensionScore
 
 # Cap scanned bytes per payload: injection directives are front-loaded, and an
 # unbounded scan over multi-megabyte payloads would stall the MQTT loop.
 _MAX_SCAN_BYTES = 4096
+# Bounded ring of injection events feeding the propagation graph. Only hits
+# are recorded (patterns + hash, never the payload), so memory stays capped
+# regardless of traffic volume.
+_MAX_EVENTS = 4096
 
 
 def scan_payload(payload: bytes) -> list[str]:
@@ -45,6 +53,7 @@ class PayloadInjectionTracker:
     """Accumulates per-agent injection-pattern hits across the scan window."""
 
     _by_agent: dict[str, _AgentHits] = field(default_factory=dict)
+    _events: deque[InjectionEvent] = field(default_factory=lambda: deque(maxlen=_MAX_EVENTS))
 
     def observe(self, agent_id: str, topic: str, payload: bytes) -> None:
         patterns = scan_payload(payload)
@@ -56,6 +65,19 @@ class PayloadInjectionTracker:
             self._by_agent[agent_id] = hits
         hits.patterns.update(patterns)
         hits.hit_count += 1
+        self._events.append(
+            InjectionEvent(
+                agent_id=agent_id,
+                topic=topic,
+                timestamp=time.monotonic(),
+                patterns=frozenset(patterns),
+                payload_hash=hashlib.sha1(payload, usedforsecurity=False).hexdigest()[:16],
+            )
+        )
+
+    def events(self) -> list[InjectionEvent]:
+        """Injection events in observation order, for the propagation graph."""
+        return list(self._events)
 
     def dimensions(self) -> dict[str, list[DimensionScore]]:
         """Build the per-agent ``injection`` DimensionScore for detect_rogue."""
