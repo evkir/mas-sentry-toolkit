@@ -86,3 +86,42 @@ def test_write_report_blast_radius_null_without_cascade(tmp_path: Path) -> None:
     out = tmp_path / "abfp.json"
     _write_report(out, [finding], [], target="lab")
     assert json.loads(out.read_text())["findings"][0]["blast_radius"] is None
+
+
+def test_write_report_includes_propagation_block(tmp_path: Path) -> None:
+    from mas_sentry.agents.abfp.cascade import BlastRadius
+    from mas_sentry.agents.abfp.injection_propagation import PropagationFinding
+    from mas_sentry.agents.abfp.scoring import Severity
+
+    prop = [
+        PropagationFinding(
+            target="C", origin="A", depth=2, tier="verbatim", chain=["A", "B", "C"], severity=Severity.CRITICAL
+        ),
+        PropagationFinding(target="B", origin="A", depth=1, tier="directive", chain=["A", "B"], severity=Severity.HIGH),
+    ]
+    cascade = {"C": BlastRadius(topics=["t/x"], direct=["D"], transitive=["D"], direct_count=1, transitive_count=1)}
+    out = tmp_path / "abfp.json"
+    _write_report(out, [], [], target="lab", cascade=cascade, propagation=prop)
+    data = json.loads(out.read_text())
+
+    block = data["propagation"]
+    assert [e["target"] for e in block] == ["C", "B"]
+    crit = block[0]
+    assert crit["severity"] == "CRITICAL"
+    assert crit["chain"] == ["A", "B", "C"]
+    assert "ASI05_Cascading_Failure" in crit["tags"]
+    assert crit["blast_radius"]["direct"] == ["D"]  # onward cascade fused in
+    assert block[1]["blast_radius"] is None  # B not in cascade map
+
+    summary = data["propagation_summary"]
+    assert summary["contaminated"] == 2
+    assert summary["max_depth"] == 2
+    assert summary["origins"] == ["A"]
+
+
+def test_write_report_omits_propagation_when_empty(tmp_path: Path) -> None:
+    out = tmp_path / "abfp.json"
+    _write_report(out, [], [], target="lab", propagation=[])
+    data = json.loads(out.read_text())
+    assert "propagation" not in data
+    assert "propagation_summary" not in data

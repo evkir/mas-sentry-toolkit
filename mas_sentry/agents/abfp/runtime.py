@@ -5,7 +5,7 @@ from __future__ import annotations
 
 import json
 import time
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
@@ -18,6 +18,11 @@ from .cascade import BlastRadius, blast_radius
 from .graph_metrics import AgentGraphMetrics, all_metrics, graph_summary
 from .identity import infer_agent_id
 from .impersonation import impersonation_dimensions
+from .injection_propagation import (
+    PropagationFinding,
+    build_propagation_graph,
+    propagation_findings,
+)
 from .observer import MessageEvent, MessageObserver
 from .payload_injection import PayloadInjectionTracker
 from .rogue import RogueFinding, detect_rogue
@@ -34,6 +39,7 @@ class AbfpScanResult:
 
     findings: list[RogueFinding]
     metrics: dict[str, AgentGraphMetrics]
+    propagation: list[PropagationFinding] = field(default_factory=list)
 
 
 def run_abfp_scan(
@@ -97,6 +103,9 @@ def run_abfp_scan(
         baseline_graph=baseline_graph, current_graph=current_graph, extra_dimensions=extra_dimensions
     )
     cascade = {f.agent_id: blast_radius(current_graph, f.agent_id) for f in findings}
+    # Transitive IPI: reconstruct how directives propagated across agents from
+    # the captured injection events, independent of baseline drift.
+    propagation = propagation_findings(build_propagation_graph(injection_tracker.events()))
     _write_report(
         out_path,
         findings,
@@ -104,8 +113,9 @@ def run_abfp_scan(
         target=target,
         graph=graph_block,
         cascade=cascade,
+        propagation=propagation,
     )
-    return AbfpScanResult(findings=findings, metrics=metrics)
+    return AbfpScanResult(findings=findings, metrics=metrics, propagation=propagation)
 
 
 def _load_baseline(baseline_path: Path | None) -> ScanSnapshot | None:
@@ -144,6 +154,35 @@ def _cascade_entry(cascade: dict[str, BlastRadius] | None, agent_id: str) -> dic
     }
 
 
+def _propagation_block(
+    propagation: list[PropagationFinding],
+    cascade: dict[str, BlastRadius] | None,
+) -> list[dict[str, Any]]:
+    """Serialise contamination findings, fusing each target with its onward blast radius."""
+    return [
+        {
+            "target": pf.target,
+            "origin": pf.origin,
+            "depth": pf.depth,
+            "tier": pf.tier,
+            "chain": pf.chain,
+            "severity": pf.severity.value,
+            "tags": list(pf.tags),
+            "blast_radius": _cascade_entry(cascade, pf.target),
+        }
+        for pf in propagation
+    ]
+
+
+def _propagation_summary(propagation: list[PropagationFinding]) -> dict[str, Any]:
+    """Triage header: how many agents were contaminated, how deep, from which origins."""
+    return {
+        "contaminated": len(propagation),
+        "max_depth": max((pf.depth for pf in propagation), default=0),
+        "origins": sorted({pf.origin for pf in propagation}),
+    }
+
+
 def _write_report(
     out_path: Path,
     findings: list[RogueFinding],
@@ -151,6 +190,7 @@ def _write_report(
     target: str,
     graph: dict[str, Any] | None = None,
     cascade: dict[str, BlastRadius] | None = None,
+    propagation: list[PropagationFinding] | None = None,
 ) -> None:
     out_path.parent.mkdir(parents=True, exist_ok=True)
     payload: dict[str, Any] = {
@@ -170,4 +210,7 @@ def _write_report(
     }
     if graph is not None:
         payload["graph"] = graph
+    if propagation:
+        payload["propagation"] = _propagation_block(propagation, cascade)
+        payload["propagation_summary"] = _propagation_summary(propagation)
     out_path.write_text(json.dumps(payload, indent=2, default=str))
