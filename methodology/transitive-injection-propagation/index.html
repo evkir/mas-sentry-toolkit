@@ -10,13 +10,13 @@
       
       
       
-        <link rel="canonical" href="https://evkir.github.io/mas-sentry-toolkit/usage/abfp-fingerprinting/">
+        <link rel="canonical" href="https://evkir.github.io/mas-sentry-toolkit/methodology/transitive-injection-propagation/">
       
       
-        <link rel="prev" href="../mqtt-scanning/">
+        <link rel="prev" href="../indirect-prompt-injection/">
       
       
-        <link rel="next" href="../attack-scenarios/">
+        <link rel="next" href="../a2a-scanning/">
       
       
         
@@ -27,7 +27,7 @@
     
     
       
-        <title>ABFP Fingerprinting - MAS-Sentry Toolkit</title>
+        <title>Transitive Injection Propagation - MAS-Sentry Toolkit</title>
       
     
     
@@ -80,7 +80,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#abfp-fingerprinting-guide" class="md-skip">
+        <a href="#transitive-prompt-injection-propagation" class="md-skip">
           Skip to content
         </a>
       
@@ -114,7 +114,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              ABFP Fingerprinting
+              Transitive Injection Propagation
             
           </span>
         </div>
@@ -261,11 +261,13 @@
   
   
   
+    
+  
   
     
     
-      <li class="md-tabs__item">
-        <a href="../../methodology/ABFP/" class="md-tabs__link">
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../ABFP/" class="md-tabs__link">
           
   
   
@@ -301,13 +303,11 @@
   
   
   
-    
-  
   
     
     
-      <li class="md-tabs__item md-tabs__item--active">
-        <a href="../mqtt-scanning/" class="md-tabs__link">
+      <li class="md-tabs__item">
+        <a href="../../usage/mqtt-scanning/" class="md-tabs__link">
           
   
   
@@ -482,26 +482,31 @@
       
   
   
+    
   
   
+  
     
     
     
     
+      
+        
+        
       
       
         
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" checked>
         
           
-          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="">
             
   
   
@@ -519,7 +524,7 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="true">
           <label class="md-nav__title" for="__nav_3">
             <span class="md-nav__icon md-icon"></span>
             
@@ -537,7 +542,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../methodology/ABFP/" class="md-nav__link">
+      <a href="../ABFP/" class="md-nav__link">
         
   
   
@@ -565,7 +570,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../methodology/indirect-prompt-injection/" class="md-nav__link">
+      <a href="../indirect-prompt-injection/" class="md-nav__link">
         
   
   
@@ -590,10 +595,37 @@
                 
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="../../methodology/transitive-injection-propagation/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Transitive Injection Propagation
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
         
   
   
@@ -609,6 +641,120 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#tracking-an-injected-directive-as-it-spreads-across-the-agent-bus" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tracking an injected directive as it spreads across the agent bus
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Tracking an injected directive as it spreads across the agent bus">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#abstract" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Abstract
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#1-threat-model" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Threat model
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2-detection-from-re-emission" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Detection from re-emission
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#3-severity-by-depth-and-tier" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. Severity by depth and tier
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#4-report-output" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. Report output
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#5-limitations" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. Limitations
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#6-related" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6. Related
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -621,7 +767,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../methodology/a2a-scanning/" class="md-nav__link">
+      <a href="../a2a-scanning/" class="md-nav__link">
         
   
   
@@ -649,7 +795,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../methodology/threat-modeling/" class="md-nav__link">
+      <a href="../threat-modeling/" class="md-nav__link">
         
   
   
@@ -824,31 +970,26 @@
       
   
   
-    
   
   
-  
     
     
     
     
-      
-        
-        
       
       
         
       
     
     
-    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" checked>
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
         
           
-          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="">
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
             
   
   
@@ -866,7 +1007,7 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="true">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
           <label class="md-nav__title" for="__nav_5">
             <span class="md-nav__icon md-icon"></span>
             
@@ -884,7 +1025,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../mqtt-scanning/" class="md-nav__link">
+      <a href="../../usage/mqtt-scanning/" class="md-nav__link">
         
   
   
@@ -909,37 +1050,10 @@
                 
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-        
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    ABFP Fingerprinting
-  
-
-    
-  </span>
-  
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="./" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../../usage/abfp-fingerprinting/" class="md-nav__link">
         
   
   
@@ -955,59 +1069,6 @@
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#overview" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Overview
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#usage" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Usage
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#anomaly-scores" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Anomaly Scores
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
     </li>
   
 
@@ -1020,7 +1081,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../attack-scenarios/" class="md-nav__link">
+      <a href="../../usage/attack-scenarios/" class="md-nav__link">
         
   
   
@@ -1048,7 +1109,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../shell-completion/" class="md-nav__link">
+      <a href="../../usage/shell-completion/" class="md-nav__link">
         
   
   
@@ -1560,35 +1621,96 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#overview" class="md-nav__link">
+  <a href="#tracking-an-injected-directive-as-it-spreads-across-the-agent-bus" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Overview
+        Tracking an injected directive as it spreads across the agent bus
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Tracking an injected directive as it spreads across the agent bus">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#abstract" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Abstract
       
     </span>
   </a>
   
 </li>
-      
-        <li class="md-nav__item">
-  <a href="#usage" class="md-nav__link">
+        
+          <li class="md-nav__item">
+  <a href="#1-threat-model" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Usage
+        1. Threat model
       
     </span>
   </a>
   
 </li>
-      
-        <li class="md-nav__item">
-  <a href="#anomaly-scores" class="md-nav__link">
+        
+          <li class="md-nav__item">
+  <a href="#2-detection-from-re-emission" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Anomaly Scores
+        2. Detection from re-emission
       
     </span>
   </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#3-severity-by-depth-and-tier" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. Severity by depth and tier
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#4-report-output" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. Report output
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#5-limitations" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. Limitations
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#6-related" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6. Related
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
   
 </li>
       
@@ -1612,49 +1734,111 @@
   
 
 
-<h1 id="abfp-fingerprinting-guide">ABFP Fingerprinting Guide</h1>
-<h2 id="overview">Overview</h2>
-<p>Agent Behavioral Fingerprint Profiling (ABFP) passively observes
-MAS agent communication patterns to build behavioral baselines.</p>
-<h2 id="usage">Usage</h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="c1"># Collect baseline (60 seconds)</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>mas-sentry<span class="w"> </span>abfp<span class="w"> </span>--target<span class="w"> </span><span class="m">192</span>.168.1.100<span class="w"> </span>--duration<span class="w"> </span><span class="m">60</span>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="c1"># Compare against baseline</span>
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>mas-sentry<span class="w"> </span>abfp<span class="w"> </span>--target<span class="w"> </span><span class="m">192</span>.168.1.100<span class="w"> </span>--compare<span class="w"> </span>baseline.json
-</code></pre></div>
-<h2 id="anomaly-scores">Anomaly Scores</h2>
+<h1 id="transitive-prompt-injection-propagation">Transitive Prompt Injection Propagation</h1>
+<h2 id="tracking-an-injected-directive-as-it-spreads-across-the-agent-bus">Tracking an injected directive as it spreads across the agent bus</h2>
+<h3 id="abstract">Abstract</h3>
+<p>The passive <code>injection</code> dimension flags an agent that <em>emits</em> an indirect-
+prompt-injection directive. It does not answer the multi-agent question that
+makes MAS uniquely fragile: once a directive lands in one agent, does it
+<em>spread</em>? In a Multi-Agent System agents exchange work over legitimate
+channels, and a hijacked instruction rides those channels like an infection -
+agent B ingests A's poisoned output, treats it as a trusted internal message,
+re-emits the directive, and contaminates B's own downstream consumers. The
+attack surface grows multiplicatively with each hop. MAS-Sentry reconstructs
+this spread passively, from observed re-emission, and scores it as a
+cascading failure distinct from any single agent's anomaly.</p>
+<hr />
+<h3 id="1-threat-model">1. Threat model</h3>
+<p>A single injection into one agent does not stay local. If A is compromised and
+emits manipulated output that B consumes, B follows the injected instructions
+because they arrived from a <em>trusted</em> internal peer - the same reason the
+directive is dangerous is the reason it propagates. Left unmodeled, this looks
+like several independent single-agent hits; in reality it is one origin and a
+chain of victims. Two properties matter that per-agent scoring cannot express:</p>
+<ul>
+<li><strong>Origin vs. victim.</strong> Which agent introduced the directive, and which merely
+  relayed something they ingested.</li>
+<li><strong>Depth.</strong> How many agent boundaries the directive survived - a proxy for how
+  far trust was abused and how large the blast surface became.</li>
+</ul>
+<hr />
+<h3 id="2-detection-from-re-emission">2. Detection from re-emission</h3>
+<p>MAS-Sentry never assumes propagation from topology alone (who <em>could</em> consume a
+topic). It requires evidence that a directive actually crossed a boundary: a
+later emission by a <em>distinct</em> agent carrying a directive an earlier agent
+emitted. Two tiers are ordered by confidence:</p>
+<ul>
+<li><strong>verbatim</strong> - a distinct agent later emits a payload whose hash matches an
+  earlier injection-positive payload. The poisoned content was forwarded
+  intact. Hash-anchored, low false-positive.</li>
+<li><strong>directive</strong> - a distinct agent later emits an injection carrying the same
+  STRONG directive pattern a prior agent emitted. The instruction, not
+  necessarily the bytes, crossed the boundary.</li>
+</ul>
+<p>Each re-emission is attributed to its <em>nearest</em> prior distinct source, so the
+result is an infection chain rather than a dense graph. Edges always run from an
+earlier emission to a later one; an edge that would close a cycle is dropped, so
+the graph is a DAG and depth is well defined. Only injection-positive events are
+recorded - patterns plus a payload hash, never the payload itself - so memory
+stays bounded regardless of traffic volume.</p>
+<hr />
+<h3 id="3-severity-by-depth-and-tier">3. Severity by depth and tier</h3>
+<p>Contamination severity is computed directly from the chain, not routed through
+the weighted-mean anomaly score - a chain-level property would be diluted by an
+agent's unrelated topology dimensions. The ladder:</p>
 <table>
 <thead>
 <tr>
-<th>Score</th>
+<th>Evidence</th>
 <th>Severity</th>
-<th>Action</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td>0-30</td>
-<td>LOW</td>
-<td>Log only</td>
-</tr>
-<tr>
-<td>31-60</td>
-<td>MEDIUM</td>
-<td>Alert</td>
-</tr>
-<tr>
-<td>61-80</td>
+<td>directive, single hop (depth 1)</td>
 <td>HIGH</td>
-<td>Block</td>
 </tr>
 <tr>
-<td>81-100</td>
+<td>directive, two or more hops</td>
 <td>CRITICAL</td>
-<td>Immediate response</td>
+</tr>
+<tr>
+<td>verbatim relay, any depth</td>
+<td>CRITICAL</td>
 </tr>
 </tbody>
 </table>
+<p>An origin agent carries no propagation finding - it is already flagged by the
+per-agent <code>injection</code> dimension as an emitter. Every non-origin agent on a
+chain gets a finding tagged <code>ASI01_Goal_Hijack</code>, <code>ASI05_Cascading_Failure</code>,
+<code>CWE-1427</code>, <code>STRIDE_Tampering</code>, and <code>AML.T0051</code>. ASI05 is what separates a
+propagated directive from a merely-emitted one.</p>
+<hr />
+<h3 id="4-report-output">4. Report output</h3>
+<p><code>run_abfp_scan</code> feeds the captured injection events through the propagation
+graph and writes a <code>propagation</code> block: per contaminated agent the origin, the
+chain that reached it, the depth, the worst inbound tier, the severity, the
+taxonomy, and - fused with cascade - that agent's onward blast radius (who it
+can further infect). A <code>propagation_summary</code> header gives the contaminated
+count, maximum depth, and the set of origins for fast triage.</p>
+<hr />
+<h3 id="5-limitations">5. Limitations</h3>
+<ul>
+<li>Directive-tier attribution keys on shared STRONG patterns; two agents that
+  independently emit the same common directive will be linked even without a
+  real causal hop. Verbatim tier (hash match) does not have this ambiguity.</li>
+<li>Nearest-source attribution reconstructs one plausible chain, not necessarily
+  the true infection path when several upstream emitters share a pattern.</li>
+<li>Detection is bounded by what the passive collector observes; an out-of-band
+  relay channel MAS-Sentry cannot see will not appear in the graph.</li>
+</ul>
+<hr />
+<h3 id="6-related">6. Related</h3>
+<ul>
+<li><a href="../indirect-prompt-injection/">Indirect Prompt Injection</a> - single-agent
+  directive detection this builds on.</li>
+<li><a href="../ABFP/">ABFP</a> - the agent-behavior fingerprinting scan that hosts it.</li>
+</ul>
 
 
 
