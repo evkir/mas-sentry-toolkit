@@ -3,6 +3,24 @@
 ## [Unreleased]
 
 ### Added
+- Transitive indirect-prompt-injection propagation detection in the ABFP
+  scan. Beyond flagging agents that emit injection directives, MAS-Sentry now
+  reconstructs how a directive spreads across agents from observed re-emission,
+  modeling the cross-agent infection that per-agent guardrails and topology-
+  only blast-radius both miss. Two evidence tiers are used: verbatim (a
+  distinct agent forwards an identical poisoned payload, hash-anchored) and
+  directive (a distinct agent re-emits the same STRONG pattern). Each hop is
+  attributed to its nearest prior source, yielding infection chains; the graph
+  is kept acyclic so propagation depth is well defined. Injection events are
+  captured bounded (patterns + payload hash only, never the payload). Chain
+  severity is computed directly - a single directive hop is HIGH, a verbatim
+  relay or a directive surviving two or more hops is CRITICAL - rather than
+  through the weighted-mean anomaly score that would dilute a chain-level
+  signal. The scan report gains a `propagation` block (per contaminated agent:
+  origin, chain, depth, tier, severity, taxonomy, and fused onward blast
+  radius) plus a `propagation_summary` triage header. Findings are tagged
+  ASI01 / ASI05 Cascading Failure / CWE-1427 / STRIDE Tampering / AML.T0051.
+  Documented in the new Transitive Injection Propagation methodology page.
 - Live `mas-sentry a2a scan` command activating the full Agent-to-Agent
   vertical, previously a dormant library. The scan discovers an endpoint's
   AgentCard, audits it passively, and - with `--active` - runs live probes
