@@ -8,11 +8,14 @@ import networkx as nx
 from mas_sentry.agents.abfp.injection_propagation import (
     InjectionEvent,
     build_propagation_graph,
+    chain_severity,
     has_propagation,
     origin_agents,
     propagation_chains,
     propagation_depth,
+    propagation_findings,
 )
+from mas_sentry.agents.abfp.scoring import Severity
 
 
 def _ev(agent: str, ts: float, patterns: set[str], phash: str = "") -> InjectionEvent:
@@ -107,3 +110,66 @@ def test_verbatim_supersedes_on_repeat_pair() -> None:
     )
     assert g.edges["A", "B"]["tier"] == "verbatim"
     assert g.edges["A", "B"]["weight"] == 2
+
+
+# --------------- propagation findings + severity ---------------
+
+
+def test_chain_severity_ladder() -> None:
+    assert chain_severity("directive", 1) == Severity.HIGH
+    assert chain_severity("directive", 2) == Severity.CRITICAL
+    assert chain_severity("verbatim", 1) == Severity.CRITICAL
+
+
+def test_directive_single_hop_is_high() -> None:
+    g = build_propagation_graph([_ev("A", 1.0, {"ignore-previous"}, "h1"), _ev("B", 2.0, {"ignore-previous"}, "h2")])
+    (f,) = propagation_findings(g)
+    assert f.target == "B"
+    assert f.origin == "A"
+    assert f.depth == 1
+    assert f.tier == "directive"
+    assert f.severity == Severity.HIGH
+    assert f.chain == ["A", "B"]
+    assert "ASI05_Cascading_Failure" in f.tags
+
+
+def test_multi_hop_escalates_to_critical() -> None:
+    g = build_propagation_graph(
+        [
+            _ev("A", 1.0, {"tool-call-hijack"}, "h1"),
+            _ev("B", 2.0, {"tool-call-hijack"}, "h2"),
+            _ev("C", 3.0, {"tool-call-hijack"}, "h3"),
+        ]
+    )
+    by_target = {f.target: f for f in propagation_findings(g)}
+    assert "A" not in by_target  # origin carries no propagation finding
+    assert by_target["B"].severity == Severity.HIGH
+    assert by_target["C"].severity == Severity.CRITICAL
+    assert by_target["C"].chain == ["A", "B", "C"]
+
+
+def test_verbatim_relay_is_critical() -> None:
+    g = build_propagation_graph(
+        [_ev("A", 1.0, {"ignore-previous"}, "same"), _ev("B", 2.0, {"ignore-previous"}, "same")]
+    )
+    (f,) = propagation_findings(g)
+    assert f.tier == "verbatim"
+    assert f.severity == Severity.CRITICAL
+
+
+def test_findings_sorted_worst_first() -> None:
+    g = build_propagation_graph(
+        [
+            _ev("A", 1.0, {"tool-call-hijack"}, "h1"),
+            _ev("B", 2.0, {"tool-call-hijack"}, "h2"),
+            _ev("C", 3.0, {"tool-call-hijack"}, "h3"),
+        ]
+    )
+    findings = propagation_findings(g)
+    sevs = [f.severity for f in findings]
+    assert sevs[0] == Severity.CRITICAL  # deepest first
+
+
+def test_no_propagation_no_findings() -> None:
+    g = build_propagation_graph([_ev("A", 1.0, {"ignore-previous"}, "h1")])
+    assert propagation_findings(g) == []

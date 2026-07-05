@@ -35,6 +35,8 @@ import networkx as nx
 
 from mas_sentry.core.injection_scan import STRONG_PATTERNS
 
+from .scoring import Severity
+
 
 @dataclass(frozen=True, slots=True)
 class InjectionEvent:
@@ -164,3 +166,86 @@ def propagation_chains(graph: nx.DiGraph, max_chains: int = 64) -> list[list[str
 def has_propagation(graph: nx.DiGraph) -> bool:
     """True when at least one directive crossed an agent boundary."""
     return graph.number_of_edges() > 0
+
+
+# Transitive propagation is a cascading failure across agents: a hijacked goal
+# does not stay local, it rides legitimate inter-agent messaging downstream.
+_TRANSITIVE_TAGS: tuple[str, ...] = (
+    "ASI01_Goal_Hijack",
+    "ASI05_Cascading_Failure",
+    "CWE-1427",
+    "STRIDE_Tampering",
+    "AML.T0051",
+)
+
+_SEV_RANK = {Severity.INFO: 0, Severity.LOW: 1, Severity.MEDIUM: 2, Severity.HIGH: 3, Severity.CRITICAL: 4}
+
+
+@dataclass(frozen=True, slots=True)
+class PropagationFinding:
+    """A directive that reached a contaminated agent through >= 1 hop."""
+
+    target: str
+    origin: str
+    depth: int
+    tier: str  # worst inbound tier: "verbatim" | "directive"
+    chain: list[str]
+    severity: Severity
+    tags: tuple[str, ...] = _TRANSITIVE_TAGS
+
+
+def chain_severity(tier: str, depth: int) -> Severity:
+    """Severity of a contamination hop.
+
+    A verbatim relay (the poisoned bytes were forwarded intact) or a directive
+    that survived two or more hops is CRITICAL - the blast surface multiplies
+    with every hop. A directive that crossed a single boundary is HIGH.
+    """
+    if tier == "verbatim" or depth >= 2:
+        return Severity.CRITICAL
+    return Severity.HIGH
+
+
+def _longest_chain_to(graph: nx.DiGraph, node: str, depth: dict[str, int]) -> list[str]:
+    """Walk back to an origin, always following the deepest predecessor."""
+    chain = [node]
+    cur = node
+    while True:
+        preds = list(graph.predecessors(cur))
+        if not preds:
+            break
+        cur = max(preds, key=lambda p: depth[p])
+        chain.append(cur)
+    chain.reverse()
+    return chain
+
+
+def propagation_findings(graph: nx.DiGraph) -> list[PropagationFinding]:
+    """One finding per contaminated (non-origin) agent, worst-first.
+
+    The tier is the worst inbound edge (verbatim outranks directive); the chain
+    is the longest path from an origin down to the agent; severity follows the
+    depth/tier ladder. Origins carry no finding here - they are flagged by the
+    per-agent injection dimension as emitters, not as propagation targets.
+    """
+    depth = propagation_depth(graph)
+    findings: list[PropagationFinding] = []
+    for node in graph.nodes:
+        preds = list(graph.predecessors(node))
+        if not preds:
+            continue
+        tiers = {graph.edges[p, node]["tier"] for p in preds}
+        tier = "verbatim" if "verbatim" in tiers else "directive"
+        chain = _longest_chain_to(graph, node, depth)
+        findings.append(
+            PropagationFinding(
+                target=node,
+                origin=chain[0],
+                depth=depth[node],
+                tier=tier,
+                chain=chain,
+                severity=chain_severity(tier, depth[node]),
+            )
+        )
+    findings.sort(key=lambda f: (_SEV_RANK[f.severity], f.depth), reverse=True)
+    return findings
