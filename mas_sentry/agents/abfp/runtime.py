@@ -21,6 +21,7 @@ from .impersonation import impersonation_dimensions
 from .injection_propagation import (
     PropagationFinding,
     build_propagation_graph,
+    infer_consume_edges,
     propagation_findings,
 )
 from .observer import MessageEvent, MessageObserver
@@ -81,6 +82,10 @@ def run_abfp_scan(
     client.disconnect()
 
     bc = BaselineCollector(observer, threshold=baseline_threshold)
+    # Revive cascade in a live passive scan: with no observed SUBSCRIBEs, sub_edges
+    # stays empty and blast_radius is blind. Infer consume edges from injection
+    # re-emission and feed them so the topic graph carries real downstream reach.
+    graph_builder.feed_consume_edges(infer_consume_edges(injection_tracker.events()))
     current_graph = graph_builder.build()
     current_snapshot = build_snapshot(target, observer, current_graph)
     if snapshot_path is not None:
