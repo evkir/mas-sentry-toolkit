@@ -56,6 +56,7 @@ nav:
       - ABFP: methodology/ABFP.md
       - Indirect Prompt Injection: methodology/indirect-prompt-injection.md
       - Transitive Injection Propagation: methodology/transitive-injection-propagation.md
+      - Consume-Edge Inference: methodology/consume-edge-inference.md
       - A2A Scanning: methodology/a2a-scanning.md
       - Threat Modeling: methodology/threat-modeling.md
   - Modules:

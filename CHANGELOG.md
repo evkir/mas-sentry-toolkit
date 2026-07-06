@@ -3,6 +3,22 @@
 ## [Unreleased]
 
 ### Added
+- Consume-edge inference reviving cascade blast-radius in live passive
+  scans. A passive MAS listener observes PUBLISH traffic but no SUBSCRIBE
+  packets, so the topic graph's subscribe edges stayed empty and
+  `blast_radius` computed an empty downstream reach - the cascade was dead
+  code in the exact scenario it targets. MAS-Sentry now infers consume edges
+  from the same injection re-emission evidence used for transitive
+  propagation: when a downstream agent re-emits a directive first seen from
+  an upstream source, it must have consumed the topic that source emitted on,
+  and nearest-source attribution pins that topic. Inferred edges enter the
+  topic graph under a distinct `subscribe-inferred` kind and never overwrite
+  an observed subscribe, so a behavioral inference is never mistaken for
+  ground truth. `blast_radius` splits its reach into observed `direct` /
+  `transitive` and `inferred_direct` / `inferred_transitive`, crediting an
+  agent reachable both ways as observed. The passive scan loop is now
+  exercised end-to-end against a mocked broker. Documented in the new
+  Consume-Edge Inference methodology page.
 - Transitive indirect-prompt-injection propagation detection in the ABFP
   scan. Beyond flagging agents that emit injection directives, MAS-Sentry now
   reconstructs how a directive spreads across agents from observed re-emission,
