@@ -89,3 +89,16 @@ def test_passive_scan_without_reemission_has_empty_blast(tmp_path: Path, monkeyp
     origin = findings["fleet_planner_a1"]
     assert origin["blast_radius"]["direct"] == []
     assert origin["blast_radius"]["transitive"] == []
+
+
+def test_passive_scan_marks_inferred_reach_as_inference(tmp_path: Path, monkeypatch) -> None:
+    messages = [
+        _FakeMsg("fleet/planner/a1/out", _POISON),
+        _FakeMsg("fleet/worker/b2/out", _POISON),
+    ]
+    report = _run(tmp_path, messages, monkeypatch)
+    origin = {f["agent_id"]: f for f in report["findings"]}["fleet_planner_a1"]
+    br = origin["blast_radius"]
+    # The reach is honestly labelled as inferred, not passed off as observed.
+    assert br["inferred_direct"] == ["fleet_worker_b2"]
+    assert "fleet_worker_b2" in br["inferred_transitive"]

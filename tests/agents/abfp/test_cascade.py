@@ -42,3 +42,47 @@ def test_blast_radius_excludes_self_on_cycle():
     br = blast_radius(g, "A")
     assert "A" not in br.transitive
     assert "C" in br.transitive
+
+
+def _g_inferred() -> nx.DiGraph:
+    g: nx.DiGraph = nx.DiGraph()
+    for a in ("A", "B", "C"):
+        g.add_node(a, kind="agent")
+    for t in ("T1", "T2"):
+        g.add_node(t, kind="topic")
+    g.add_edge("A", "T1", kind="publish", weight=1)
+    g.add_edge("T1", "B", kind="subscribe-inferred", inferred=True, tier="verbatim", weight=1)
+    g.add_edge("B", "T2", kind="publish", weight=1)
+    g.add_edge("T2", "C", kind="subscribe-inferred", inferred=True, tier="directive", weight=1)
+    return g
+
+
+def test_blast_radius_marks_inferred_reach() -> None:
+    br = blast_radius(_g_inferred(), "A")
+    assert br.direct == ["B"]
+    assert br.transitive == ["B", "C"]
+    assert br.inferred_direct == ["B"]
+    assert br.inferred_transitive == ["B", "C"]
+
+
+def test_blast_radius_observed_reach_not_marked_inferred() -> None:
+    br = blast_radius(_g(), "A")
+    assert br.inferred_direct == []
+    assert br.inferred_transitive == []
+
+
+def test_blast_radius_observed_path_credited_over_inferred() -> None:
+    # B reachable from A via both an observed and an inferred edge -> observed wins.
+    g: nx.DiGraph = nx.DiGraph()
+    for a in ("A", "B"):
+        g.add_node(a, kind="agent")
+    for t in ("T1", "T3"):
+        g.add_node(t, kind="topic")
+    g.add_edge("A", "T1", kind="publish", weight=1)
+    g.add_edge("T1", "B", kind="subscribe-inferred", inferred=True, weight=1)
+    g.add_edge("A", "T3", kind="publish", weight=1)
+    g.add_edge("T3", "B", kind="subscribe", weight=1)
+    br = blast_radius(g, "A")
+    assert br.direct == ["B"]
+    assert br.inferred_direct == []
+    assert br.inferred_transitive == []

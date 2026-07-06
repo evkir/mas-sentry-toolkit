@@ -156,6 +156,8 @@ def _cascade_entry(cascade: dict[str, BlastRadius] | None, agent_id: str) -> dic
         "transitive": br.transitive,
         "direct_count": br.direct_count,
         "transitive_count": br.transitive_count,
+        "inferred_direct": br.inferred_direct,
+        "inferred_transitive": br.inferred_transitive,
     }
 
 
