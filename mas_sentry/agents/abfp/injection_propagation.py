@@ -29,6 +29,7 @@ well-defined.
 
 from __future__ import annotations
 
+from collections.abc import Iterator
 from dataclasses import dataclass, field
 
 import networkx as nx
@@ -58,6 +59,25 @@ class PropagationEdge:
     shared: tuple[str, ...]  # shared strong patterns, or the payload hash for verbatim
 
 
+@dataclass(frozen=True, slots=True)
+class ConsumeEdge:
+    """An inferred consume relation: ``agent`` re-emitted a directive first seen on ``topic``.
+
+    This is a behavioral inference from re-emission evidence, never an observed
+    SUBSCRIBE. A downstream agent could only obtain an upstream poisoned payload by
+    consuming a topic the source published it on; the nearest-source attribution pins
+    that topic. Fed into the topic graph as an inferred subscribe edge, it lets
+    cascade.blast_radius reach downstream consumers in a live passive scan, where no
+    SUBSCRIBE packets are observed and observed sub-edges are therefore empty.
+    """
+
+    topic: str  # topic the upstream source emitted the directive on
+    agent: str  # downstream agent that re-emitted it (the inferred consumer)
+    tier: str  # "verbatim" | "directive" - confidence of the re-emission match
+    weight: int
+    evidence: tuple[str, ...]  # shared strong patterns, or the payload hash for verbatim
+
+
 # verbatim evidence outranks directive when both would link the same pair.
 _TIER_RANK = {"directive": 1, "verbatim": 2}
 
@@ -67,6 +87,39 @@ class _EdgeAcc:
     tier: str
     weight: int
     shared: set[str] = field(default_factory=set)
+
+
+def _attributed_reemissions(
+    events: list[InjectionEvent],
+    strong_patterns: frozenset[str],
+) -> Iterator[tuple[str, str, str, str, tuple[str, ...]]]:
+    """Yield ``(source_agent, source_topic, target_agent, tier, shared)`` per re-emission.
+
+    One attribution per event at most - verbatim (hash match) takes precedence over
+    directive (shared strong pattern) - each attributed to the nearest prior distinct
+    source. Shared by the propagation graph and consume-edge inference so both project
+    from identical attribution decisions.
+    """
+    last_hash: dict[str, tuple[str, str]] = {}  # payload hash -> (agent, topic)
+    last_pattern: dict[str, tuple[str, str]] = {}  # strong pattern -> (agent, topic)
+    for ev in sorted(events, key=lambda e: e.timestamp):
+        src = last_hash.get(ev.payload_hash) if ev.payload_hash else None
+        if src is not None and src[0] != ev.agent_id:
+            yield src[0], src[1], ev.agent_id, "verbatim", (ev.payload_hash,)
+        else:
+            best: tuple[str, str] | None = None
+            shared_here: set[str] = set()
+            for pat in ev.patterns & strong_patterns:
+                psrc = last_pattern.get(pat)
+                if psrc is not None and psrc[0] != ev.agent_id:
+                    best = psrc
+                    shared_here.add(pat)
+            if best is not None and shared_here:
+                yield best[0], best[1], ev.agent_id, "directive", tuple(sorted(shared_here))
+        if ev.payload_hash:
+            last_hash[ev.payload_hash] = (ev.agent_id, ev.topic)
+        for pat in ev.patterns & strong_patterns:
+            last_pattern[pat] = (ev.agent_id, ev.topic)
 
 
 def build_propagation_graph(
@@ -81,36 +134,11 @@ def build_propagation_graph(
     source and never close a cycle, so the graph is a DAG.
     """
     graph: nx.DiGraph = nx.DiGraph()
-    ordered = sorted(events, key=lambda e: e.timestamp)
-
-    last_hash_emitter: dict[str, str] = {}
-    last_pattern_emitter: dict[str, str] = {}
     acc: dict[tuple[str, str], _EdgeAcc] = {}
-
-    for ev in ordered:
+    for ev in sorted(events, key=lambda e: e.timestamp):
         graph.add_node(ev.agent_id, kind="agent")
-
-        # Verbatim: identical poisoned payload previously emitted by another agent.
-        src = last_hash_emitter.get(ev.payload_hash) if ev.payload_hash else None
-        if src is not None and src != ev.agent_id:
-            _record(acc, src, ev.agent_id, "verbatim", ev.payload_hash)
-        else:
-            # Directive: nearest prior distinct emitter of any shared strong pattern.
-            best_src: str | None = None
-            shared_here: set[str] = set()
-            for pat in ev.patterns & strong_patterns:
-                psrc = last_pattern_emitter.get(pat)
-                if psrc is not None and psrc != ev.agent_id:
-                    best_src = psrc
-                    shared_here.add(pat)
-            if best_src is not None and shared_here:
-                _record(acc, best_src, ev.agent_id, "directive", *sorted(shared_here))
-
-        # Update nearest-source trackers with this emission.
-        if ev.payload_hash:
-            last_hash_emitter[ev.payload_hash] = ev.agent_id
-        for pat in ev.patterns & strong_patterns:
-            last_pattern_emitter[pat] = ev.agent_id
+    for src_agent, _src_topic, target, tier, shared in _attributed_reemissions(events, strong_patterns):
+        _record(acc, src_agent, target, tier, *shared)
 
     for (source, target), e in acc.items():
         # Drop an edge that would create a cycle; keeps the graph a DAG.
@@ -130,6 +158,27 @@ def _record(acc: dict[tuple[str, str], _EdgeAcc], source: str, target: str, tier
     cur.shared.update(shared)
     if _TIER_RANK[tier] > _TIER_RANK[cur.tier]:
         cur.tier = tier
+
+
+def infer_consume_edges(
+    events: list[InjectionEvent],
+    strong_patterns: frozenset[str] = STRONG_PATTERNS,
+) -> list[ConsumeEdge]:
+    """Infer consume edges (topic -> agent) from injection re-emission evidence.
+
+    Every attributed re-emission implies the downstream agent consumed the topic the
+    upstream source emitted on. Keyed by ``(source_topic, target_agent)`` and merged
+    across repeats (verbatim outranks directive), this yields the inferred subscribe
+    edges a passive scan cannot observe directly. Attribution is identical to the
+    propagation graph, so cascade and propagation stay consistent.
+    """
+    acc: dict[tuple[str, str], _EdgeAcc] = {}
+    for _src_agent, src_topic, target, tier, shared in _attributed_reemissions(events, strong_patterns):
+        _record(acc, src_topic, target, tier, *shared)
+    return [
+        ConsumeEdge(topic=topic, agent=agent, tier=e.tier, weight=e.weight, evidence=tuple(sorted(e.shared)))
+        for (topic, agent), e in acc.items()
+    ]
 
 
 def origin_agents(graph: nx.DiGraph) -> list[str]:

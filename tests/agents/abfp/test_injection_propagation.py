@@ -6,10 +6,12 @@ from __future__ import annotations
 import networkx as nx
 
 from mas_sentry.agents.abfp.injection_propagation import (
+    ConsumeEdge,
     InjectionEvent,
     build_propagation_graph,
     chain_severity,
     has_propagation,
+    infer_consume_edges,
     origin_agents,
     propagation_chains,
     propagation_depth,
@@ -173,3 +175,72 @@ def test_findings_sorted_worst_first() -> None:
 def test_no_propagation_no_findings() -> None:
     g = build_propagation_graph([_ev("A", 1.0, {"ignore-previous"}, "h1")])
     assert propagation_findings(g) == []
+
+
+def _evt(agent: str, ts: float, patterns: set[str], phash: str = "", topic: str = "t/x") -> InjectionEvent:
+    return InjectionEvent(agent_id=agent, topic=topic, timestamp=ts, patterns=frozenset(patterns), payload_hash=phash)
+
+
+def test_infer_consume_edges_empty() -> None:
+    assert infer_consume_edges([]) == []
+
+
+def test_infer_consume_single_emitter_none() -> None:
+    assert infer_consume_edges([_evt("A", 1.0, {"ignore-previous"}, "h1", "src/a")]) == []
+
+
+def test_infer_consume_verbatim_pins_source_topic() -> None:
+    edges = infer_consume_edges(
+        [
+            _evt("A", 1.0, {"ignore-previous"}, "h1", "cmd/a"),
+            _evt("B", 2.0, {"ignore-previous"}, "h1", "cmd/b"),
+        ]
+    )
+    assert edges == [ConsumeEdge(topic="cmd/a", agent="B", tier="verbatim", weight=1, evidence=("h1",))]
+
+
+def test_infer_consume_directive_shares_pattern() -> None:
+    edges = infer_consume_edges(
+        [
+            _evt("A", 1.0, {"tool-call-hijack"}, "h1", "cmd/a"),
+            _evt("B", 2.0, {"tool-call-hijack"}, "h2", "cmd/b"),
+        ]
+    )
+    assert len(edges) == 1
+    assert edges[0].topic == "cmd/a"
+    assert edges[0].agent == "B"
+    assert edges[0].tier == "directive"
+    assert edges[0].evidence == ("tool-call-hijack",)
+
+
+def test_infer_consume_multi_hop_nearest_source_topic() -> None:
+    edges = infer_consume_edges(
+        [
+            _evt("A", 1.0, {"ignore-previous"}, "h1", "topic/a"),
+            _evt("B", 2.0, {"ignore-previous"}, "h2", "topic/b"),
+            _evt("C", 3.0, {"ignore-previous"}, "h3", "topic/c"),
+        ]
+    )
+    pairs = {(e.topic, e.agent) for e in edges}
+    assert pairs == {("topic/a", "B"), ("topic/b", "C")}
+
+
+def test_infer_consume_self_reemit_ignored() -> None:
+    edges = infer_consume_edges(
+        [
+            _evt("A", 1.0, {"ignore-previous"}, "h1", "topic/a"),
+            _evt("A", 2.0, {"ignore-previous"}, "h1", "topic/a2"),
+        ]
+    )
+    assert edges == []
+
+
+def test_infer_consume_attribution_matches_propagation() -> None:
+    events = [
+        _evt("A", 1.0, {"ignore-previous"}, "h1", "topic/a"),
+        _evt("B", 2.0, {"ignore-previous"}, "h2", "topic/b"),
+    ]
+    g = build_propagation_graph(events)
+    consume_targets = {e.agent for e in infer_consume_edges(events)}
+    prop_targets = {tgt for _s, tgt in g.edges}
+    assert consume_targets == prop_targets
