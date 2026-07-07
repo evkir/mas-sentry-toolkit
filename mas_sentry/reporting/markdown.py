@@ -42,6 +42,19 @@ def render_markdown(findings: list[Finding], target: str, out_path: Path) -> Non
             lines.append(f"- **Tags:** {tag_str}")
         if f.references:
             lines.append(f"- **References:** {', '.join(f.references)}")
+        chain = f.evidence.get("chain")
+        if chain:
+            hops = " -> ".join(str(c) for c in chain)
+            depth = f.evidence.get("depth", "?")
+            tier = f.evidence.get("tier", "?")
+            lines.append(f"- **Contamination chain:** {hops} (depth {depth}, {tier})")
+            br = f.evidence.get("blast_radius") or {}
+            reach = br.get("transitive") or []
+            if reach:
+                lines.append(
+                    f"- **Onward blast radius:** {br.get('transitive_count', len(reach))} "
+                    f"agent(s): {', '.join(str(a) for a in reach)}"
+                )
         lines.append("")
         lines.append(f.detail)
         if f.evidence:

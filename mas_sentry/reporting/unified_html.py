@@ -53,6 +53,9 @@ h1{border-bottom:2px solid #334155;padding-bottom:.5rem}
 .cascade{margin-top:.4rem;font-size:.9rem}
 .cascade .br{color:#fca5a5;font-weight:600}
 .br-list{color:#cbd5e1;margin-top:.2rem}
+.chain{margin-top:.4rem;font-size:.9rem}
+.chain-path{color:#fca5a5;font-weight:600;font-family:ui-monospace,monospace}
+.chain-meta{color:#94a3b8;margin-left:.5rem}
 code{background:#0b1220;padding:.1rem .3rem;border-radius:3px;font-size:.85rem}
 .drivers{margin:.5rem 0}
 .drivers ul{margin:.3rem 0 0 1.1rem;padding:0}
@@ -134,6 +137,12 @@ footer{margin-top:3rem;color:#64748b;font-size:.85rem;border-top:1px solid #3341
     </li>
     {% endfor %}
   </ul></div>
+  {% endif %}
+  {% if f.evidence.chain %}
+  <div class="chain"><strong>Contamination chain</strong>
+    <span class="chain-path">{{ f.evidence.chain | join(' -> ') }}</span>
+    <span class="chain-meta">depth {{ f.evidence.depth }} &middot; {{ f.evidence.tier }}</span>
+  </div>
   {% endif %}
   {% if f.evidence.blast_radius %}
   <div class="cascade"><strong>Cascade blast radius</strong>

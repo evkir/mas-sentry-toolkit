@@ -330,3 +330,48 @@ def test_no_propagation_block_is_noop(tmp_path: Path):
     assert r.exit_code == 0, r.stdout
     doc = json.loads(out.read_text())
     assert not [x for x in doc["runs"][0]["results"] if x["ruleId"] == "MAS-SENTRY-ABFP.PROPAGATION"]
+
+
+def test_propagation_chain_renders_distinctly(tmp_path: Path):
+    src = tmp_path / "abfp.json"
+    src.write_text(
+        json.dumps(
+            {
+                "findings": [],
+                "propagation": [
+                    {
+                        "target": "planner",
+                        "origin": "ingest",
+                        "depth": 2,
+                        "tier": "verbatim",
+                        "chain": ["ingest", "router", "planner"],
+                        "severity": "CRITICAL",
+                        "tags": ["ASI05_Cascading_Failure"],
+                        "blast_radius": {
+                            "topics": ["t/x"],
+                            "direct": ["worker"],
+                            "transitive": ["worker", "logger"],
+                            "direct_count": 1,
+                            "transitive_count": 2,
+                        },
+                    }
+                ],
+            }
+        )
+    )
+    # HTML: dedicated chain block, not just the evidence JSON dump
+    html = tmp_path / "o.html"
+    r = runner.invoke(app, ["report", "convert", str(src), "-f", "html", "-o", str(html), "--target", "t"])
+    assert r.exit_code == 0, r.stdout
+    body = html.read_text()
+    assert "Contamination chain" in body
+    assert "ingest -&gt; router -&gt; planner" in body  # autoescaped arrows
+    assert 'class="chain-path"' in body
+
+    # MD: human-readable chain line + onward blast radius, above the raw evidence block
+    md = tmp_path / "o.md"
+    r2 = runner.invoke(app, ["report", "convert", str(src), "-f", "md", "-o", str(md), "--target", "t"])
+    assert r2.exit_code == 0, r2.stdout
+    text = md.read_text()
+    assert "**Contamination chain:** ingest -> router -> planner (depth 2, verbatim)" in text
+    assert "**Onward blast radius:** 2 agent(s): worker, logger" in text
