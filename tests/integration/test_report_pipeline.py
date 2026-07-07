@@ -268,3 +268,65 @@ def test_abfp_blast_radius_in_html_and_sarif(tmp_path: Path):
     assert r2.exit_code == 0, r2.stdout
     props = json.loads(sarif.read_text())["runs"][0]["results"][0]["properties"]
     assert props["blast_radius"]["transitive_count"] == 2
+
+
+def test_propagation_block_flows_into_reports(tmp_path: Path):
+    src = tmp_path / "abfp.json"
+    src.write_text(
+        json.dumps(
+            {
+                "target": "mqtt://demo:1883",
+                "findings": [{"agent_id": "agent-7", "severity": "HIGH", "diff": "drift"}],
+                "propagation": [
+                    {
+                        "target": "planner",
+                        "origin": "ingest",
+                        "depth": 2,
+                        "tier": "verbatim",
+                        "chain": ["ingest", "router", "planner"],
+                        "severity": "CRITICAL",
+                        "tags": ["ASI01_Goal_Hijack", "ASI05_Cascading_Failure"],
+                        "blast_radius": {
+                            "topics": ["t/x"],
+                            "direct": ["worker"],
+                            "transitive": ["worker", "logger"],
+                            "direct_count": 1,
+                            "transitive_count": 2,
+                        },
+                    }
+                ],
+            }
+        )
+    )
+    # SARIF: contamination surfaces as its own rule, CRITICAL-banded, tags + blast radius intact
+    sarif = tmp_path / "o.sarif"
+    r = runner.invoke(
+        app, ["report", "convert", str(src), "-f", "sarif", "-o", str(sarif), "--target", "mqtt://demo:1883"]
+    )
+    assert r.exit_code == 0, r.stdout
+    doc = json.loads(sarif.read_text())
+    results = doc["runs"][0]["results"]
+    prop = [x for x in results if x["ruleId"] == "MAS-SENTRY-ABFP.PROPAGATION"]
+    assert prop, "propagation finding missing from SARIF"
+    assert "ASI05_Cascading_Failure" in prop[0]["properties"]["tags"]
+    assert prop[0]["properties"]["blast_radius"]["transitive_count"] == 2
+    rule = next(rr for rr in doc["runs"][0]["tool"]["driver"]["rules"] if rr["id"] == "MAS-SENTRY-ABFP.PROPAGATION")
+    assert float(rule["properties"]["security-severity"]) >= 9.0
+
+    # HTML/MD: the chain data reaches the document (distinct rendering lands in a later slice)
+    for fmt, ext in [("html", "html"), ("md", "md")]:
+        out = tmp_path / f"o.{ext}"
+        rr = runner.invoke(app, ["report", "convert", str(src), "-f", fmt, "-o", str(out), "--target", "t"])
+        assert rr.exit_code == 0, rr.stdout
+        body = out.read_text()
+        assert "planner" in body and "ingest" in body
+
+
+def test_no_propagation_block_is_noop(tmp_path: Path):
+    src = tmp_path / "n.json"
+    src.write_text(json.dumps({"findings": [{"module": "mcp.ssrf", "title": "SSRF", "severity": "HIGH"}]}))
+    out = tmp_path / "n.sarif"
+    r = runner.invoke(app, ["report", "convert", str(src), "-f", "sarif", "-o", str(out), "--target", "t"])
+    assert r.exit_code == 0, r.stdout
+    doc = json.loads(out.read_text())
+    assert not [x for x in doc["runs"][0]["results"] if x["ruleId"] == "MAS-SENTRY-ABFP.PROPAGATION"]

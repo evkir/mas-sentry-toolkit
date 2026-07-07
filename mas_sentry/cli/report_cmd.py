@@ -8,6 +8,9 @@ from typing import Any
 import typer
 from rich.console import Console
 
+from mas_sentry.agents.abfp.injection_propagation import PropagationFinding
+from mas_sentry.agents.abfp.scoring import Severity as AbfpSeverity
+from mas_sentry.core.adapters import from_propagation_finding
 from mas_sentry.core.finding import Finding, Severity
 from mas_sentry.reporting.markdown import render_markdown
 from mas_sentry.reporting.sarif import write_sarif
@@ -38,6 +41,7 @@ def report_convert(
     if not isinstance(items, list):
         raise typer.BadParameter("expected a JSON array of findings or an object with a 'findings' array")
     findings = [_to_finding(d) for d in items]
+    findings += _propagation_findings(raw, target)
     graph = raw.get("graph") if isinstance(raw, dict) else None
 
     if fmt == "html":
@@ -52,6 +56,42 @@ def report_convert(
         write_sarif([f.to_dict() for f in findings], out)
 
     console.print(f"[green]wrote {fmt} -> {out}[/green]")
+
+
+def _propagation_findings(raw: Any, target: str) -> list[Finding]:
+    """Convert the ABFP-JSON ``propagation`` block into unified Findings.
+
+    The block is a list of serialised PropagationFindings, each already fused
+    with its onward blast radius. We rebuild every PropagationFinding and run it
+    through the same adapter the live scan path uses, so a contamination finding
+    is mapped identically no matter which entry point produced the JSON. Without
+    this the whole transitive-propagation surface is silently dropped from every
+    report format.
+    """
+    if not isinstance(raw, dict):
+        return []
+    block = raw.get("propagation")
+    if not isinstance(block, list):
+        return []
+    out: list[Finding] = []
+    for d in block:
+        if not isinstance(d, dict):
+            continue
+        try:
+            sev = AbfpSeverity(str(d.get("severity", "INFO")).upper())
+        except ValueError:
+            sev = AbfpSeverity.INFO
+        pf = PropagationFinding(
+            target=str(d.get("target", "?")),
+            origin=str(d.get("origin", "?")),
+            depth=int(d.get("depth", 0)),
+            tier=str(d.get("tier", "directive")),
+            chain=[str(c) for c in d.get("chain", [])],
+            severity=sev,
+            tags=tuple(str(t) for t in d.get("tags", ())),
+        )
+        out.append(from_propagation_finding(pf, target, blast_radius=d.get("blast_radius")))
+    return out
 
 
 def _to_sev(s: Any) -> Severity:
