@@ -4,11 +4,14 @@
 import json
 
 from mas_sentry.agentic.base import AgenticFinding, AsiCategory
+from mas_sentry.agents.abfp.injection_propagation import PropagationFinding
+from mas_sentry.agents.abfp.scoring import Severity as AbfpSeverity
 from mas_sentry.core.adapters import (
     _to_sev,
     from_agentic,
     from_card_audit,
     from_mcp_check,
+    from_propagation_finding,
 )
 from mas_sentry.core.finding import Finding, Severity, max_severity, rank
 from mas_sentry.core.threat_engine import UnifiedThreatEngine
@@ -248,3 +251,38 @@ def test_from_agentic_maps_atlas_technique() -> None:
     # an ASI without a clean ATLAS match carries no AML tag
     af2 = AgenticFinding(asi=AsiCategory.ASI06, severity="LOW", title="t", detail="d", target="x")
     assert not any(t.startswith("AML.") for t in from_agentic(af2).tags)
+
+
+def test_from_propagation_finding_maps_module_and_severity() -> None:
+    pf = PropagationFinding(
+        target="planner",
+        origin="ingest",
+        depth=2,
+        tier="verbatim",
+        chain=["ingest", "router", "planner"],
+        severity=AbfpSeverity.CRITICAL,
+    )
+    uf = from_propagation_finding(pf, target="mesh://lab")
+    assert uf.module == "abfp.propagation"
+    assert uf.severity == Severity.CRITICAL
+    assert uf.target == "mesh://lab"
+    assert "ASI05_Cascading_Failure" in uf.tags
+    assert uf.evidence["contaminated_agent"] == "planner"
+    assert uf.evidence["origin"] == "ingest"
+    assert uf.evidence["depth"] == 2
+    assert uf.evidence["chain"] == ["ingest", "router", "planner"]
+
+
+def test_from_propagation_finding_fuses_blast_radius() -> None:
+    pf = PropagationFinding(
+        target="planner",
+        origin="ingest",
+        depth=1,
+        tier="directive",
+        chain=["ingest", "planner"],
+        severity=AbfpSeverity.HIGH,
+    )
+    br = {"direct": ["worker"], "transitive": ["worker", "logger"]}
+    uf = from_propagation_finding(pf, target="mesh://lab", blast_radius=br)
+    assert uf.severity == Severity.HIGH
+    assert uf.evidence["blast_radius"] == br

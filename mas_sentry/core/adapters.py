@@ -12,6 +12,7 @@ from __future__ import annotations
 from typing import Any
 
 from mas_sentry.agentic.base import AgenticFinding
+from mas_sentry.agents.abfp.injection_propagation import PropagationFinding
 from mas_sentry.protocols.a2a.card_audit import CardFinding
 from mas_sentry.protocols.a2a.probes import ProbeResult
 
@@ -139,6 +140,39 @@ def from_probe_result(probe: ProbeResult, target: str) -> Finding:
         severity=_PROBE_SEVERITY.get(probe.name, Severity.MEDIUM),
         target=target,
         tags=[*base_tags, *_PROBE_TAGS.get(probe.name, [])],
+    )
+
+
+def from_propagation_finding(
+    pf: PropagationFinding,
+    target: str,
+    blast_radius: dict[str, Any] | None = None,
+) -> Finding:
+    """Map a PropagationFinding (transitive injection contamination) into a Finding.
+
+    ``pf.target`` is the contaminated agent; ``target`` is the scan target (the
+    mesh or broker the agents run on). When the caller has the onward blast
+    radius it is fused into evidence, so a report reader sees the contamination
+    cone of each hop, not merely the fact that contamination happened.
+    """
+    evidence: dict[str, Any] = {
+        "contaminated_agent": pf.target,
+        "origin": pf.origin,
+        "depth": pf.depth,
+        "tier": pf.tier,
+        "chain": list(pf.chain),
+    }
+    if blast_radius:
+        evidence["blast_radius"] = blast_radius
+    chain = " -> ".join(pf.chain)
+    return Finding(
+        module="abfp.propagation",
+        title=f"Injection propagation to {pf.target} (depth {pf.depth}, {pf.tier})",
+        detail=f"Contaminated via {pf.tier} relay across {pf.depth} hop(s) from {pf.origin}: {chain}",
+        severity=_to_sev(pf.severity),
+        target=target,
+        tags=list(pf.tags),
+        evidence=evidence,
     )
 
 
