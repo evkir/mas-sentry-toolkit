@@ -7,13 +7,16 @@ import json
 from collections import Counter
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Any
 
 from mas_sentry.core.finding import Finding
 
 _SEV_ORDER = ("CRITICAL", "HIGH", "MEDIUM", "LOW", "INFO")
 
 
-def render_markdown(findings: list[Finding], target: str, out_path: Path) -> None:
+def render_markdown(
+    findings: list[Finding], target: str, out_path: Path, prop_summary: dict[str, Any] | None = None
+) -> None:
     counts = Counter(f.severity.value for f in findings)
     breakdown = " - ".join(f"{sev}: {counts.get(sev, 0)}" for sev in _SEV_ORDER)
     lines: list[str] = [
@@ -28,6 +31,16 @@ def render_markdown(findings: list[Finding], target: str, out_path: Path) -> Non
         "| # | Severity | Module | Title |",
         "|---|----------|--------|-------|",
     ]
+    if prop_summary and prop_summary.get("contaminated"):
+        origins = ", ".join(str(o) for o in prop_summary.get("origins", []))
+        lines[6:6] = [
+            "## Injection Propagation",
+            "",
+            f"- **Contaminated agents:** {prop_summary.get('contaminated')}",
+            f"- **Max chain depth:** {prop_summary.get('max_depth')}",
+            f"- **Origin(s):** {origins}",
+            "",
+        ]
     for i, f in enumerate(findings, 1):
         lines.append(f"| {i} | {f.severity.value} | `{f.module}` | {f.title} |")
     lines.extend(["", "## Detail", ""])

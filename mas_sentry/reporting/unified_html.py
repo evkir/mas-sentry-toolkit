@@ -56,6 +56,9 @@ h1{border-bottom:2px solid #334155;padding-bottom:.5rem}
 .chain{margin-top:.4rem;font-size:.9rem}
 .chain-path{color:#fca5a5;font-weight:600;font-family:ui-monospace,monospace}
 .chain-meta{color:#94a3b8;margin-left:.5rem}
+.prop-summary{background:#2a0e0e;border:1px solid #7f1d1d;border-radius:6px;
+     padding:.9rem 1.2rem;margin:1.2rem 0;font-size:.95rem}
+.prop-summary strong{color:#fca5a5}
 code{background:#0b1220;padding:.1rem .3rem;border-radius:3px;font-size:.85rem}
 .drivers{margin:.5rem 0}
 .drivers ul{margin:.3rem 0 0 1.1rem;padding:0}
@@ -83,6 +86,15 @@ footer{margin-top:3rem;color:#64748b;font-size:.85rem;border-top:1px solid #3341
   </div>
   {% endfor %}
 </div>
+
+{% if prop_summary and prop_summary.contaminated %}
+<div class="prop-summary">
+  <strong>Injection propagation:</strong>
+  {{ prop_summary.contaminated }} agent(s) contaminated &middot;
+  max chain depth {{ prop_summary.max_depth }} &middot;
+  origin(s): {{ prop_summary.origins | join(', ') }}
+</div>
+{% endif %}
 
 {% if graph and graph.agents %}
 <h2>ABFP Graph Centrality</h2>
@@ -169,7 +181,11 @@ _TEMPLATE = _ENV.from_string(_TEMPLATE_SRC)
 
 
 def render_unified_html(
-    findings: list[Finding], target: str, out_path: Path, graph: dict[str, Any] | None = None
+    findings: list[Finding],
+    target: str,
+    out_path: Path,
+    graph: dict[str, Any] | None = None,
+    prop_summary: dict[str, Any] | None = None,
 ) -> None:
     counts = Counter(f.severity.value for f in findings)
     by_sev: dict[Severity, list[Finding]] = {sev: [] for sev in _SEV_ORDER}
@@ -187,5 +203,6 @@ def render_unified_html(
             max_sev=max_sev.value,
             generated_at=datetime.now(UTC).isoformat(timespec="seconds"),
             graph=graph,
+            prop_summary=prop_summary,
         )
     )

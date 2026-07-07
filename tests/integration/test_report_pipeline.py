@@ -375,3 +375,57 @@ def test_propagation_chain_renders_distinctly(tmp_path: Path):
     text = md.read_text()
     assert "**Contamination chain:** ingest -> router -> planner (depth 2, verbatim)" in text
     assert "**Onward blast radius:** 2 agent(s): worker, logger" in text
+
+
+def test_propagation_summary_banner(tmp_path: Path):
+    src = tmp_path / "abfp.json"
+    src.write_text(
+        json.dumps(
+            {
+                "findings": [],
+                "propagation": [
+                    {
+                        "target": "planner",
+                        "origin": "ingest",
+                        "depth": 2,
+                        "tier": "verbatim",
+                        "chain": ["ingest", "router", "planner"],
+                        "severity": "CRITICAL",
+                        "tags": ["ASI05_Cascading_Failure"],
+                    }
+                ],
+                "propagation_summary": {"contaminated": 3, "max_depth": 2, "origins": ["ingest", "seed"]},
+            }
+        )
+    )
+    html = tmp_path / "o.html"
+    r = runner.invoke(app, ["report", "convert", str(src), "-f", "html", "-o", str(html), "--target", "t"])
+    assert r.exit_code == 0, r.stdout
+    body = html.read_text()
+    assert 'class="prop-summary"' in body
+    assert "3 agent(s) contaminated" in body
+    assert "max chain depth 2" in body
+    assert "ingest, seed" in body
+
+    md = tmp_path / "o.md"
+    r2 = runner.invoke(app, ["report", "convert", str(src), "-f", "md", "-o", str(md), "--target", "t"])
+    assert r2.exit_code == 0, r2.stdout
+    text = md.read_text()
+    assert "## Injection Propagation" in text
+    assert "- **Contaminated agents:** 3" in text
+    assert "- **Max chain depth:** 2" in text
+    assert "- **Origin(s):** ingest, seed" in text
+    assert text.index("## Injection Propagation") < text.index("## Summary")
+
+
+def test_no_propagation_summary_omits_banner(tmp_path: Path):
+    src = tmp_path / "n.json"
+    src.write_text(json.dumps({"findings": [{"module": "mcp.ssrf", "title": "SSRF", "severity": "HIGH"}]}))
+    html = tmp_path / "n.html"
+    r = runner.invoke(app, ["report", "convert", str(src), "-f", "html", "-o", str(html), "--target", "t"])
+    assert r.exit_code == 0, r.stdout
+    assert 'class="prop-summary"' not in html.read_text()
+    md = tmp_path / "n.md"
+    r2 = runner.invoke(app, ["report", "convert", str(src), "-f", "md", "-o", str(md), "--target", "t"])
+    assert r2.exit_code == 0, r2.stdout
+    assert "## Injection Propagation" not in md.read_text()

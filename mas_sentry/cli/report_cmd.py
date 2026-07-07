@@ -43,11 +43,12 @@ def report_convert(
     findings = [_to_finding(d) for d in items]
     findings += _propagation_findings(raw, target)
     graph = raw.get("graph") if isinstance(raw, dict) else None
+    prop_summary = raw.get("propagation_summary") if isinstance(raw, dict) else None
 
     if fmt == "html":
-        render_unified_html(findings, target, out, graph=graph)
+        render_unified_html(findings, target, out, graph=graph, prop_summary=prop_summary)
     elif fmt == "md":
-        render_markdown(findings, target, out)
+        render_markdown(findings, target, out, prop_summary=prop_summary)
     elif fmt == "json":
         write_json(findings, target, out)
     elif fmt == "junit":
