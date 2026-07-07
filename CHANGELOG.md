@@ -3,6 +3,22 @@
 ## [Unreleased]
 
 ### Added
+- Propagation findings now flow through the full report pipeline. The ABFP
+  scan already emitted a `propagation` block and a `propagation_summary`
+  header, but `mas-sentry report convert` read only the `findings` array and
+  silently dropped both - every transitive contamination finding, including
+  CRITICAL verbatim relays across multiple hops, was invisible in SARIF,
+  HTML, Markdown, and JUnit. Convert now rebuilds each serialized
+  PropagationFinding and maps it through the same `from_propagation_finding`
+  adapter the live scan path uses, so contamination is mapped identically
+  regardless of entry point. SARIF gains a dedicated `abfp.propagation`
+  rule, security-severity band-anchored on the chain severity, with tags and
+  the onward blast radius in result properties. HTML and Markdown render a
+  distinct contamination-chain provenance block (origin -> ... -> target,
+  depth, tier) plus onward blast radius, and a triage banner derived from
+  `propagation_summary` (contaminated count, max chain depth, origins) above
+  the findings list. Documented in the new Propagation in Reporting
+  methodology page.
 - Consume-edge inference reviving cascade blast-radius in live passive
   scans. A passive MAS listener observes PUBLISH traffic but no SUBSCRIBE
   packets, so the topic graph's subscribe edges stayed empty and
