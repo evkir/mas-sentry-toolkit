@@ -33,6 +33,25 @@ _PUSH_TAGS = ["ASI03_Identity_Abuse", "CWE-345", "STRIDE_Spoofing"]
 _SKILL_SURFACE_TAGS = ["ASI02_Tool_Misuse", "CWE-272", "STRIDE_Elevation_Of_Privilege"]
 # Absent card signature -> client cannot verify origin or detect tampering.
 _UNSIGNED_CARD_TAGS = ["ASI03_Identity_Abuse", "CWE-347", "STRIDE_Spoofing"]
+# Sole declared scheme type is a bare API key -> weakest of the five v1.0
+# scheme types, no built-in rotation/expiry, no stronger alternative offered.
+_WEAK_SCHEME_TAGS = ["ASI03_Identity_Abuse", "CWE-798", "STRIDE_Spoofing"]
+
+# v1.0's SecurityScheme is a proto oneof; per the v1.0 spec ("the field name
+# itself serves as the type discriminator") the canonical JSON shape carries
+# the type as a member key on the scheme object. Real-world examples from
+# multiple A2A tooling vendors instead show an OpenAPI-style "type" string
+# (SecurityScheme is explicitly "based on the OpenAPI 3.2 Security Scheme
+# Object", and OpenAPI's own convention is a type field) - both are checked
+# rather than betting on one until the ecosystem converges on one shape.
+_SCHEME_MEMBER_KEYS = {
+    "apiKeySecurityScheme": "apiKey",
+    "httpAuthSecurityScheme": "http",
+    "oauth2SecurityScheme": "oauth2",
+    "openIdConnectSecurityScheme": "openIdConnect",
+    "mtlsSecurityScheme": "mtls",
+}
+_SCHEME_TYPE_ALIASES = {"mutualtls": "mtls", "mutualTLS": "mtls", "mtls": "mtls"}
 
 
 @dataclass(frozen=True, slots=True)
@@ -47,6 +66,7 @@ def audit_agent_card(card: AgentCard) -> list[CardFinding]:
     out: list[CardFinding] = []
 
     out.extend(_check_no_auth(card))
+    out.extend(_check_weak_scheme_only(card))
 
     auth = card.authentication or {}
     caps = card.capabilities or {}
@@ -160,6 +180,53 @@ def _check_no_auth(card: AgentCard) -> list[CardFinding]:
                 title="AgentCard explicitly allows scheme 'none'",
                 detail="Anonymous access enabled",
                 tags=_MISSING_AUTH_TAGS,
+            )
+        ]
+    return []
+
+
+def _scheme_kind(scheme: object) -> str | None:
+    """Resolve a securitySchemes entry to its type, or None if unrecognized."""
+    if not isinstance(scheme, dict):
+        return None
+    for member_key, kind in _SCHEME_MEMBER_KEYS.items():
+        if member_key in scheme:
+            return kind
+    type_field = scheme.get("type")
+    if isinstance(type_field, str):
+        normalized = _SCHEME_TYPE_ALIASES.get(type_field, type_field)
+        if normalized in _SCHEME_MEMBER_KEYS.values():
+            return normalized
+    return None
+
+
+def _check_weak_scheme_only(card: AgentCard) -> list[CardFinding]:
+    """Flag a v1.0 card whose only recognized scheme type is a bare API key.
+
+    An API key alone carries no rotation or expiry semantics and is the
+    weakest of the five v1.0 scheme types (apiKey/http/oauth2/openIdConnect/
+    mtls). Does not fire on legacy v0.3.x cards - authentication.schemes
+    strings do not carry enough structure to distinguish an API key from
+    anything else - nor on a card with zero schemes at all, which is
+    _check_no_auth's finding, not this one's.
+    """
+    schemes = card.raw.get("securitySchemes")
+    if not isinstance(schemes, dict) or not schemes:
+        return []
+    kinds = {_scheme_kind(s) for s in schemes.values()}
+    kinds.discard(None)
+    if kinds == {"apiKey"}:
+        return [
+            CardFinding(
+                severity="LOW",
+                title="AgentCard's only authentication scheme is a bare API key",
+                detail=(
+                    "No oauth2/http/openIdConnect/mtls scheme is offered as an "
+                    "alternative; a static key has no built-in rotation or "
+                    "expiry and is the weakest of the five v1.0 scheme types - "
+                    "consider offering a stronger option"
+                ),
+                tags=_WEAK_SCHEME_TAGS,
             )
         ]
     return []

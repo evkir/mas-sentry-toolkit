@@ -74,6 +74,65 @@ def test_card_v1_security_required_not_flagged() -> None:
     assert not any("authentication" in f.title.lower() for f in findings)
 
 
+def test_card_apikey_only_flagged_member_shape() -> None:
+    card = AgentCard(
+        name="x",
+        description="",
+        url="",
+        raw={
+            "securitySchemes": {"key1": {"apiKeySecurityScheme": {"name": "X-API-Key", "location": "header"}}},
+            "securityRequirements": [{"schemes": {"key1": []}}],
+        },
+    )
+    findings = audit_agent_card(card)
+    assert any("only authentication scheme is a bare api key" in f.title.lower() for f in findings)
+
+
+def test_card_apikey_only_flagged_type_shape() -> None:
+    """Also recognizes the OpenAPI-style "type" discriminator some real-world implementations emit."""
+    card = AgentCard(
+        name="x",
+        description="",
+        url="",
+        raw={
+            "securitySchemes": {"key1": {"type": "apiKey"}},
+            "securityRequirements": [{"schemes": {"key1": []}}],
+        },
+    )
+    findings = audit_agent_card(card)
+    assert any("only authentication scheme is a bare api key" in f.title.lower() for f in findings)
+
+
+def test_card_apikey_with_oauth2_alternative_not_flagged() -> None:
+    card = AgentCard(
+        name="x",
+        description="",
+        url="",
+        raw={
+            "securitySchemes": {
+                "key1": {"apiKeySecurityScheme": {"name": "X-API-Key", "location": "header"}},
+                "key2": {"oauth2SecurityScheme": {"flows": {}}},
+            },
+            "securityRequirements": [{"schemes": {"key1": []}}],
+        },
+    )
+    findings = audit_agent_card(card)
+    assert not any("bare api key" in f.title.lower() for f in findings)
+
+
+def test_card_empty_security_schemes_not_double_flagged_by_weak_check() -> None:
+    card = AgentCard(name="x", description="", url="", raw={"securitySchemes": {}})
+    findings = audit_agent_card(card)
+    assert not any("bare api key" in f.title.lower() for f in findings)
+    assert any("enforces no authentication requirement" in f.title.lower() for f in findings)
+
+
+def test_card_legacy_v03_not_checked_for_weak_scheme() -> None:
+    card = AgentCard(name="x", description="", url="", authentication={"schemes": ["apiKey"]})
+    findings = audit_agent_card(card)
+    assert not any("bare api key" in f.title.lower() for f in findings)
+
+
 def test_card_streaming_without_ratelimit() -> None:
     card = AgentCard(
         name="x",
