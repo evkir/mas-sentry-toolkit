@@ -47,7 +47,7 @@ def test_card_v1_security_empty_flagged() -> None:
         name="x",
         description="",
         url="",
-        raw={"securitySchemes": {"oauth2": {"type": "oauth2"}}, "security": []},
+        raw={"securitySchemes": {"oauth2": {"type": "oauth2"}}, "securityRequirements": []},
     )
     findings = audit_agent_card(card)
     assert any("enforces no authentication requirement" in f.title.lower() for f in findings)
@@ -67,7 +67,7 @@ def test_card_v1_security_required_not_flagged() -> None:
         url="",
         raw={
             "securitySchemes": {"oauth2": {"type": "oauth2"}},
-            "security": [{"oauth2": ["read:tasks"]}],
+            "securityRequirements": [{"schemes": {"oauth2": ["read:tasks"]}}],
         },
     )
     findings = audit_agent_card(card)
@@ -465,7 +465,10 @@ def test_card_structural_findings_carry_full_taxonomy() -> None:
     assert _tags(g, "scheme 'none'") == ["ASI03_Identity_Abuse", "CWE-306", "STRIDE_Spoofing"]
 
     v1_no_security_card = AgentCard(
-        name="x", description="", url="https://secure.local", raw={"securitySchemes": {"oauth2": {}}, "security": []}
+        name="x",
+        description="",
+        url="https://secure.local",
+        raw={"securitySchemes": {"oauth2": {}}, "securityRequirements": []},
     )
     h = audit_agent_card(v1_no_security_card)
     assert _tags(h, "enforces no authentication requirement") == ["ASI03_Identity_Abuse", "CWE-306", "STRIDE_Spoofing"]

@@ -117,24 +117,25 @@ def _check_no_auth(card: AgentCard) -> list[CardFinding]:
 
     Checks both card shapes MST may see in a mixed real-world fleet (same
     rationale as the discovery fallback in client.py): A2A v1.0's
-    securitySchemes/security pair, and the legacy v0.3.x authentication.schemes
-    list. A card is treated as v1.0-shaped if either v1.0 key is present in
-    the raw payload; only then is the legacy check skipped, so a real v1.0
-    card with auth configured is not double-flagged by a shape it no longer
-    emits (v1.0 has no "authentication" field at all - see the discovery
-    fallback docstring). If neither key is present the card is checked the
-    legacy way, which still resolves correctly for a genuinely auth-less card.
+    securitySchemes/securityRequirements pair (a2a.proto fields 8/9), and the
+    legacy v0.3.x authentication.schemes list. A card is treated as v1.0-shaped
+    if either v1.0 key is present in the raw payload; only then is the legacy
+    check skipped, so a real v1.0 card with auth configured is not
+    double-flagged by a shape it no longer emits (v1.0 has no "authentication"
+    field at all - see the discovery fallback docstring). If neither key is
+    present the card is checked the legacy way, which still resolves correctly
+    for a genuinely auth-less card.
     """
-    if "securitySchemes" in card.raw or "security" in card.raw:
-        if not card.raw.get("security"):
+    if "securitySchemes" in card.raw or "securityRequirements" in card.raw:
+        if not card.raw.get("securityRequirements"):
             return [
                 CardFinding(
                     severity="HIGH",
                     title="AgentCard enforces no authentication requirement",
                     detail=(
-                        "security[] is empty or absent, so no securitySchemes entry is "
-                        "actually required to submit tasks - anyone can act as a client "
-                        "(A2A v1.0 AgentCard.security)"
+                        "securityRequirements[] is empty or absent, so no securitySchemes entry "
+                        "is actually required to submit tasks - anyone can act as a client "
+                        "(A2A v1.0 AgentCard.securityRequirements)"
                     ),
                     tags=_MISSING_AUTH_TAGS,
                 )
