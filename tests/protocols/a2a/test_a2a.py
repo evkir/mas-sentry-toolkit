@@ -182,8 +182,37 @@ def test_card_clean_no_findings() -> None:
 # ─────────────── client ───────────────
 
 
-def test_client_discover_via_mock_transport() -> None:
+def test_client_discover_prefers_v1_well_known_uri() -> None:
+    calls: list[str] = []
+
     def handler(req: httpx.Request) -> httpx.Response:
+        calls.append(req.url.path)
+        if req.url.path == "/.well-known/agent-card.json":
+            return httpx.Response(
+                200,
+                json={
+                    "name": "v1-agent",
+                    "description": "test",
+                    "url": "http://lab",
+                    "version": "1.0",
+                    "skills": [{"id": "ping"}],
+                    "capabilities": {"streaming": False},
+                    "authentication": {"schemes": ["bearer"]},
+                },
+            )
+        return httpx.Response(404)
+
+    with A2AClient("http://lab", transport=httpx.MockTransport(handler)) as client:
+        card = client.discover()
+    assert card.name == "v1-agent"
+    assert calls == ["/.well-known/agent-card.json"]
+
+
+def test_client_discover_falls_back_to_legacy_well_known_uri() -> None:
+    calls: list[str] = []
+
+    def handler(req: httpx.Request) -> httpx.Response:
+        calls.append(req.url.path)
         if req.url.path == "/.well-known/agent.json":
             return httpx.Response(
                 200,
@@ -204,6 +233,18 @@ def test_client_discover_via_mock_transport() -> None:
     assert card.name == "mock-agent"
     assert card.version == "1.0"
     assert card.authentication == {"schemes": ["bearer"]}
+    assert calls == ["/.well-known/agent-card.json", "/.well-known/agent.json"]
+
+
+def test_client_discover_raises_when_neither_well_known_uri_exists() -> None:
+    def handler(req: httpx.Request) -> httpx.Response:
+        return httpx.Response(404)
+
+    with (
+        A2AClient("http://lab", transport=httpx.MockTransport(handler)) as client,
+        pytest.raises(httpx.HTTPStatusError),
+    ):
+        client.discover()
 
 
 def test_client_send_task_generates_id_when_none() -> None:

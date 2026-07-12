@@ -98,6 +98,8 @@ def test_probe_transport_error_is_tolerated(tmp_path: Path) -> None:
     """
 
     def flaky(req: httpx.Request) -> httpx.Response:
+        if req.url.path == "/.well-known/agent-card.json":
+            return httpx.Response(404)
         if req.url.path == "/.well-known/agent.json":
             return httpx.Response(200, json=_POISONED_CARD)
         if req.url.path == "/tasks/cancel":

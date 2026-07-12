@@ -90,9 +90,7 @@ class A2AClient:
         self.close()
 
     def discover(self) -> AgentCard:
-        r = self._client.get(f"{self.base_url}/.well-known/agent.json")
-        r.raise_for_status()
-        data = r.json()
+        data = self._fetch_card_json()
         if not isinstance(data, dict):
             raise httpx.DecodingError(f"AgentCard JSON must be an object, got {type(data).__name__}")
         return AgentCard(
@@ -105,6 +103,23 @@ class A2AClient:
             authentication=data.get("authentication", {}),
             raw=data,
         )
+
+    def _fetch_card_json(self) -> Any:
+        """Fetch the raw AgentCard JSON, trying the A2A v1.0 well-known URI first.
+
+        A2A v1.0 (stable since April 2026, Linux Foundation) moved discovery
+        from /.well-known/agent.json (v0.3.x) to /.well-known/agent-card.json.
+        Real targets are a mixed fleet during the migration window, so a plain
+        404 on the current path falls back to the legacy one rather than
+        hard-rejecting an agent that has not upgraded yet. Any other transport
+        failure (connection error, 5xx, etc.) propagates immediately - only
+        "not found" is treated as a version signal worth retrying.
+        """
+        r = self._client.get(f"{self.base_url}/.well-known/agent-card.json")
+        if r.status_code == 404:
+            r = self._client.get(f"{self.base_url}/.well-known/agent.json")
+        r.raise_for_status()
+        return r.json()
 
     def send_task(self, message: str, task_id: str | None = None) -> TaskResult:
         tid = task_id or secrets.token_hex(8)
