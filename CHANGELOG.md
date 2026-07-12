@@ -103,6 +103,37 @@
   or CWE. The `arg_injection` check now carries command-injection tags
   (ASI02 Tool Misuse, CWE-77, STRIDE Tampering); it is deliberately left
   ATLAS-untagged as no verified technique cleanly matches.
+- A2A card audit: signed-card absence detection. `audit_agent_card` now
+  flags an AgentCard published without a JWS signature (A2A v1.0
+  AgentCardSignature, RFC 7515 over RFC 8785-canonicalized content) - an
+  unsigned card cannot be distinguished from a spoofed or on-path-modified
+  one. Tagged ASI03 Identity Abuse, CWE-347, STRIDE Spoofing.
+- A2A card audit: bare-API-key-only scheme detection. Flags a v1.0 card
+  whose only declared `securitySchemes` entry is a static API key with no
+  oauth2/http/openIdConnect/mtls alternative offered - a key alone has no
+  built-in rotation or expiry and is the weakest of the five v1.0 scheme
+  types. LOW, tagged ASI03 Identity Abuse, CWE-798, STRIDE Spoofing. Scheme
+  type is resolved from either the v1.0 spec's member-based discriminator
+  (`apiKeySecurityScheme`, `oauth2SecurityScheme`, ...) or the OpenAPI-style
+  `type` field seen in real vendor examples, since the two sources disagree
+  on the canonical wire shape.
+
+### Fixed
+- A2A card discovery only ever requested the legacy `/.well-known/agent.json`
+  URI (A2A v0.3.x). A2A v1.0 (stable since April 2026, Linux Foundation)
+  moved discovery to `/.well-known/agent-card.json` - against a real v1.0
+  target, `A2AClient.discover()` 404'd outright and the scan never started.
+  Discovery now tries the v1.0 URI first and falls back to the legacy one on
+  a plain 404, so both generations of a mixed real-world fleet are reachable.
+- `card_audit`'s no-auth / scheme-`'none'` checks read only the legacy
+  `authentication.schemes` field, which A2A v1.0 does not populate at all
+  (v1.0 declares auth via `securitySchemes` + `securityRequirements`
+  instead). Every real v1.0 card with authentication correctly configured
+  was unconditionally HIGH-flagged "no authentication schemes" regardless of
+  actual auth. `audit_agent_card` now branches on which shape the raw card
+  carries: v1.0 cards are judged by `securityRequirements[]` actually
+  enforcing a declared `securitySchemes` entry; legacy v0.3.x cards keep the
+  original schemes-list check.
 
 ### Changed
 - The IPI pattern scanner (`scan_string` / `InjectionMatch`) moved to
