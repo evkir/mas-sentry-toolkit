@@ -42,6 +42,38 @@ def test_card_scheme_none_flagged_case_insensitive() -> None:
         assert any("scheme 'none'" in f.title.lower() for f in findings), f"case {case!r} not flagged"
 
 
+def test_card_v1_security_empty_flagged() -> None:
+    card = AgentCard(
+        name="x",
+        description="",
+        url="",
+        raw={"securitySchemes": {"oauth2": {"type": "oauth2"}}, "security": []},
+    )
+    findings = audit_agent_card(card)
+    assert any("enforces no authentication requirement" in f.title.lower() for f in findings)
+
+
+def test_card_v1_security_absent_flagged() -> None:
+    card = AgentCard(name="x", description="", url="", raw={"securitySchemes": {}})
+    findings = audit_agent_card(card)
+    assert any("enforces no authentication requirement" in f.title.lower() for f in findings)
+
+
+def test_card_v1_security_required_not_flagged() -> None:
+    """A real v1.0 card with auth configured must not be double-flagged by the legacy authentication.schemes check."""
+    card = AgentCard(
+        name="x",
+        description="",
+        url="",
+        raw={
+            "securitySchemes": {"oauth2": {"type": "oauth2"}},
+            "security": [{"oauth2": ["read:tasks"]}],
+        },
+    )
+    findings = audit_agent_card(card)
+    assert not any("authentication" in f.title.lower() for f in findings)
+
+
 def test_card_streaming_without_ratelimit() -> None:
     card = AgentCard(
         name="x",
@@ -431,3 +463,9 @@ def test_card_structural_findings_carry_full_taxonomy() -> None:
     )
     g = audit_agent_card(scheme_none_card)
     assert _tags(g, "scheme 'none'") == ["ASI03_Identity_Abuse", "CWE-306", "STRIDE_Spoofing"]
+
+    v1_no_security_card = AgentCard(
+        name="x", description="", url="https://secure.local", raw={"securitySchemes": {"oauth2": {}}, "security": []}
+    )
+    h = audit_agent_card(v1_no_security_card)
+    assert _tags(h, "enforces no authentication requirement") == ["ASI03_Identity_Abuse", "CWE-306", "STRIDE_Spoofing"]

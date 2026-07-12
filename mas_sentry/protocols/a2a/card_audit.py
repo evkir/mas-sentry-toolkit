@@ -46,27 +46,9 @@ class CardFinding:
 def audit_agent_card(card: AgentCard) -> list[CardFinding]:
     out: list[CardFinding] = []
 
-    auth = card.authentication or {}
-    schemes = auth.get("schemes") or []
-    if not schemes:
-        out.append(
-            CardFinding(
-                severity="HIGH",
-                title="AgentCard declares no authentication schemes",
-                detail="Anyone can submit tasks to this agent",
-                tags=_MISSING_AUTH_TAGS,
-            )
-        )
-    elif "none" in [str(s).lower() for s in schemes]:
-        out.append(
-            CardFinding(
-                severity="HIGH",
-                title="AgentCard explicitly allows scheme 'none'",
-                detail="Anonymous access enabled",
-                tags=_MISSING_AUTH_TAGS,
-            )
-        )
+    out.extend(_check_no_auth(card))
 
+    auth = card.authentication or {}
     caps = card.capabilities or {}
     if caps.get("streaming") and not caps.get("rateLimits"):
         out.append(
@@ -125,6 +107,58 @@ def _check_signature_absence(card: AgentCard) -> list[CardFinding]:
                     "in transit (A2A v1.0 AgentCardSignature, RFC 7515 JWS)"
                 ),
                 tags=list(_UNSIGNED_CARD_TAGS),
+            )
+        ]
+    return []
+
+
+def _check_no_auth(card: AgentCard) -> list[CardFinding]:
+    """Flag an AgentCard that enforces no authentication requirement.
+
+    Checks both card shapes MST may see in a mixed real-world fleet (same
+    rationale as the discovery fallback in client.py): A2A v1.0's
+    securitySchemes/security pair, and the legacy v0.3.x authentication.schemes
+    list. A card is treated as v1.0-shaped if either v1.0 key is present in
+    the raw payload; only then is the legacy check skipped, so a real v1.0
+    card with auth configured is not double-flagged by a shape it no longer
+    emits (v1.0 has no "authentication" field at all - see the discovery
+    fallback docstring). If neither key is present the card is checked the
+    legacy way, which still resolves correctly for a genuinely auth-less card.
+    """
+    if "securitySchemes" in card.raw or "security" in card.raw:
+        if not card.raw.get("security"):
+            return [
+                CardFinding(
+                    severity="HIGH",
+                    title="AgentCard enforces no authentication requirement",
+                    detail=(
+                        "security[] is empty or absent, so no securitySchemes entry is "
+                        "actually required to submit tasks - anyone can act as a client "
+                        "(A2A v1.0 AgentCard.security)"
+                    ),
+                    tags=_MISSING_AUTH_TAGS,
+                )
+            ]
+        return []
+
+    auth = card.authentication or {}
+    schemes = auth.get("schemes") or []
+    if not schemes:
+        return [
+            CardFinding(
+                severity="HIGH",
+                title="AgentCard declares no authentication schemes",
+                detail="Anyone can submit tasks to this agent",
+                tags=_MISSING_AUTH_TAGS,
+            )
+        ]
+    if "none" in [str(s).lower() for s in schemes]:
+        return [
+            CardFinding(
+                severity="HIGH",
+                title="AgentCard explicitly allows scheme 'none'",
+                detail="Anonymous access enabled",
+                tags=_MISSING_AUTH_TAGS,
             )
         ]
     return []
