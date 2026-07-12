@@ -132,9 +132,34 @@ def test_card_https_transport_not_flagged() -> None:
     assert not any("cleartext HTTP" in f.title for f in audit_agent_card(card))
 
 
+def test_card_unsigned_flagged() -> None:
+    card = AgentCard(name="x", description="", url="", authentication={"schemes": ["bearer"]})
+    findings = audit_agent_card(card)
+    assert any("is not signed" in f.title.lower() for f in findings)
+
+
+def test_card_signed_not_flagged() -> None:
+    card = AgentCard(
+        name="x",
+        description="",
+        url="",
+        authentication={"schemes": ["bearer"]},
+        raw={"signatures": [{"protected": "eyJhbGciOiJFZERTQSJ9", "signature": "abc"}]},
+    )
+    findings = audit_agent_card(card)
+    assert not any("is not signed" in f.title.lower() for f in findings)
+
+
+def test_card_empty_signatures_list_flagged() -> None:
+    """An empty signatures[] is as absent as a missing key - falsy either way."""
+    card = AgentCard(name="x", description="", url="", authentication={"schemes": ["bearer"]}, raw={"signatures": []})
+    findings = audit_agent_card(card)
+    assert any("is not signed" in f.title.lower() for f in findings)
+
+
 def test_card_clean_no_findings() -> None:
     """Card with bearer auth, rate-limited streaming, signed webhooks,
-    and a small skill surface should produce zero findings."""
+    a small skill surface, and a JWS signature should produce zero findings."""
     card = AgentCard(
         name="x",
         description="",
@@ -149,6 +174,7 @@ def test_card_clean_no_findings() -> None:
             "pushNotifications": True,
         },
         skills=[{"id": "echo"}, {"id": "summarize"}],
+        raw={"signatures": [{"protected": "eyJhbGciOiJFZERTQSJ9", "signature": "abc"}]},
     )
     assert audit_agent_card(card) == []
 
@@ -357,6 +383,7 @@ def test_card_structural_findings_carry_full_taxonomy() -> None:
     assert _tags(f, "streaming enabled") == ["ASI07_Resource_Exhaustion", "CWE-400", "STRIDE_Denial_Of_Service"]
     assert _tags(f, "push notifications") == ["ASI03_Identity_Abuse", "CWE-345", "STRIDE_Spoofing"]
     assert _tags(f, "advertises") == ["ASI02_Tool_Misuse", "CWE-272", "STRIDE_Elevation_Of_Privilege"]
+    assert _tags(f, "is not signed") == ["ASI03_Identity_Abuse", "CWE-347", "STRIDE_Spoofing"]
 
     scheme_none_card = AgentCard(
         name="x", description="", url="https://secure.local", authentication={"schemes": ["none"]}

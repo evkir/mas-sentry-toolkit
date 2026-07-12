@@ -31,6 +31,8 @@ _PUSH_TAGS = ["ASI03_Identity_Abuse", "CWE-345", "STRIDE_Spoofing"]
 # Excessive advertised skill surface -> least-privilege violation, broader
 # abuse paths. Softest of the set; kept LOW and tagged honestly, not padded.
 _SKILL_SURFACE_TAGS = ["ASI02_Tool_Misuse", "CWE-272", "STRIDE_Elevation_Of_Privilege"]
+# Absent card signature -> client cannot verify origin or detect tampering.
+_UNSIGNED_CARD_TAGS = ["ASI03_Identity_Abuse", "CWE-347", "STRIDE_Spoofing"]
 
 
 @dataclass(frozen=True, slots=True)
@@ -96,10 +98,36 @@ def audit_agent_card(card: AgentCard) -> list[CardFinding]:
             )
         )
 
+    out.extend(_check_signature_absence(card))
     out.extend(_scan_card_poisoning(card))
     out.extend(_check_insecure_transport(card))
 
     return out
+
+
+def _check_signature_absence(card: AgentCard) -> list[CardFinding]:
+    """Flag an AgentCard published without a JWS signature (A2A v1.0 AgentCardSignature).
+
+    Signing is optional per spec ("MAY"), but v1.0 defines it as the mechanism
+    that lets a client verify a card originates from the claimed provider and
+    was not tampered with (RFC 7515 JWS over RFC 8785 canonicalized content).
+    An unsigned card cannot be distinguished from a spoofed or on-path-modified
+    one, so absence is itself a passive finding.
+    """
+    if not card.raw.get("signatures"):
+        return [
+            CardFinding(
+                severity="MEDIUM",
+                title="AgentCard is not signed",
+                detail=(
+                    "No signatures[] field present; a client has no way to verify this "
+                    "card originates from the claimed provider or was not tampered with "
+                    "in transit (A2A v1.0 AgentCardSignature, RFC 7515 JWS)"
+                ),
+                tags=list(_UNSIGNED_CARD_TAGS),
+            )
+        ]
+    return []
 
 
 def _scan_card_poisoning(card: AgentCard) -> list[CardFinding]:
