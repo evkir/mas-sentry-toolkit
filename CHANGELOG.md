@@ -3,6 +3,24 @@
 ## [Unreleased]
 
 ### Added
+- A2A card audit: overbroad OAuth2 scope detection, the first card-auditable
+  slice of the cross-agent privilege-escalation frontier. Coarse-grained token
+  scopes are the concrete A2A privilege-escalation vector named across the 2026
+  threat literature: an agent granted a wildcard or admin-family scope holds far
+  more authority than any single skill needs, so a compromised or malicious peer
+  can escalate across the delegation boundary. `_check_overbroad_scopes` reads
+  scope names from every oauth2 scheme flow in `securitySchemes`, handling both
+  the proto member-key shape (`oauth2SecurityScheme.flows`) and the OpenAPI
+  `type`/`flows` shape, and tolerating dict- or list-valued `scopes`. Findings
+  split by confidence rather than over-scoring a fuzzy signal: a wildcard scope
+  (`*`, `write:*`) is coarse by definition -> MEDIUM, while an admin-family
+  literal (`admin`, `root`, `owner`, ... matched exact and case-insensitively so
+  `wallet` never trips it) is a naming convention, not a guarantee -> LOW. Each
+  finding lists the exact offending scopes instead of asserting exploitability.
+  Tagged ASI03 (Identity and Privilege Abuse) / CWE-269 (Improper Privilege
+  Management) / STRIDE Elevation of Privilege; ATLAS left untagged, no clean
+  verified technique. The full delegation-chain escalation remains out of scope
+  for a single-target scanner and is not forced into a context-free check.
 - Propagation findings now flow through the full report pipeline. The ABFP
   scan already emitted a `propagation` block and a `propagation_summary`
   header, but `mas-sentry report convert` read only the `findings` array and
