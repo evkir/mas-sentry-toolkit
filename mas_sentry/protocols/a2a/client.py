@@ -35,10 +35,39 @@ class TaskState(StrEnum):
     SUBMITTED = "submitted"
     WORKING = "working"
     INPUT_REQUIRED = "input-required"
+    AUTH_REQUIRED = "auth-required"
     COMPLETED = "completed"
     CANCELED = "canceled"
     FAILED = "failed"
+    REJECTED = "rejected"
     UNKNOWN = "unknown"
+
+
+_V1_STATE_PREFIX = "TASK_STATE_"
+
+
+def _normalize_task_state(raw: str) -> TaskState:
+    """Map a v1.0 or legacy v0.3.x task state string onto the shared enum.
+
+    v1.0 renamed every value to SCREAMING_SNAKE_CASE with a TASK_STATE_
+    prefix (e.g. "completed" -> "TASK_STATE_COMPLETED"); v0.3.x used plain
+    kebab-case. Strip the prefix and lowercase/dash it back to the legacy
+    spelling so one enum covers both generations without duplicating members.
+    v1.0 also adds TASK_STATE_UNSPECIFIED, which has no legacy equivalent and
+    folds onto UNKNOWN, same as any value neither shape recognizes.
+    """
+    if raw.startswith(_V1_STATE_PREFIX):
+        legacy = raw[len(_V1_STATE_PREFIX) :].lower().replace("_", "-")
+        if legacy == "unspecified":
+            return TaskState.UNKNOWN
+        try:
+            return TaskState(legacy)
+        except ValueError:
+            return TaskState.UNKNOWN
+    try:
+        return TaskState(raw)
+    except ValueError:
+        return TaskState.UNKNOWN
 
 
 class A2ARpcError(RuntimeError):
@@ -197,10 +226,8 @@ class A2AClient:
 
     @staticmethod
     def _parse_task(data: dict[str, Any]) -> TaskResult:
-        try:
-            state = TaskState(data.get("status", {}).get("state", "unknown"))
-        except ValueError:
-            state = TaskState.UNKNOWN
+        raw_state = data.get("status", {}).get("state", "unknown")
+        state = _normalize_task_state(raw_state) if isinstance(raw_state, str) else TaskState.UNKNOWN
         return TaskResult(
             task_id=data.get("id", ""),
             state=state,

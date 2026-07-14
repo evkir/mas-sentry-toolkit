@@ -394,6 +394,32 @@ def test_client_parse_task_unknown_state_fallback() -> None:
     assert result.state == TaskState.UNKNOWN
 
 
+def test_client_parse_task_accepts_v1_screaming_snake_case() -> None:
+    cases = {
+        "TASK_STATE_SUBMITTED": TaskState.SUBMITTED,
+        "TASK_STATE_WORKING": TaskState.WORKING,
+        "TASK_STATE_INPUT_REQUIRED": TaskState.INPUT_REQUIRED,
+        "TASK_STATE_AUTH_REQUIRED": TaskState.AUTH_REQUIRED,
+        "TASK_STATE_COMPLETED": TaskState.COMPLETED,
+        "TASK_STATE_CANCELED": TaskState.CANCELED,
+        "TASK_STATE_FAILED": TaskState.FAILED,
+        "TASK_STATE_REJECTED": TaskState.REJECTED,
+    }
+    for raw, expected in cases.items():
+        result = A2AClient._parse_task({"id": "t1", "status": {"state": raw}})
+        assert result.state == expected, f"{raw!r} -> {result.state}, expected {expected}"
+
+
+def test_client_parse_task_v1_unspecified_folds_to_unknown() -> None:
+    result = A2AClient._parse_task({"id": "t1", "status": {"state": "TASK_STATE_UNSPECIFIED"}})
+    assert result.state == TaskState.UNKNOWN
+
+
+def test_client_parse_task_still_accepts_legacy_kebab_case() -> None:
+    result = A2AClient._parse_task({"id": "t1", "status": {"state": "input-required"}})
+    assert result.state == TaskState.INPUT_REQUIRED
+
+
 def test_client_discover_rejects_non_dict_json() -> None:
     def handler(req: httpx.Request) -> httpx.Response:
         return httpx.Response(200, json=["not", "an", "object"])

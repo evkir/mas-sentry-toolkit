@@ -18,7 +18,7 @@ import httpx
 
 from .client import A2AClient, A2ARpcError, TaskState
 
-_TERMINAL_STATES = {TaskState.COMPLETED, TaskState.FAILED, TaskState.CANCELED}
+_TERMINAL_STATES = {TaskState.COMPLETED, TaskState.FAILED, TaskState.CANCELED, TaskState.REJECTED}
 DEFAULT_POLL_DEADLINE_S = 10.0
 DEFAULT_POLL_INTERVAL_S = 0.5
 
