@@ -25,7 +25,7 @@ from mas_sentry.core.finding import Finding
 from mas_sentry.reporting.structured import write_json
 
 from .card_audit import audit_agent_card
-from .client import A2AClient, A2ARpcError
+from .client import A2AClient, A2ARpcError, A2AUnsupportedBindingError
 from .probes import (
     probe_indirect_injection,
     probe_task_id_collision,
@@ -58,7 +58,14 @@ def run_a2a_scan(
         card = client.discover()
         findings.extend(from_card_audit(cf, target) for cf in audit_agent_card(card))
         if active:
-            findings.extend(_run_probes(client, target))
+            try:
+                findings.extend(_run_probes(client, target))
+            except A2AUnsupportedBindingError as exc:
+                # The card explicitly declares interfaces/transports and none
+                # is JSON-RPC - every probe would fail identically, so check
+                # once here instead of three times inside _run_probes, and
+                # keep the card_audit findings already collected above.
+                audit_write({"action": "a2a_probe_skip", "target": target, "reason": str(exc)})
 
     out.parent.mkdir(parents=True, exist_ok=True)
     write_json(findings, target, out)

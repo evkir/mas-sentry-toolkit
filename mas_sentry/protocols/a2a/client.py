@@ -10,12 +10,13 @@ need to test:
 - tasks/get     (poll, JSON-RPC method)
 - tasks/cancel  (JSON-RPC method)
 
-Requests POST a {"jsonrpc": "2.0", "id", "method", "params"} envelope to
-`base_url` directly - we do not yet resolve AgentCard.supportedInterfaces[]
-to pick a per-interface URL/binding (v1.0 lets an agent advertise several);
-that is a separate, larger piece of work. JSON-RPC method names are shared
-between v0.3 and v1.0 (only the params/result payload shapes moved - see
-TaskState/Role/Part handling below), so no version branch is needed here.
+Requests POST a {"jsonrpc": "2.0", "id", "method", "params"} envelope. The
+target URL is resolved from the discovered AgentCard's declared interfaces
+(v1.0 supportedInterfaces[], or v0.3.x url/preferredTransport/
+additionalInterfaces) rather than always hitting `base_url` - see
+_resolve_jsonrpc_endpoint. JSON-RPC method names are shared between v0.3 and
+v1.0 (only the params/result payload shapes moved - see TaskState/Role/Part
+handling below), so no version branch is needed for those.
 """
 
 from __future__ import annotations
@@ -87,6 +88,66 @@ class A2ARpcError(RuntimeError):
         super().__init__(f"JSON-RPC error {code}: {message}")
 
 
+class A2AUnsupportedBindingError(RuntimeError):
+    """The discovered AgentCard declares interfaces/transports, none of them JSON-RPC.
+
+    Raised only when the card actually says something ("here is what I
+    support, and it isn't this") - a card with no interface information at
+    all is not treated as a refusal, since that is indistinguishable from a
+    minimal/legacy card that never described its transport.
+    """
+
+
+def _resolve_jsonrpc_endpoint(data: dict[str, Any]) -> str | None:
+    """Pick the JSON-RPC endpoint URL a discovered AgentCard declares.
+
+    v1.0 cards list every binding+URL combination in supportedInterfaces[];
+    order is preference, not binding, so the first entry may well be gRPC or
+    HTTP+JSON - every entry is scanned for one advertising "JSONRPC" rather
+    than trusting supportedInterfaces[0]. v0.3.x cards have no
+    supportedInterfaces at all: a single top-level `url` plus an optional
+    `preferredTransport` (defaults to JSONRPC when absent, per spec) and
+    `additionalInterfaces[]` for alternates.
+
+    Returns the endpoint URL, or None if the card carries no interface/
+    transport information at all (caller should fall back to base_url - this
+    is not a refusal, just an absence of data, e.g. a minimal test card).
+    Raises A2AUnsupportedBindingError if the card explicitly declares
+    interfaces/transports and none of them is JSON-RPC - that is a real
+    signal worth surfacing, not something to silently paper over.
+    """
+    interfaces = data.get("supportedInterfaces")
+    if isinstance(interfaces, list) and interfaces:
+        for iface in interfaces:
+            if isinstance(iface, dict) and iface.get("protocolBinding") == "JSONRPC":
+                url = iface.get("url")
+                if isinstance(url, str) and url:
+                    return url
+        bindings = sorted(
+            str(i.get("protocolBinding")) for i in interfaces if isinstance(i, dict) and i.get("protocolBinding")
+        )
+        raise A2AUnsupportedBindingError(
+            f"AgentCard.supportedInterfaces declares no JSONRPC binding (offers: {bindings})"
+        )
+
+    preferred = data.get("preferredTransport")
+    additional = data.get("additionalInterfaces")
+    if preferred or additional:
+        url = data.get("url")
+        if (preferred or "JSONRPC") == "JSONRPC" and isinstance(url, str) and url:
+            return url
+        for iface in additional or []:
+            if isinstance(iface, dict) and iface.get("transport") == "JSONRPC":
+                alt_url = iface.get("url")
+                if isinstance(alt_url, str) and alt_url:
+                    return alt_url
+        raise A2AUnsupportedBindingError(
+            f"AgentCard declares preferredTransport={preferred!r} with no JSONRPC alternative in additionalInterfaces"
+        )
+
+    return None
+
+
 @dataclass(slots=True)
 class AgentCard:
     name: str
@@ -125,6 +186,7 @@ class A2AClient:
         if transport is None:
             assert_in_scope(base_url, confirmed=confirmed)
         self.base_url = base_url.rstrip("/")
+        self._card_raw: dict[str, Any] | None = None
         self._client = httpx.Client(
             headers=headers or {},
             timeout=timeout,
@@ -150,6 +212,7 @@ class A2AClient:
         data = self._fetch_card_json()
         if not isinstance(data, dict):
             raise httpx.DecodingError(f"AgentCard JSON must be an object, got {type(data).__name__}")
+        self._card_raw = data
         return AgentCard(
             name=data.get("name", ""),
             description=data.get("description", ""),
@@ -207,9 +270,10 @@ class A2AClient:
         surfaced to the caller, as httpx.HTTPError and A2ARpcError
         respectively, so probes can tell "rejected" from "unreachable".
         """
+        url = self._rpc_endpoint()
         req_id = secrets.token_hex(8)
         body = {"jsonrpc": "2.0", "id": req_id, "method": method, "params": params}
-        r = self._client.post(self.base_url, json=body)
+        r = self._client.post(url, json=body)
         r.raise_for_status()
         data = r.json()
         if "error" in data:
@@ -223,6 +287,17 @@ class A2AClient:
         if not isinstance(result, dict):
             raise httpx.DecodingError(f"JSON-RPC result must be an object, got {type(result).__name__}")
         return result
+
+    def _rpc_endpoint(self) -> str:
+        """Resolve where to send JSON-RPC calls.
+
+        Uses the card's declared interface if one was discovered, else
+        `base_url` (no discovery run yet, e.g. a caller driving send/get/
+        cancel directly - existing behavior, preserved as the fallback).
+        """
+        if self._card_raw is None:
+            return self.base_url
+        return _resolve_jsonrpc_endpoint(self._card_raw) or self.base_url
 
     @staticmethod
     def _parse_task(data: dict[str, Any]) -> TaskResult:

@@ -8,12 +8,13 @@ import pytest
 
 from mas_sentry.core.adapters import from_probe_result
 from mas_sentry.core.finding import Severity
-from mas_sentry.protocols.a2a import A2AClient, A2ARpcError, AgentCard, TaskState
+from mas_sentry.protocols.a2a import A2AClient, A2ARpcError, A2AUnsupportedBindingError, AgentCard, TaskState
 from mas_sentry.protocols.a2a.card_audit import (
     LARGE_SKILL_THRESHOLD,
     CardFinding,
     audit_agent_card,
 )
+from mas_sentry.protocols.a2a.client import _resolve_jsonrpc_endpoint
 from mas_sentry.protocols.a2a.probes import (
     ProbeResult,
     probe_indirect_injection,
@@ -336,6 +337,106 @@ def test_client_discover_raises_when_neither_well_known_uri_exists() -> None:
         pytest.raises(httpx.HTTPStatusError),
     ):
         client.discover()
+
+
+def test_resolve_jsonrpc_endpoint_v1_picks_jsonrpc_among_others() -> None:
+    data = {
+        "supportedInterfaces": [
+            {"url": "https://a.lab/grpc", "protocolBinding": "GRPC", "protocolVersion": "1.0"},
+            {"url": "https://a.lab/rpc", "protocolBinding": "JSONRPC", "protocolVersion": "1.0"},
+        ]
+    }
+    assert _resolve_jsonrpc_endpoint(data) == "https://a.lab/rpc"
+
+
+def test_resolve_jsonrpc_endpoint_v1_raises_when_no_jsonrpc_offered() -> None:
+    data = {
+        "supportedInterfaces": [
+            {"url": "https://a.lab/grpc", "protocolBinding": "GRPC", "protocolVersion": "1.0"},
+            {"url": "https://a.lab/rest", "protocolBinding": "HTTP+JSON", "protocolVersion": "1.0"},
+        ]
+    }
+    with pytest.raises(A2AUnsupportedBindingError, match="GRPC"):
+        _resolve_jsonrpc_endpoint(data)
+
+
+def test_resolve_jsonrpc_endpoint_v03_defaults_to_jsonrpc() -> None:
+    """preferredTransport absent -> defaults to JSONRPC per spec, use top-level url."""
+    data = {"url": "https://a.lab/a2a", "additionalInterfaces": [{"url": "https://a.lab/grpc", "transport": "GRPC"}]}
+    assert _resolve_jsonrpc_endpoint(data) == "https://a.lab/a2a"
+
+
+def test_resolve_jsonrpc_endpoint_v03_falls_back_to_additional_interface() -> None:
+    data = {
+        "url": "https://a.lab/grpc-primary",
+        "preferredTransport": "GRPC",
+        "additionalInterfaces": [{"url": "https://a.lab/rpc-alt", "transport": "JSONRPC"}],
+    }
+    assert _resolve_jsonrpc_endpoint(data) == "https://a.lab/rpc-alt"
+
+
+def test_resolve_jsonrpc_endpoint_v03_raises_when_no_jsonrpc_alternative() -> None:
+    data = {
+        "url": "https://a.lab/grpc-primary",
+        "preferredTransport": "GRPC",
+        "additionalInterfaces": [{"url": "https://a.lab/rest", "transport": "HTTP+JSON"}],
+    }
+    with pytest.raises(A2AUnsupportedBindingError, match="GRPC"):
+        _resolve_jsonrpc_endpoint(data)
+
+
+def test_resolve_jsonrpc_endpoint_no_interface_info_returns_none() -> None:
+    """A minimal/legacy card with no transport info at all is not a refusal - caller falls back to base_url."""
+    assert _resolve_jsonrpc_endpoint({"name": "x"}) is None
+
+
+def test_client_rpc_call_uses_declared_interface_url_not_base_url() -> None:
+    calls: list[str] = []
+
+    def handler(req: httpx.Request) -> httpx.Response:
+        calls.append(str(req.url))
+        if req.url.path == "/.well-known/agent-card.json":
+            return httpx.Response(
+                200,
+                json={
+                    "name": "x",
+                    "description": "",
+                    "supportedInterfaces": [{"url": "http://lab/rpc-endpoint", "protocolBinding": "JSONRPC"}],
+                },
+            )
+        body = json.loads(req.content)
+        return httpx.Response(
+            200,
+            json={"jsonrpc": "2.0", "id": body["id"], "result": {"id": "t1", "status": {"state": "completed"}}},
+        )
+
+    with A2AClient("http://lab", transport=httpx.MockTransport(handler)) as client:
+        client.discover()
+        client.get_task("t1")
+
+    assert any(c.startswith("http://lab/rpc-endpoint") for c in calls)
+    assert not any(c == "http://lab/" for c in calls[1:])
+
+
+def test_client_get_task_raises_when_card_offers_no_jsonrpc() -> None:
+    def handler(req: httpx.Request) -> httpx.Response:
+        if req.url.path == "/.well-known/agent-card.json":
+            return httpx.Response(
+                200,
+                json={
+                    "name": "x",
+                    "description": "",
+                    "supportedInterfaces": [{"url": "http://lab/grpc", "protocolBinding": "GRPC"}],
+                },
+            )
+        return httpx.Response(200, json={"jsonrpc": "2.0", "id": 1, "result": {}})
+
+    with (
+        A2AClient("http://lab", transport=httpx.MockTransport(handler)) as client,
+        pytest.raises(A2AUnsupportedBindingError),
+    ):
+        client.discover()
+        client.get_task("t1")
 
 
 def test_client_send_task_generates_id_when_none() -> None:

@@ -135,6 +135,27 @@ def test_probe_transport_error_is_tolerated(tmp_path: Path) -> None:
     assert "a2a.probe.unauthorized-cancel" in modules
 
 
+def test_active_scan_skips_probes_when_card_offers_no_jsonrpc(tmp_path: Path) -> None:
+    """Card audit findings survive; probes are skipped cleanly, not an aborted scan."""
+    grpc_only_card = dict(
+        _POISONED_CARD, supportedInterfaces=[{"url": "http://victim.lab/grpc", "protocolBinding": "GRPC"}]
+    )
+
+    def handler(req: httpx.Request) -> httpx.Response:
+        if req.url.path == "/.well-known/agent-card.json":
+            return httpx.Response(404)
+        if req.url.path == "/.well-known/agent.json":
+            return httpx.Response(200, json=grpc_only_card)
+        raise AssertionError("no JSON-RPC call should be attempted once the card rules it out")
+
+    out = tmp_path / "a2a.json"
+    findings = run_a2a_scan(
+        "http://victim.lab", out=out, scope_confirmed=False, active=True, transport=httpx.MockTransport(handler)
+    )
+    assert any(f.module == "a2a.card_audit" for f in findings)
+    assert not any(f.module.startswith("a2a.probe") for f in findings)
+
+
 def test_nonlab_target_without_scope_is_rejected(tmp_path: Path) -> None:
     """No transport -> real client construction enforces scope before any I/O."""
     out = tmp_path / "a2a.json"
