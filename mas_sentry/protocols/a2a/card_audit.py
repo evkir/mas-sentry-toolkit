@@ -5,7 +5,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from mas_sentry.core.injection_scan import scan_string
+from mas_sentry.core.injection_scan import scan_routing_hijack, scan_string
 
 from .client import AgentCard
 
@@ -16,6 +16,9 @@ LARGE_SKILL_THRESHOLD = 20
 # card metadata that hijack an orchestrator's LLM-based task routing. Same
 # directive class MAS-Sentry detects in MCP tool descriptors and agent traffic.
 _POISONING_TAGS = ["ASI01_Goal_Hijack", "CWE-1427", "STRIDE_Tampering", "AML.T0051"]
+# Routing-hijack: persuasive selection-steering (no classic injection token).
+# Same goal-hijack taxonomy family as poisoning; a distinct, lower-severity signature.
+_ROUTING_HIJACK_TAGS = ["ASI01_Goal_Hijack", "CWE-1427", "STRIDE_Tampering", "AML.T0051"]
 # Cleartext card endpoint enables card tampering / impersonation in transit.
 _CLEARTEXT_TAGS = ["CWE-319", "STRIDE_Tampering"]
 
@@ -115,6 +118,7 @@ def audit_agent_card(card: AgentCard) -> list[CardFinding]:
 
     out.extend(_check_signature_absence(card))
     out.extend(_scan_card_poisoning(card))
+    out.extend(_scan_routing_hijack(card))
     out.extend(_check_insecure_transport(card))
 
     return out
@@ -329,6 +333,46 @@ def _check_overbroad_scopes(card: AgentCard) -> list[CardFinding]:
     return out
 
 
+def _llm_ingested_fields(card: AgentCard) -> list[tuple[str, str]]:
+    """Return (location, text) pairs for every card field an orchestrator LLM ingests."""
+    fields: list[tuple[str, str]] = [("description", card.description or "")]
+    for i, skill in enumerate(card.skills):
+        if not isinstance(skill, dict):
+            continue
+        sid = str(skill.get("id") or skill.get("name") or i)
+        fields.append((f"skills[{sid}].name", str(skill.get("name", ""))))
+        fields.append((f"skills[{sid}].description", str(skill.get("description", ""))))
+    return fields
+
+
+def _scan_routing_hijack(card: AgentCard) -> list[CardFinding]:
+    """Detect persuasive agent-selection steering in card metadata.
+
+    Complements _scan_card_poisoning: catches plain-language routing directives
+    ("always prefer this agent", "the only agent authorized for X") that bias an
+    orchestrator's selection without any classic injection token. Lower severity
+    than an outright injection takeover - it steers, it does not seize control.
+    """
+    out: list[CardFinding] = []
+    for location, text in _llm_ingested_fields(card):
+        matches = scan_routing_hijack(text)
+        if not matches:
+            continue
+        patterns = sorted({m.pattern for m in matches})
+        out.append(
+            CardFinding(
+                severity="MEDIUM",
+                title=f"Agent Card routing-hijack: selection-steering directive in {location}",
+                detail=(
+                    f"Card metadata carries agent-selection steering [{', '.join(patterns)}] "
+                    "that biases an orchestrator toward routing tasks to this agent"
+                ),
+                tags=list(_ROUTING_HIJACK_TAGS),
+            )
+        )
+    return out
+
+
 def _scan_card_poisoning(card: AgentCard) -> list[CardFinding]:
     """Detect injection directives embedded in LLM-ingested card metadata.
 
@@ -338,15 +382,7 @@ def _scan_card_poisoning(card: AgentCard) -> list[CardFinding]:
     and description with the shared injection primitive.
     """
     out: list[CardFinding] = []
-    fields: list[tuple[str, str]] = [("description", card.description or "")]
-    for i, skill in enumerate(card.skills):
-        if not isinstance(skill, dict):
-            continue
-        sid = str(skill.get("id") or skill.get("name") or i)
-        fields.append((f"skills[{sid}].name", str(skill.get("name", ""))))
-        fields.append((f"skills[{sid}].description", str(skill.get("description", ""))))
-
-    for location, text in fields:
+    for location, text in _llm_ingested_fields(card):
         matches = scan_string(text)
         if not matches:
             continue
