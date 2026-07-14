@@ -8,7 +8,7 @@ import pytest
 
 from mas_sentry.core.adapters import from_probe_result
 from mas_sentry.core.finding import Severity
-from mas_sentry.protocols.a2a import A2AClient, AgentCard, TaskState
+from mas_sentry.protocols.a2a import A2AClient, A2ARpcError, AgentCard, TaskState
 from mas_sentry.protocols.a2a.card_audit import (
     LARGE_SKILL_THRESHOLD,
     CardFinding,
@@ -342,18 +342,20 @@ def test_client_send_task_generates_id_when_none() -> None:
     captured: dict[str, str] = {}
 
     def handler(req: httpx.Request) -> httpx.Response:
-        if req.url.path == "/tasks/send":
-            body = json.loads(req.content)
-            captured["id"] = body["id"]
-            return httpx.Response(
-                200,
-                json={
-                    "id": body["id"],
-                    "status": {"state": "submitted"},
-                    "artifacts": [],
-                },
-            )
-        return httpx.Response(404)
+        body = json.loads(req.content)
+        assert body["jsonrpc"] == "2.0"
+        assert body["method"] == "message/send"
+        assert body["params"]["message"]["role"] == "ROLE_USER"
+        tid = body["params"]["id"]
+        captured["id"] = tid
+        return httpx.Response(
+            200,
+            json={
+                "jsonrpc": "2.0",
+                "id": body["id"],
+                "result": {"id": tid, "status": {"state": "submitted"}, "artifacts": []},
+            },
+        )
 
     with A2AClient("http://lab", transport=httpx.MockTransport(handler)) as client:
         result = client.send_task("hello")
@@ -362,6 +364,29 @@ def test_client_send_task_generates_id_when_none() -> None:
     # secrets.token_hex(8) yields a 16-character hex string
     assert len(captured["id"]) == 16
     assert result.state == TaskState.SUBMITTED
+
+
+def test_client_rpc_call_raises_on_json_rpc_error_body() -> None:
+    """A JSON-RPC error comes back as HTTP 200 with an `error` field, not a non-2xx status."""
+
+    def handler(req: httpx.Request) -> httpx.Response:
+        body = json.loads(req.content)
+        return httpx.Response(
+            200,
+            json={
+                "jsonrpc": "2.0",
+                "id": body["id"],
+                "error": {"code": -32001, "message": "Task not found", "data": [{"taskId": "x"}]},
+            },
+        )
+
+    with (
+        A2AClient("http://lab", transport=httpx.MockTransport(handler)) as client,
+        pytest.raises(A2ARpcError) as excinfo,
+    ):
+        client.get_task("x")
+    assert excinfo.value.code == -32001
+    assert "Task not found" in excinfo.value.message
 
 
 def test_client_parse_task_unknown_state_fallback() -> None:
@@ -385,17 +410,16 @@ def test_client_discover_rejects_non_dict_json() -> None:
 
 def test_probe_task_id_collision_unsafe_when_accepted() -> None:
     def handler(req: httpx.Request) -> httpx.Response:
-        if req.url.path in ("/tasks/send", "/tasks/get"):
-            body = json.loads(req.content)
-            return httpx.Response(
-                200,
-                json={
-                    "id": body["id"],
-                    "status": {"state": "completed"},
-                    "artifacts": [],
-                },
-            )
-        return httpx.Response(404)
+        body = json.loads(req.content)
+        tid = body["params"]["id"]
+        return httpx.Response(
+            200,
+            json={
+                "jsonrpc": "2.0",
+                "id": body["id"],
+                "result": {"id": tid, "status": {"state": "completed"}, "artifacts": []},
+            },
+        )
 
     with A2AClient("http://lab", transport=httpx.MockTransport(handler)) as client:
         result = probe_task_id_collision(client)
@@ -403,11 +427,31 @@ def test_probe_task_id_collision_unsafe_when_accepted() -> None:
     assert "Both submissions accepted" in result.detail
 
 
-def test_probe_unauthorized_cancel_safe_when_rejected() -> None:
+def test_probe_unauthorized_cancel_safe_when_json_rpc_error() -> None:
+    """A compliant server rejects via a JSON-RPC error body (HTTP 200), not an HTTP status."""
+
     def handler(req: httpx.Request) -> httpx.Response:
-        if req.url.path == "/tasks/cancel":
-            return httpx.Response(403, json={"error": "forbidden"})
-        return httpx.Response(404)
+        body = json.loads(req.content)
+        return httpx.Response(
+            200,
+            json={
+                "jsonrpc": "2.0",
+                "id": body["id"],
+                "error": {"code": -32001, "message": "Task not found", "data": None},
+            },
+        )
+
+    with A2AClient("http://lab", transport=httpx.MockTransport(handler)) as client:
+        result = probe_unauthorized_cancel(client)
+    assert result.passed
+    assert "A2ARpcError" in result.detail
+
+
+def test_probe_unauthorized_cancel_safe_when_http_error() -> None:
+    """Also tolerates a bare HTTP-level rejection (e.g. a fronting gateway returning 403)."""
+
+    def handler(req: httpx.Request) -> httpx.Response:
+        return httpx.Response(403, json={"error": "forbidden"})
 
     with A2AClient("http://lab", transport=httpx.MockTransport(handler)) as client:
         result = probe_unauthorized_cancel(client)
@@ -419,17 +463,20 @@ def test_probe_indirect_injection_detects_canary_leak() -> None:
     canary = "CANARY-LEAK-TEST-XYZ"
 
     def handler(req: httpx.Request) -> httpx.Response:
-        if req.url.path == "/tasks/send":
-            body = json.loads(req.content)
-            return httpx.Response(
-                200,
-                json={
-                    "id": body["id"],
+        body = json.loads(req.content)
+        tid = body["params"]["id"]
+        return httpx.Response(
+            200,
+            json={
+                "jsonrpc": "2.0",
+                "id": body["id"],
+                "result": {
+                    "id": tid,
                     "status": {"state": "completed"},
                     "artifacts": [{"type": "text", "text": f"reply with {canary}"}],
                 },
-            )
-        return httpx.Response(404)
+            },
+        )
 
     with A2AClient("http://lab", transport=httpx.MockTransport(handler)) as client:
         result = probe_indirect_injection(

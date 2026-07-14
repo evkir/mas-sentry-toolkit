@@ -16,7 +16,7 @@ from dataclasses import dataclass
 
 import httpx
 
-from .client import A2AClient, TaskState
+from .client import A2AClient, A2ARpcError, TaskState
 
 _TERMINAL_STATES = {TaskState.COMPLETED, TaskState.FAILED, TaskState.CANCELED}
 DEFAULT_POLL_DEADLINE_S = 10.0
@@ -49,10 +49,17 @@ def probe_task_id_collision(client: A2AClient, task_id: str = "collision-test-00
 
 
 def probe_unauthorized_cancel(client: A2AClient, foreign_task_id: str = "not-mine-001") -> ProbeResult:
-    """Try cancelling a task we did not submit. Safe server rejects."""
+    """Try cancelling a task we did not submit. Safe server rejects.
+
+    A2A's JSON-RPC binding signals a proper rejection (TaskNotFoundError,
+    TaskNotCancelableError) via a JSON-RPC error in a 200 OK body, not an
+    HTTP error status - httpx.HTTPError alone would miss it and fall through
+    to _parse_task on a body with no id/status, silently misreading a
+    correct rejection as an empty UNKNOWN-state task.
+    """
     try:
         result = client.cancel_task(foreign_task_id)
-    except httpx.HTTPError as e:
+    except (httpx.HTTPError, A2ARpcError) as e:
         return ProbeResult(
             name="unauthorized-cancel",
             passed=True,

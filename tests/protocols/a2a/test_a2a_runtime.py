@@ -25,24 +25,40 @@ _POISONED_CARD = {
 
 def _handler(req: httpx.Request) -> httpx.Response:
     path = req.url.path
+    if path == "/.well-known/agent-card.json":
+        return httpx.Response(404)
     if path == "/.well-known/agent.json":
         return httpx.Response(200, json=_POISONED_CARD)
-    if path in ("/tasks/send", "/tasks/get"):
-        body = json.loads(req.content)
-        tid = body.get("id", "x")
+    body = json.loads(req.content)
+    method = body.get("method")
+    rpc_id = body.get("id")
+    if method in ("message/send", "tasks/get"):
+        params = body.get("params", {})
+        tid = params.get("id", "x")
         # Echo the submitted message text into artifacts so an injected canary
         # round-trips (models an agent that executed the injected instruction).
         echoed = ""
-        msg = body.get("message")
+        msg = params.get("message")
         if isinstance(msg, dict):
             parts = msg.get("parts") or []
             echoed = " ".join(str(p.get("text", "")) for p in parts)
         return httpx.Response(
             200,
-            json={"id": tid, "status": {"state": "completed"}, "artifacts": [{"type": "text", "text": echoed}]},
+            json={
+                "jsonrpc": "2.0",
+                "id": rpc_id,
+                "result": {
+                    "id": tid,
+                    "status": {"state": "completed"},
+                    "artifacts": [{"type": "text", "text": echoed}],
+                },
+            },
         )
-    if path == "/tasks/cancel":
-        return httpx.Response(403, json={"error": "forbidden"})
+    if method == "tasks/cancel":
+        return httpx.Response(
+            200,
+            json={"jsonrpc": "2.0", "id": rpc_id, "error": {"code": -32001, "message": "Task not found"}},
+        )
     return httpx.Response(404)
 
 
@@ -102,7 +118,8 @@ def test_probe_transport_error_is_tolerated(tmp_path: Path) -> None:
             return httpx.Response(404)
         if req.url.path == "/.well-known/agent.json":
             return httpx.Response(200, json=_POISONED_CARD)
-        if req.url.path == "/tasks/cancel":
+        body = json.loads(req.content)
+        if body.get("method") == "tasks/cancel":
             return httpx.Response(403, json={"error": "forbidden"})
         raise httpx.ConnectError("send channel down")
 

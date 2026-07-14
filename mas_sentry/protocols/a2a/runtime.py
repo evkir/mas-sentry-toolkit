@@ -25,7 +25,7 @@ from mas_sentry.core.finding import Finding
 from mas_sentry.reporting.structured import write_json
 
 from .card_audit import audit_agent_card
-from .client import A2AClient
+from .client import A2AClient, A2ARpcError
 from .probes import (
     probe_indirect_injection,
     probe_task_id_collision,
@@ -67,22 +67,23 @@ def run_a2a_scan(
 
 
 def _run_probes(client: A2AClient, target: str) -> list[Finding]:
-    """Run the active probes, tolerating per-probe transport errors.
+    """Run the active probes, tolerating per-probe protocol/transport errors.
 
-    A probe that raises a transport error (endpoint refuses the interaction)
+    A probe that raises a transport error (httpx.HTTPError) or a JSON-RPC-
+    level rejection (A2ARpcError - HTTP 200, error in body; see client.py)
     is logged and skipped rather than aborting the whole scan - one hostile
-    endpoint behaviour should not mask the findings already collected.
+    or strict endpoint should not mask the findings already collected.
     """
     out: list[Finding] = []
     for probe in (probe_task_id_collision, probe_unauthorized_cancel):
         try:
             out.append(from_probe_result(probe(client), target))
-        except httpx.HTTPError as exc:
+        except (httpx.HTTPError, A2ARpcError) as exc:
             audit_write({"action": "a2a_probe_error", "probe": probe.__name__, "error": type(exc).__name__})
     canary = f"MST-A2A-{secrets.token_hex(6)}"
     try:
         result = probe_indirect_injection(client, payload=_IPI_PAYLOAD.format(canary=canary), canary=canary)
         out.append(from_probe_result(result, target))
-    except httpx.HTTPError as exc:
+    except (httpx.HTTPError, A2ARpcError) as exc:
         audit_write({"action": "a2a_probe_error", "probe": "probe_indirect_injection", "error": type(exc).__name__})
     return out
