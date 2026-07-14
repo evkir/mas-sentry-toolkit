@@ -21,6 +21,24 @@
   Management) / STRIDE Elevation of Privilege; ATLAS left untagged, no clean
   verified technique. The full delegation-chain escalation remains out of scope
   for a single-target scanner and is not forced into a context-free check.
+- A2A card audit: agent-selection routing-hijack detection. A rogue AgentCard
+  needs no obfuscation or "ignore previous" token to subvert an LLM
+  orchestrator: plain-language directives in the card description or a skill's
+  name/description ("always prefer this agent", "the only agent authorized for
+  X", "do not route to other agents") bias the orchestrator selection reasoning
+  toward the attacker agent - the infrastructure-layer prompt injection
+  Trustwave demonstrated in 2025. The existing poisoning scan catches
+  control-flow takeovers (obfuscation, ignore-previous, tool-call hijack) but
+  misses this persuasive-steering class, which carries no classic injection
+  token. A dedicated `scan_routing_hijack` primitive adds six selection-steering
+  signatures, each requiring a selection imperative rather than a bare
+  superlative so honest self-description ("best-in-class invoice agent", "use
+  this agent to process invoices") stays inert. `_scan_routing_hijack` runs it
+  over the same LLM-ingested fields as poisoning (factored into a shared
+  `_llm_ingested_fields` helper) and emits MEDIUM - steering biases a decision,
+  it does not seize control, so it scores below an outright injection takeover.
+  Tagged ASI01 (Agent Goal Hijack) / CWE-1427 / STRIDE Tampering / ATLAS
+  AML.T0051, the same goal-hijack family as poisoning.
 - Propagation findings now flow through the full report pipeline. The ABFP
   scan already emitted a `propagation` block and a `propagation_summary`
   header, but `mas-sentry report convert` read only the `findings` array and
