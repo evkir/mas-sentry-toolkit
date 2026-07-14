@@ -134,6 +134,41 @@
   carries: v1.0 cards are judged by `securityRequirements[]` actually
   enforcing a declared `securitySchemes` entry; legacy v0.3.x cards keep the
   original schemes-list check.
+- A2A active probing spoke an invented wire format that matched no real A2A
+  binding: bare POST bodies to `/tasks/send` `/tasks/get` `/tasks/cancel`,
+  not the JSON-RPC 2.0 envelope (`jsonrpc`/`id`/`method`/`params`) the
+  protocol's most common binding requires. Every active probe (task-id
+  collision, unauthorized-cancel, indirect-injection) had therefore only
+  ever exchanged valid traffic with this suite's own mocks, never a real
+  agent. The client now wraps every call in a correct JSON-RPC envelope with
+  the correct method names (`message/send`, `tasks/get`, `tasks/cancel`) and
+  a v1.0-shaped outgoing message (`ROLE_USER`, member-based `Part`). A new
+  `A2ARpcError` surfaces JSON-RPC-level rejections (HTTP 200 with an `error`
+  body, how a compliant server signals TaskNotFound / TaskNotCancelable) as a
+  distinct exception from transport failures; the unauthorized-cancel probe
+  and the scan runner both treat it as a safe rejection rather than silently
+  misparsing it as an empty task.
+- A2A task-state parsing only recognized v0.3.x kebab-case values; v1.0
+  renamed every value to `TASK_STATE_`-prefixed SCREAMING_SNAKE_CASE, so
+  every real v1.0 task response fell through to the `UNKNOWN` fallback and
+  terminal-state detection never fired - polling ran to its timeout instead
+  of stopping when a task finished. `TaskState` now normalizes both shapes,
+  and the previously-missing `REJECTED` and `AUTH_REQUIRED` states (real in
+  both generations) were added, with `REJECTED` now correctly treated as
+  terminal.
+
+### Added
+- A2A client resolves the JSON-RPC endpoint from the discovered AgentCard's
+  declared interfaces rather than always POSTing to `base_url`. v1.0 cards
+  list every binding+URL combination in `supportedInterfaces[]` (order is
+  preference, not binding); v0.3.x cards use `url` +
+  `preferredTransport`/`additionalInterfaces[]`. `_resolve_jsonrpc_endpoint`
+  scans for a JSON-RPC-bound entry in either shape. A new
+  `A2AUnsupportedBindingError` is raised only when a card explicitly declares
+  interfaces and none is JSON-RPC - an actionable "cannot actively probe this
+  target" signal; a card with no interface information at all still falls
+  back to `base_url`. The scan runner skips probing (keeping card-audit
+  findings) rather than aborting when a target offers no JSON-RPC binding.
 
 ### Changed
 - The IPI pattern scanner (`scan_string` / `InjectionMatch`) moved to
