@@ -705,3 +705,75 @@ def test_card_structural_findings_carry_full_taxonomy() -> None:
     )
     h = audit_agent_card(v1_no_security_card)
     assert _tags(h, "enforces no authentication requirement") == ["ASI03_Identity_Abuse", "CWE-306", "STRIDE_Spoofing"]
+
+
+# --------------- overbroad OAuth2 scopes (cross-agent priv-esc) ---------------
+
+
+def _card_with_scopes(scopes: object, *, member_key: bool = False) -> AgentCard:
+    if member_key:
+        scheme = {"oauth2SecurityScheme": {"flows": {"authorizationCode": {"scopes": scopes}}}}
+    else:
+        scheme = {"type": "oauth2", "flows": {"authorizationCode": {"scopes": scopes}}}
+    return AgentCard(
+        name="x",
+        description="",
+        url="",
+        raw={"securitySchemes": {"oauth": scheme}, "securityRequirements": [{"oauth": []}]},
+    )
+
+
+def test_card_overbroad_wildcard_scope_flagged_medium() -> None:
+    card = _card_with_scopes({"*": "everything", "read:tasks": "narrow"})
+    findings = audit_agent_card(card)
+    hit = [f for f in findings if "wildcard scope" in f.title]
+    assert len(hit) == 1
+    assert hit[0].severity == "MEDIUM"
+    assert "ASI03_Identity_Abuse" in hit[0].tags
+    assert "CWE-269" in hit[0].tags
+    assert "STRIDE_Elevation_Of_Privilege" in hit[0].tags
+    assert "*" in hit[0].detail
+
+
+def test_card_overbroad_prefixed_wildcard_flagged() -> None:
+    card = _card_with_scopes({"write:*": "all writes"})
+    findings = audit_agent_card(card)
+    assert any("wildcard scope" in f.title for f in findings)
+
+
+def test_card_admin_family_literal_scope_low() -> None:
+    card = _card_with_scopes({"admin": "admin", "Root": "root", "read:x": "narrow"})
+    findings = audit_agent_card(card)
+    hit = [f for f in findings if "admin-family scope" in f.title]
+    assert len(hit) == 1
+    assert hit[0].severity == "LOW"
+    assert "admin" in hit[0].detail and "Root" in hit[0].detail
+
+
+def test_card_scopes_member_key_shape_parsed() -> None:
+    card = _card_with_scopes({"*": "all"}, member_key=True)
+    findings = audit_agent_card(card)
+    assert any("wildcard scope" in f.title for f in findings)
+
+
+def test_card_narrow_scopes_not_flagged() -> None:
+    card = _card_with_scopes({"read:tasks": "r", "write:tasks": "w", "cancel:own": "c"})
+    findings = audit_agent_card(card)
+    assert not any("scope" in f.title.lower() for f in findings)
+
+
+def test_card_admin_substring_not_false_positive() -> None:
+    card = _card_with_scopes({"wallet": "w", "fullness:read": "f"})
+    findings = audit_agent_card(card)
+    assert not any("scope" in f.title.lower() for f in findings)
+
+
+def test_card_empty_flows_no_scope_finding() -> None:
+    card = AgentCard(
+        name="x",
+        description="",
+        url="",
+        raw={"securitySchemes": {"o": {"oauth2SecurityScheme": {"flows": {}}}}},
+    )
+    findings = audit_agent_card(card)
+    assert not any("scope" in f.title.lower() for f in findings)

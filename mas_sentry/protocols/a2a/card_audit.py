@@ -36,6 +36,18 @@ _UNSIGNED_CARD_TAGS = ["ASI03_Identity_Abuse", "CWE-347", "STRIDE_Spoofing"]
 # Sole declared scheme type is a bare API key -> weakest of the five v1.0
 # scheme types, no built-in rotation/expiry, no stronger alternative offered.
 _WEAK_SCHEME_TAGS = ["ASI03_Identity_Abuse", "CWE-798", "STRIDE_Spoofing"]
+# OAuth2 scope names that grant sweeping authority. Coarse-grained token
+# scopes are the concrete cross-agent privilege-escalation vector named across
+# the 2026 A2A threat literature: an agent granted an admin-family scope holds
+# far more privilege than any one skill needs. Matched case-insensitively against
+# the exact scope name (substring matches would false-positive on e.g. wallet).
+_BROAD_SCOPE_LITERALS = frozenset(
+    {"all", "admin", "administrator", "superuser", "root", "owner", "full", "full_access"}
+)
+# Overbroad scope grant -> agent holds more authority than needed. Repo taxonomy
+# names ASI03 as Identity and Privilege Abuse; CWE-269 is Improper Privilege
+# Management. No clean verified ATLAS technique, so left untagged.
+_BROAD_SCOPE_TAGS = ["ASI03_Identity_Abuse", "CWE-269", "STRIDE_Elevation_Of_Privilege"]
 
 # v1.0's SecurityScheme is a proto oneof; per the v1.0 spec ("the field name
 # itself serves as the type discriminator") the canonical JSON shape carries
@@ -67,6 +79,7 @@ def audit_agent_card(card: AgentCard) -> list[CardFinding]:
 
     out.extend(_check_no_auth(card))
     out.extend(_check_weak_scheme_only(card))
+    out.extend(_check_overbroad_scopes(card))
 
     auth = card.authentication or {}
     caps = card.capabilities or {}
@@ -230,6 +243,90 @@ def _check_weak_scheme_only(card: AgentCard) -> list[CardFinding]:
             )
         ]
     return []
+
+
+def _oauth2_flows(scheme: object) -> dict:
+    """Return the flows mapping of an oauth2 scheme across both card shapes."""
+    if not isinstance(scheme, dict):
+        return {}
+    member = scheme.get("oauth2SecurityScheme")
+    if isinstance(member, dict):
+        flows = member.get("flows")
+        return flows if isinstance(flows, dict) else {}
+    if scheme.get("type") == "oauth2":
+        flows = scheme.get("flows")
+        return flows if isinstance(flows, dict) else {}
+    return {}
+
+
+def _collect_scope_names(flows: dict) -> set[str]:
+    """Collect scope names across every flow, tolerating dict or list scopes."""
+    names: set[str] = set()
+    for flow in flows.values():
+        if not isinstance(flow, dict):
+            continue
+        scopes = flow.get("scopes")
+        if isinstance(scopes, dict):
+            names.update(str(k) for k in scopes)
+        elif isinstance(scopes, list):
+            names.update(str(x) for x in scopes)
+    return names
+
+
+def _check_overbroad_scopes(card: AgentCard) -> list[CardFinding]:
+    """Flag OAuth2 schemes advertising sweeping (wildcard / admin-family) scopes.
+
+    Coarse-grained token scopes are the concrete privilege-escalation vector named
+    across the 2026 A2A threat literature: an agent granted a wildcard or an
+    admin-family scope holds far more authority than any one skill needs, so a
+    compromised or malicious peer can escalate across the delegation boundary.
+    Scope names are free-form, so this is review-framed and split by confidence:
+    a wildcard is coarse by definition (MEDIUM); an admin-family literal is a
+    naming convention, not a guarantee (LOW). Exact offending scopes are listed
+    rather than asserting exploitability.
+    """
+    schemes = card.raw.get("securitySchemes")
+    if not isinstance(schemes, dict) or not schemes:
+        return []
+    wildcard: set[str] = set()
+    literal: set[str] = set()
+    for scheme in schemes.values():
+        for name in _collect_scope_names(_oauth2_flows(scheme)):
+            if "*" in name:
+                wildcard.add(name)
+            elif name.strip().lower() in _BROAD_SCOPE_LITERALS:
+                literal.add(name)
+    out: list[CardFinding] = []
+    if wildcard:
+        listed = ", ".join(sorted(wildcard))
+        out.append(
+            CardFinding(
+                severity="MEDIUM",
+                title="OAuth2 scheme advertises a wildcard scope",
+                detail=(
+                    f"Scope(s) {listed} match anything by wildcard; a wildcard grant is coarse "
+                    "by definition and hands an agent more authority than any single skill needs "
+                    "- the concrete cross-agent privilege-escalation vector. Narrow to explicit "
+                    "per-skill scopes"
+                ),
+                tags=_BROAD_SCOPE_TAGS,
+            )
+        )
+    if literal:
+        listed = ", ".join(sorted(literal))
+        out.append(
+            CardFinding(
+                severity="LOW",
+                title="OAuth2 scheme advertises an admin-family scope",
+                detail=(
+                    f"Scope name(s) {listed} conventionally grant sweeping authority; review whether "
+                    "each is scoped to the minimum a skill requires, since coarse-grained tokens "
+                    "enable privilege escalation across agents"
+                ),
+                tags=_BROAD_SCOPE_TAGS,
+            )
+        )
+    return out
 
 
 def _scan_card_poisoning(card: AgentCard) -> list[CardFinding]:
