@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-07-15 - A2A v1.0 protocol migration, cross-agent privilege-escalation card audits, transitive injection propagation
+
 ### Added
 - A2A card audit: overbroad OAuth2 scope detection, the first card-auditable
   slice of the cross-agent privilege-escalation frontier. Coarse-grained token
@@ -153,6 +155,24 @@
   (`apiKeySecurityScheme`, `oauth2SecurityScheme`, ...) or the OpenAPI-style
   `type` field seen in real vendor examples, since the two sources disagree
   on the canonical wire shape.
+- A2A client resolves the JSON-RPC endpoint from the discovered AgentCard's
+  declared interfaces rather than always POSTing to `base_url`. v1.0 cards
+  list every binding+URL combination in `supportedInterfaces[]` (order is
+  preference, not binding); v0.3.x cards use `url` +
+  `preferredTransport`/`additionalInterfaces[]`. `_resolve_jsonrpc_endpoint`
+  scans for a JSON-RPC-bound entry in either shape. A new
+  `A2AUnsupportedBindingError` is raised only when a card explicitly declares
+  interfaces and none is JSON-RPC - an actionable "cannot actively probe this
+  target" signal; a card with no interface information at all still falls
+  back to `base_url`. The scan runner skips probing (keeping card-audit
+  findings) rather than aborting when a target offers no JSON-RPC binding.
+
+### Changed
+- The IPI pattern scanner (`scan_string` / `InjectionMatch`) moved to
+  `mas_sentry.core.injection_scan` as a shared primitive consumed by both the
+  MCP tool-descriptor audit and the ABFP live-traffic detector, removing a
+  would-be `agents -> protocols.mcp` layering dependency. The MCP audit API is
+  unchanged (re-exported).
 
 ### Fixed
 - A2A card discovery only ever requested the legacy `/.well-known/agent.json`
@@ -192,26 +212,6 @@
   and the previously-missing `REJECTED` and `AUTH_REQUIRED` states (real in
   both generations) were added, with `REJECTED` now correctly treated as
   terminal.
-
-### Added
-- A2A client resolves the JSON-RPC endpoint from the discovered AgentCard's
-  declared interfaces rather than always POSTing to `base_url`. v1.0 cards
-  list every binding+URL combination in `supportedInterfaces[]` (order is
-  preference, not binding); v0.3.x cards use `url` +
-  `preferredTransport`/`additionalInterfaces[]`. `_resolve_jsonrpc_endpoint`
-  scans for a JSON-RPC-bound entry in either shape. A new
-  `A2AUnsupportedBindingError` is raised only when a card explicitly declares
-  interfaces and none is JSON-RPC - an actionable "cannot actively probe this
-  target" signal; a card with no interface information at all still falls
-  back to `base_url`. The scan runner skips probing (keeping card-audit
-  findings) rather than aborting when a target offers no JSON-RPC binding.
-
-### Changed
-- The IPI pattern scanner (`scan_string` / `InjectionMatch`) moved to
-  `mas_sentry.core.injection_scan` as a shared primitive consumed by both the
-  MCP tool-descriptor audit and the ABFP live-traffic detector, removing a
-  would-be `agents -> protocols.mcp` layering dependency. The MCP audit API is
-  unchanged (re-exported).
 
 ## [0.5.0] - 2026-07-01 - Four taxonomy lenses, MCP tool-drift, cascade blast-radius, SARIF security-severity
 
