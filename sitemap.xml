@@ -2,106 +2,106 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
     <url>
          <loc>https://evkir.github.io/mas-sentry-toolkit/</loc>
-         <lastmod>2026-07-14</lastmod>
+         <lastmod>2026-07-15</lastmod>
     </url>
     <url>
          <loc>https://evkir.github.io/mas-sentry-toolkit/ARCHITECTURE/</loc>
-         <lastmod>2026-07-14</lastmod>
+         <lastmod>2026-07-15</lastmod>
     </url>
     <url>
          <loc>https://evkir.github.io/mas-sentry-toolkit/SUPPLY-CHAIN/</loc>
-         <lastmod>2026-07-14</lastmod>
+         <lastmod>2026-07-15</lastmod>
     </url>
     <url>
          <loc>https://evkir.github.io/mas-sentry-toolkit/hcap-spec/</loc>
-         <lastmod>2026-07-14</lastmod>
+         <lastmod>2026-07-15</lastmod>
     </url>
     <url>
          <loc>https://evkir.github.io/mas-sentry-toolkit/agentic/</loc>
-         <lastmod>2026-07-14</lastmod>
+         <lastmod>2026-07-15</lastmod>
     </url>
     <url>
          <loc>https://evkir.github.io/mas-sentry-toolkit/api/</loc>
-         <lastmod>2026-07-14</lastmod>
+         <lastmod>2026-07-15</lastmod>
     </url>
     <url>
          <loc>https://evkir.github.io/mas-sentry-toolkit/examples/01-environment-doctor/</loc>
-         <lastmod>2026-07-14</lastmod>
+         <lastmod>2026-07-15</lastmod>
     </url>
     <url>
          <loc>https://evkir.github.io/mas-sentry-toolkit/examples/02-mcp-stdio-rce/</loc>
-         <lastmod>2026-07-14</lastmod>
+         <lastmod>2026-07-15</lastmod>
     </url>
     <url>
          <loc>https://evkir.github.io/mas-sentry-toolkit/examples/03-abfp-baseline/</loc>
-         <lastmod>2026-07-14</lastmod>
+         <lastmod>2026-07-15</lastmod>
     </url>
     <url>
          <loc>https://evkir.github.io/mas-sentry-toolkit/examples/04-agentic-static/</loc>
-         <lastmod>2026-07-14</lastmod>
+         <lastmod>2026-07-15</lastmod>
     </url>
     <url>
          <loc>https://evkir.github.io/mas-sentry-toolkit/examples/05-bug-bounty-prep/</loc>
-         <lastmod>2026-07-14</lastmod>
+         <lastmod>2026-07-15</lastmod>
     </url>
     <url>
          <loc>https://evkir.github.io/mas-sentry-toolkit/mcp/ARCHITECTURE/</loc>
-         <lastmod>2026-07-14</lastmod>
+         <lastmod>2026-07-15</lastmod>
     </url>
     <url>
          <loc>https://evkir.github.io/mas-sentry-toolkit/mcp/stdio-rce-writeup/</loc>
-         <lastmod>2026-07-14</lastmod>
+         <lastmod>2026-07-15</lastmod>
     </url>
     <url>
          <loc>https://evkir.github.io/mas-sentry-toolkit/methodology/ABFP/</loc>
-         <lastmod>2026-07-14</lastmod>
+         <lastmod>2026-07-15</lastmod>
     </url>
     <url>
          <loc>https://evkir.github.io/mas-sentry-toolkit/methodology/a2a-scanning/</loc>
-         <lastmod>2026-07-14</lastmod>
+         <lastmod>2026-07-15</lastmod>
     </url>
     <url>
          <loc>https://evkir.github.io/mas-sentry-toolkit/methodology/consume-edge-inference/</loc>
-         <lastmod>2026-07-14</lastmod>
+         <lastmod>2026-07-15</lastmod>
     </url>
     <url>
          <loc>https://evkir.github.io/mas-sentry-toolkit/methodology/indirect-prompt-injection/</loc>
-         <lastmod>2026-07-14</lastmod>
+         <lastmod>2026-07-15</lastmod>
     </url>
     <url>
          <loc>https://evkir.github.io/mas-sentry-toolkit/methodology/propagation-in-reporting/</loc>
-         <lastmod>2026-07-14</lastmod>
+         <lastmod>2026-07-15</lastmod>
     </url>
     <url>
          <loc>https://evkir.github.io/mas-sentry-toolkit/methodology/threat-modeling/</loc>
-         <lastmod>2026-07-14</lastmod>
+         <lastmod>2026-07-15</lastmod>
     </url>
     <url>
          <loc>https://evkir.github.io/mas-sentry-toolkit/methodology/transitive-injection-propagation/</loc>
-         <lastmod>2026-07-14</lastmod>
+         <lastmod>2026-07-15</lastmod>
     </url>
     <url>
          <loc>https://evkir.github.io/mas-sentry-toolkit/reference/api/</loc>
-         <lastmod>2026-07-14</lastmod>
+         <lastmod>2026-07-15</lastmod>
     </url>
     <url>
          <loc>https://evkir.github.io/mas-sentry-toolkit/reference/cli/</loc>
-         <lastmod>2026-07-14</lastmod>
+         <lastmod>2026-07-15</lastmod>
     </url>
     <url>
          <loc>https://evkir.github.io/mas-sentry-toolkit/usage/abfp-fingerprinting/</loc>
-         <lastmod>2026-07-14</lastmod>
+         <lastmod>2026-07-15</lastmod>
     </url>
     <url>
          <loc>https://evkir.github.io/mas-sentry-toolkit/usage/attack-scenarios/</loc>
-         <lastmod>2026-07-14</lastmod>
+         <lastmod>2026-07-15</lastmod>
     </url>
     <url>
          <loc>https://evkir.github.io/mas-sentry-toolkit/usage/mqtt-scanning/</loc>
-         <lastmod>2026-07-14</lastmod>
+         <lastmod>2026-07-15</lastmod>
     </url>
     <url>
          <loc>https://evkir.github.io/mas-sentry-toolkit/usage/shell-completion/</loc>
-         <lastmod>2026-07-14</lastmod>
+         <lastmod>2026-07-15</lastmod>
     </url>
 </urlset>
