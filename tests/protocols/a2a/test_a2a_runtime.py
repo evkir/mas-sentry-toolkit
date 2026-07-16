@@ -50,7 +50,7 @@ def _handler(req: httpx.Request) -> httpx.Response:
                 "result": {
                     "id": tid,
                     "status": {"state": "completed"},
-                    "artifacts": [{"type": "text", "text": echoed}],
+                    "artifacts": [{"parts": [{"text": echoed}]}],
                 },
             },
         )

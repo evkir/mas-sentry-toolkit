@@ -17,6 +17,7 @@ from dataclasses import dataclass
 import httpx
 
 from .client import A2AClient, A2ARpcError, TaskState
+from .parts import artifact_text
 
 _TERMINAL_STATES = {TaskState.COMPLETED, TaskState.FAILED, TaskState.CANCELED, TaskState.REJECTED}
 DEFAULT_POLL_DEADLINE_S = 10.0
@@ -85,7 +86,7 @@ def probe_indirect_injection(
     while time.monotonic() < deadline and r.state not in _TERMINAL_STATES:
         time.sleep(poll_interval_s)
         r = client.get_task(r.task_id)
-    blob = str(r.artifacts)
+    blob = artifact_text(r.artifacts)
     contaminated = canary in blob
     return ProbeResult(
         name="indirect-injection",
