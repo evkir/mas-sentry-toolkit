@@ -26,6 +26,13 @@ from mas_sentry.reporting.structured import write_json
 
 from .card_audit import audit_agent_card
 from .client import A2AClient, A2ARpcError, A2AUnsupportedBindingError
+from .mesh import (
+    MeshAgent,
+    agent_scopes,
+    build_delegation_graph,
+    detect_scope_escalation,
+    load_mesh_manifest,
+)
 from .probes import (
     probe_indirect_injection,
     probe_task_id_collision,
@@ -94,3 +101,37 @@ def _run_probes(client: A2AClient, target: str) -> list[Finding]:
     except (httpx.HTTPError, A2ARpcError) as exc:
         audit_write({"action": "a2a_probe_error", "probe": "probe_indirect_injection", "error": type(exc).__name__})
     return out
+
+
+def run_mesh_scan(
+    manifest: Path,
+    out: Path,
+    scope_confirmed: bool,
+    transport: httpx.BaseTransport | None = None,
+) -> list[Finding]:
+    """Audit an A2A delegation mesh for cross-agent privilege escalation.
+
+    Fetch every agent card named in the manifest (passive discovery, scope
+    enforced per-URL by A2AClient), build the operator-declared delegation
+    graph, and flag non-attenuating hops (a delegate advertising OAuth2 scopes
+    its delegator lacks). A declared agent that cannot be reached surfaces its
+    transport error rather than being silently dropped - a missing node would
+    hide the very edges we are here to judge. `transport` is for offline tests.
+    """
+    agents_spec, edges = load_mesh_manifest(manifest)
+    mesh_target = f"mesh:{manifest.stem}"
+    audit_write({"action": "a2a_mesh_scan_start", "mesh": mesh_target, "agents": len(agents_spec), "edges": len(edges)})
+
+    mesh_agents: list[MeshAgent] = []
+    for spec in agents_spec:
+        with A2AClient(spec["url"], transport=transport, confirmed=scope_confirmed) as client:
+            card = client.discover()
+        mesh_agents.append(MeshAgent(id=spec["id"], url=spec["url"], scopes=agent_scopes(card)))
+
+    graph = build_delegation_graph(mesh_agents, edges)
+    findings = detect_scope_escalation(graph, mesh_target)
+
+    out.parent.mkdir(parents=True, exist_ok=True)
+    write_json(findings, mesh_target, out)
+    audit_write({"action": "a2a_mesh_scan_done", "mesh": mesh_target, "findings": len(findings)})
+    return findings

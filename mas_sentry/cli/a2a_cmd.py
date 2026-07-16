@@ -62,3 +62,43 @@ def a2a_scan(
         table.add_row(f.module, f.severity.value, f.title[:60], ", ".join(f.tags))
     console.print(table)
     console.print(f"[green]{len(findings)} finding(s) -> {out}[/green]")
+
+
+@app.command("mesh")
+def a2a_mesh(
+    manifest: Path = typer.Option(..., "--manifest", "-m", help="Delegation-mesh manifest JSON: {agents, edges}"),
+    out: Path = typer.Option(Path("reports/a2a-mesh.json"), "--out", "-o"),
+    confirm_scope: bool = typer.Option(
+        False,
+        "--confirm-scope",
+        help="Required for non-lab agent URLs (anything outside localhost/.lab/.test/.local)",
+    ),
+) -> None:
+    """Audit an A2A delegation mesh: fetch every card -> delegation graph -> flag escalation.
+
+    Passive (card discovery only, no tasks submitted). Each agent URL is scope-checked
+    individually, so any non-lab agent in the manifest requires --confirm-scope. Output
+    JSON feeds `mas-sentry report convert` for html/md/sarif/junit.
+    """
+    from mas_sentry.core.scope import ScopeViolation
+    from mas_sentry.protocols.a2a.runtime import run_mesh_scan
+
+    try:
+        findings = run_mesh_scan(manifest=manifest, out=out, scope_confirmed=confirm_scope)
+    except ScopeViolation as exc:
+        err_console.print(f"[scope] {exc}", markup=False, soft_wrap=True)
+        raise typer.Exit(code=2) from exc
+    except (ValueError, OSError) as exc:
+        err_console.print(f"[manifest] {exc}", markup=False, soft_wrap=True)
+        raise typer.Exit(code=2) from exc
+
+    table = Table(title=f"A2A delegation-mesh scan - {manifest.name}")
+    table.add_column("Delegator")
+    table.add_column("Delegate")
+    table.add_column("Severity")
+    table.add_column("Gained scopes")
+    for f in findings:
+        ev = f.evidence
+        table.add_row(str(ev["delegator"]), str(ev["delegate"]), f.severity.value, ", ".join(ev["gained_scopes"]))
+    console.print(table)
+    console.print(f"[green]{len(findings)} escalation finding(s) -> {out}[/green]")

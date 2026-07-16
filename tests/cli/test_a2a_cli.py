@@ -85,3 +85,51 @@ def test_a2a_registered_in_top_level_help() -> None:
     result = runner.invoke(app, ["--help"])
     assert result.exit_code == 0
     assert "a2a" in result.output
+
+
+def test_a2a_mesh_renders_table(monkeypatch: pytest.MonkeyPatch, tmp_path) -> None:
+    manifest = tmp_path / "mesh.json"
+    manifest.write_text("{}")
+
+    def _fake(**kwargs: object) -> list[Finding]:
+        return [
+            Finding(
+                module="a2a.mesh.priv_esc",
+                title="Cross-agent privilege escalation: A delegates to B with broadened scope",
+                detail="B holds scopes A lacks",
+                severity=Severity.HIGH,
+                target="mesh:x",
+                tags=["a2a", "mesh", "CWE-269"],
+                evidence={"delegator": "A", "delegate": "B", "gained_scopes": ["admin"]},
+            )
+        ]
+
+    monkeypatch.setattr(a2a_runtime, "run_mesh_scan", _fake)
+    result = runner.invoke(app, ["a2a", "mesh", "-m", str(manifest)])
+    assert result.exit_code == 0, result.output
+    assert "delegation-mesh scan" in result.stdout
+    assert "1 escalation finding(s)" in result.stdout
+
+
+def test_a2a_mesh_scope_violation_exits_2(monkeypatch: pytest.MonkeyPatch, tmp_path) -> None:
+    manifest = tmp_path / "mesh.json"
+    manifest.write_text("{}")
+
+    def _fake(**kwargs: object) -> list[Finding]:
+        raise ScopeViolation("agent 'https://api.example.com' outside allowlist")
+
+    monkeypatch.setattr(a2a_runtime, "run_mesh_scan", _fake)
+    result = runner.invoke(app, ["a2a", "mesh", "-m", str(manifest)])
+    assert result.exit_code == 2
+
+
+def test_a2a_mesh_bad_manifest_exits_2(monkeypatch: pytest.MonkeyPatch, tmp_path) -> None:
+    manifest = tmp_path / "mesh.json"
+    manifest.write_text("{}")
+
+    def _fake(**kwargs: object) -> list[Finding]:
+        raise ValueError("mesh manifest requires a non-empty agents list")
+
+    monkeypatch.setattr(a2a_runtime, "run_mesh_scan", _fake)
+    result = runner.invoke(app, ["a2a", "mesh", "-m", str(manifest)])
+    assert result.exit_code == 2
