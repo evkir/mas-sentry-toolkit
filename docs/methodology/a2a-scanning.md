@@ -102,7 +102,72 @@ SARIF, or JUnit without any re-adaptation.
 
 ---
 
-### 5. Limitations
+### 5. Delegation-mesh audit
+
+A single-target scan reasons over one agent in isolation, but cross-agent
+weaknesses live *between* agents - on the delegation edges an orchestrator
+wires up, invisible to any one card. `mas-sentry a2a mesh` lifts the audit to
+a mesh: an operator-declared topology of agents plus the delegation edges among
+them, over which two graph-level detectors run.
+
+The topology is operator-declared, mirroring `--confirm-scope`: the pentester
+maps the mesh they own and are authorised to test. Inferring delegation edges
+from free-form card text would be speculative, and observing them at runtime
+needs authentication the passive scanner does not assume - so the operator
+supplies the edges they already know. A manifest names the agents and edges:
+
+```json
+{
+  "agents": [
+    {"id": "coordinator", "url": "http://localhost:9000"},
+    {"id": "researcher", "url": "http://localhost:9001"},
+    {"id": "writer", "url": "http://localhost:9002"}
+  ],
+  "edges": [
+    ["coordinator", "researcher"],
+    ["researcher", "writer"]
+  ]
+}
+```
+
+Each card is fetched (passive discovery, scope-checked per URL), its OAuth2
+scopes read exactly as the single-target overbroad check reads them, and the
+delegation graph is built with scopes carried per node.
+
+| Detector                         | Flags                                                     | Severity                      | ASI   | CWE     | STRIDE                 |
+|----------------------------------|-----------------------------------------------------------|-------------------------------|-------|---------|------------------------|
+| Cross-agent privilege escalation | A delegate advertising OAuth2 scopes its delegator lacks   | HIGH / CRITICAL (depth >= 2)  | ASI03 | CWE-269 | Elevation of Privilege |
+| Recursive re-delegation          | A cycle in the delegation graph (unbounded re-delegation)  | HIGH / MEDIUM (self-loop)     | ASI07 | CWE-674 | Denial of Service      |
+
+**Privilege attenuation.** Every delegation hop must carry equal or lesser
+authority than the hop before it; no agent should delegate to a peer holding
+scopes it does not itself possess. An edge `A -> B` where `B` advertises a scope
+absent from `A` is a non-attenuating hop: a task handed from `A` reaches
+authority `A` never held. Severity climbs to CRITICAL when the widening sits two
+or more hops deep, where the escalation compounds an already-transitive chain.
+The exact gained scopes and the delegation chain ship as evidence.
+
+**Recursive re-delegation.** Delegation should form a DAG - a coordinator hands
+work down to specialists, never back up. A cycle lets a task be re-delegated
+around the loop with no base case, the recursive-DoS / delegation-deadlock
+vector that exhausts agent workers. A self-delegation loop is rated one step
+lower, since bounded self-recursion is at least a common intentional pattern.
+
+```bash
+# Audit a lab mesh (localhost agents bypass --confirm-scope)
+mas-sentry a2a mesh -m mesh.json
+
+# Any non-lab agent URL in the manifest requires authorisation
+mas-sentry a2a mesh -m mesh.json --confirm-scope
+```
+
+Both detectors run over the same graph in one pass; findings land in
+`reports/a2a-mesh.json` and feed `mas-sentry report convert` unchanged. The
+audit is passive - no tasks are submitted, only cards are fetched.
+
+---
+
+### 6. Limitations
 
 - Card poisoning detection is signature-based over the shared pattern set;
   novel obfuscations outside the set are not caught.
@@ -114,7 +179,7 @@ SARIF, or JUnit without any re-adaptation.
 
 ---
 
-### 6. Related
+### 7. Related
 
 - [Indirect Prompt Injection](indirect-prompt-injection.md) - the same
   directive class detected in live agent traffic and MCP descriptors.

@@ -74,6 +74,8 @@ mas-sentry mqtt scan --target 192.168.1.10
 mas-sentry mcp scan --target stdio://./vuln-server --checks all
 mas-sentry abfp scan --target mqtt://broker.lab --duration 60
 mas-sentry agentic scan --target http://langchain-app.lab --asi all
+mas-sentry a2a scan --target http://agent.lab
+mas-sentry a2a mesh --manifest mesh.json
 ```
 
 Run the included vulnerable lab:
