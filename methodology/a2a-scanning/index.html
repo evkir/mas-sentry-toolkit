@@ -1827,7 +1827,7 @@ A2A scan lands in the same HTML / Markdown / SARIF / JUnit pipeline as the
 MCP and ABFP verticals.</p>
 <hr />
 <h3 id="1-threat-model">1. Threat model</h3>
-<p>An A2A agent is reachable at a base URL exposing <code>/.well-known/agent.json</code>.
+<p>An A2A agent is reachable at a base URL exposing <code>/.well-known/agent-card.json</code> (A2A v1.0), with <code>/.well-known/agent.json</code> retained as the legacy v0.3.x fallback.
 Three classes of weakness matter:</p>
 <ul>
 <li><strong>Card configuration.</strong> Missing or <code>none</code> authentication lets any caller
