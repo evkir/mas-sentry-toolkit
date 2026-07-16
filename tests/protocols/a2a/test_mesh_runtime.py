@@ -80,3 +80,13 @@ def test_mesh_scan_transitive_critical(tmp_path: Path) -> None:
     assert len(findings) == 1
     assert findings[0].severity is Severity.CRITICAL
     assert findings[0].evidence["delegation_chain"] == ["A", "B", "C"]
+
+
+def test_mesh_scan_reports_delegation_cycle(tmp_path: Path) -> None:
+    cards = {"a.lab": _card("a", "read"), "b.lab": _card("b", "read")}
+    manifest = _manifest(tmp_path, [("A", "http://a.lab"), ("B", "http://b.lab")], [["A", "B"], ["B", "A"]])
+    out = tmp_path / "mesh-out.json"
+    findings = run_mesh_scan(manifest=manifest, out=out, scope_confirmed=False, transport=_mock(cards))
+    cycle = [f for f in findings if f.module == "a2a.mesh.delegation_cycle"]
+    assert len(cycle) == 1
+    assert cycle[0].evidence["cycle"] == ["A", "B"]

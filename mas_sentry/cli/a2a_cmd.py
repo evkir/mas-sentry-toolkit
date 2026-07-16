@@ -93,12 +93,10 @@ def a2a_mesh(
         raise typer.Exit(code=2) from exc
 
     table = Table(title=f"A2A delegation-mesh scan - {manifest.name}")
-    table.add_column("Delegator")
-    table.add_column("Delegate")
+    table.add_column("Module")
     table.add_column("Severity")
-    table.add_column("Gained scopes")
+    table.add_column("Title")
     for f in findings:
-        ev = f.evidence
-        table.add_row(str(ev["delegator"]), str(ev["delegate"]), f.severity.value, ", ".join(ev["gained_scopes"]))
+        table.add_row(f.module, f.severity.value, f.title[:70])
     console.print(table)
-    console.print(f"[green]{len(findings)} escalation finding(s) -> {out}[/green]")
+    console.print(f"[green]{len(findings)} mesh finding(s) -> {out}[/green]")

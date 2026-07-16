@@ -108,7 +108,8 @@ def test_a2a_mesh_renders_table(monkeypatch: pytest.MonkeyPatch, tmp_path) -> No
     result = runner.invoke(app, ["a2a", "mesh", "-m", str(manifest)])
     assert result.exit_code == 0, result.output
     assert "delegation-mesh scan" in result.stdout
-    assert "1 escalation finding(s)" in result.stdout
+    assert "1 mesh finding(s)" in result.stdout
+    assert "a2a.mesh.priv_esc" in result.stdout
 
 
 def test_a2a_mesh_scope_violation_exits_2(monkeypatch: pytest.MonkeyPatch, tmp_path) -> None:

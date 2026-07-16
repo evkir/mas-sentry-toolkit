@@ -35,6 +35,7 @@ from .card_audit import _collect_scope_names, _oauth2_flows
 from .client import AgentCard
 
 _ESCALATION_TAGS = ["a2a", "mesh", "ASI03_Identity_Abuse", "CWE-269", "STRIDE_Elevation_Of_Privilege"]
+_CYCLE_TAGS = ["a2a", "mesh", "ASI07_Resource_Exhaustion", "CWE-674", "STRIDE_Denial_Of_Service"]
 
 
 @dataclass(frozen=True, slots=True)
@@ -186,4 +187,50 @@ def detect_scope_escalation(graph: nx.DiGraph, mesh_target: str) -> list[Finding
             )
         )
     findings.sort(key=lambda f: (rank(f.severity), int(f.evidence["chain_depth"])), reverse=True)
+    return findings
+
+
+def _normalize_cycle(cycle: list[str]) -> list[str]:
+    """Rotate a cycle to start at its lexicographically smallest node (stable output)."""
+    if len(cycle) <= 1:
+        return cycle
+    i = min(range(len(cycle)), key=lambda k: cycle[k])
+    return cycle[i:] + cycle[:i]
+
+
+def detect_delegation_cycles(graph: nx.DiGraph, mesh_target: str) -> list[Finding]:
+    """Flag cycles in the delegation graph: unbounded recursive re-delegation.
+
+    Delegation should form a DAG - a coordinator hands work down to specialists,
+    never back up. A cycle (A -> B -> ... -> A) lets a task be re-delegated around
+    the loop with no base case: the recursive-DoS / delegation-deadlock vector,
+    where one entering task exhausts agent workers. A self-loop (an agent
+    delegating to itself) is the degenerate case, rated one step lower since
+    bounded self-recursion is at least a common intentional pattern. The cycle is
+    carried as evidence; the fix is breaking the back-edge or a delegation-depth cap.
+    """
+    findings: list[Finding] = []
+    for cycle in nx.simple_cycles(graph):
+        norm = _normalize_cycle(list(cycle))
+        length = len(norm)
+        loop = " -> ".join([*norm, norm[0]])
+        severity = Severity.MEDIUM if length == 1 else Severity.HIGH
+        kind = "self-delegation loop" if length == 1 else "delegation cycle"
+        findings.append(
+            Finding(
+                module="a2a.mesh.delegation_cycle",
+                title=f"Recursive re-delegation: {kind} {loop}",
+                detail=(
+                    f"The delegation topology contains a {kind} [{loop}]. Delegation should be "
+                    "acyclic; a cycle lets a task be re-delegated around the loop without a base "
+                    "case - the recursive-DoS / delegation-deadlock vector that exhausts agent "
+                    "workers. Break the back-edge or enforce a delegation-depth cap"
+                ),
+                severity=severity,
+                target=mesh_target,
+                tags=list(_CYCLE_TAGS),
+                evidence={"cycle": norm, "length": length},
+            )
+        )
+    findings.sort(key=lambda f: (rank(f.severity), int(f.evidence["length"])), reverse=True)
     return findings

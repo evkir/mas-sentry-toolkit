@@ -30,6 +30,7 @@ from .mesh import (
     MeshAgent,
     agent_scopes,
     build_delegation_graph,
+    detect_delegation_cycles,
     detect_scope_escalation,
     load_mesh_manifest,
 )
@@ -130,6 +131,7 @@ def run_mesh_scan(
 
     graph = build_delegation_graph(mesh_agents, edges)
     findings = detect_scope_escalation(graph, mesh_target)
+    findings.extend(detect_delegation_cycles(graph, mesh_target))
 
     out.parent.mkdir(parents=True, exist_ok=True)
     write_json(findings, mesh_target, out)

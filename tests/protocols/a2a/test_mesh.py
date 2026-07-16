@@ -12,6 +12,7 @@ from mas_sentry.protocols.a2a.mesh import (
     MeshAgent,
     agent_scopes,
     build_delegation_graph,
+    detect_delegation_cycles,
     detect_scope_escalation,
     load_mesh_manifest,
 )
@@ -190,3 +191,47 @@ def test_load_manifest_rejects_agent_missing_fields(tmp_path: Path) -> None:
     p = _write(tmp_path, {"agents": [{"id": "A"}]})
     with pytest.raises(ValueError, match="id and url"):
         load_mesh_manifest(p)
+
+
+# --- delegation cycles: recursive-DoS tenant ---
+
+
+def test_no_cycle_no_finding() -> None:
+    g = _graph([_agent("A"), _agent("B")], [("A", "B")])
+    assert detect_delegation_cycles(g, TARGET) == []
+
+
+def test_two_cycle_is_high() -> None:
+    g = _graph([_agent("A"), _agent("B")], [("A", "B"), ("B", "A")])
+    out = detect_delegation_cycles(g, TARGET)
+    assert len(out) == 1
+    f = out[0]
+    assert f.severity is Severity.HIGH
+    assert f.module == "a2a.mesh.delegation_cycle"
+    assert f.evidence["cycle"] == ["A", "B"]
+    assert f.evidence["length"] == 2
+    assert "CWE-674" in f.tags
+    assert "ASI07_Resource_Exhaustion" in f.tags
+
+
+def test_self_loop_is_medium() -> None:
+    g = _graph([_agent("A")], [("A", "A")])
+    out = detect_delegation_cycles(g, TARGET)
+    assert len(out) == 1
+    assert out[0].severity is Severity.MEDIUM
+    assert out[0].evidence["cycle"] == ["A"]
+    assert out[0].evidence["length"] == 1
+
+
+def test_cycle_normalized_to_min_node() -> None:
+    # C -> A -> B -> C is reported starting from A (the min node) for stable output.
+    g = _graph([_agent("A"), _agent("B"), _agent("C")], [("A", "B"), ("B", "C"), ("C", "A")])
+    out = detect_delegation_cycles(g, TARGET)
+    assert len(out) == 1
+    assert out[0].evidence["cycle"] == ["A", "B", "C"]
+
+
+def test_multiple_cycles_all_flagged_worst_first() -> None:
+    g = _graph([_agent("A"), _agent("B"), _agent("C")], [("A", "B"), ("B", "A"), ("C", "C")])
+    out = detect_delegation_cycles(g, TARGET)
+    assert [(f.severity.value, f.evidence["length"]) for f in out] == [("HIGH", 2), ("MEDIUM", 1)]
