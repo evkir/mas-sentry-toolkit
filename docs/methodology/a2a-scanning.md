@@ -19,7 +19,7 @@ MCP and ABFP verticals.
 
 ### 1. Threat model
 
-An A2A agent is reachable at a base URL exposing `/.well-known/agent.json`.
+An A2A agent is reachable at a base URL exposing `/.well-known/agent-card.json` (A2A v1.0), with `/.well-known/agent.json` retained as the legacy v0.3.x fallback.
 Three classes of weakness matter:
 
 - **Card configuration.** Missing or `none` authentication lets any caller
