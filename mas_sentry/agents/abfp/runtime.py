@@ -25,6 +25,7 @@ from .injection_propagation import (
     propagation_findings,
 )
 from .observer import MessageEvent, MessageObserver
+from .payload_exfil import PayloadExfilTracker
 from .payload_injection import PayloadInjectionTracker
 from .rogue import RogueFinding, detect_rogue
 from .scoring import DimensionScore
@@ -58,6 +59,7 @@ def run_abfp_scan(
     observer = MessageObserver()
     graph_builder = TopicGraphBuilder()
     injection_tracker = PayloadInjectionTracker()
+    exfil_tracker = PayloadExfilTracker()
 
     client = mqtt.Client(callback_api_version=mqtt.CallbackAPIVersion.VERSION2)
 
@@ -72,6 +74,7 @@ def run_abfp_scan(
         observer.record(ev)
         graph_builder.observe_publish(agent_id, msg.topic)
         injection_tracker.observe(agent_id, msg.topic, msg.payload)
+        exfil_tracker.observe(agent_id, msg.topic, msg.payload)
 
     client.on_connect = on_connect
     client.on_message = on_message
@@ -103,6 +106,10 @@ def run_abfp_scan(
     )
     # IPI directives seen in live traffic fire regardless of baseline presence.
     for aid, dims in injection_tracker.dimensions().items():
+        extra_dimensions.setdefault(aid, []).extend(dims)
+    # Exfiltration channels an agent emits are independent of baseline drift too:
+    # the beacon is in the traffic whether or not the topic map changed.
+    for aid, dims in exfil_tracker.dimensions().items():
         extra_dimensions.setdefault(aid, []).extend(dims)
     findings = detect_rogue(
         baseline_graph=baseline_graph, current_graph=current_graph, extra_dimensions=extra_dimensions
