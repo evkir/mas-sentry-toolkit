@@ -15,6 +15,7 @@ from rich.console import Console
 
 from .baseline import BaselineCollector
 from .cascade import BlastRadius, blast_radius
+from .coordination import CoordinationSignal, detect_coordination
 from .graph_metrics import AgentGraphMetrics, all_metrics, graph_summary
 from .identity import infer_agent_id
 from .impersonation import impersonation_dimensions
@@ -118,6 +119,13 @@ def run_abfp_scan(
     # Transitive IPI: reconstruct how directives propagated across agents from
     # the captured injection events, independent of baseline drift.
     propagation = propagation_findings(build_propagation_graph(injection_tracker.events()))
+    # Side channel: pairs locked in time whose coupling the topic graph does not
+    # explain. Reported as pair evidence, not as a per-agent score, because the
+    # signal belongs to the relationship rather than to either agent alone.
+    coordination = detect_coordination(
+        {aid: [e.timestamp for e in observer.events_for(aid)] for aid in observer.agent_ids()},
+        current_graph,
+    )
     _write_report(
         out_path,
         findings,
@@ -126,6 +134,7 @@ def run_abfp_scan(
         graph=graph_block,
         cascade=cascade,
         propagation=propagation,
+        coordination=coordination,
     )
     return AbfpScanResult(findings=findings, metrics=metrics, propagation=propagation)
 
@@ -205,6 +214,7 @@ def _write_report(
     graph: dict[str, Any] | None = None,
     cascade: dict[str, BlastRadius] | None = None,
     propagation: list[PropagationFinding] | None = None,
+    coordination: list[CoordinationSignal] | None = None,
 ) -> None:
     out_path.parent.mkdir(parents=True, exist_ok=True)
     payload: dict[str, Any] = {
@@ -227,4 +237,6 @@ def _write_report(
     if propagation:
         payload["propagation"] = _propagation_block(propagation, cascade)
         payload["propagation_summary"] = _propagation_summary(propagation)
+    if coordination:
+        payload["coordination"] = [asdict(c) for c in coordination]
     out_path.write_text(json.dumps(payload, indent=2, default=str))
