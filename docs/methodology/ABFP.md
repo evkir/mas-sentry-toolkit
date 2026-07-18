@@ -32,6 +32,8 @@ legitimate one simply by subscribing to the same topics.
 | Payload Sig.     | Size distribution, encoding, entropy        |
 | Interaction Graph| Agent-to-agent communication paths         |
 | State Inference  | Inferred FSM state from message sequences   |
+| Injection        | IPI directives in published payloads         |
+| Exfil Channels   | Auto-fetch beacons emitted in payloads       |
 
 #### 2.2 Fingerprint Vector
 
