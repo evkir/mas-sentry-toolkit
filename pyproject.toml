@@ -36,6 +36,7 @@ dependencies = [
     "jinja2>=3.1",
     "httpx>=0.28",
     "networkx>=3.4",
+    "numpy>=2.0",
     "scipy>=1.14",
     "structlog>=24.4",
 ]
@@ -75,7 +76,12 @@ ignore = ["S101", "S105", "S107", "S110", "S310", "RUF001"]
 "mas_sentry/cli/**" = ["B008"]
 
 [tool.mypy]
-python_version = "3.11"
+# Matches the interpreter the lint job runs on, not the floor in
+# requires-python: mypy parses installed third-party stubs with this
+# grammar, and 3.12-only packages (numpy 2.5+ requires >=3.12) ship stubs
+# using PEP 695 syntax that a lower target cannot parse. Compatibility with
+# the 3.11 floor is covered by the test matrix, which runs 3.11 through 3.14.
+python_version = "3.12"
 strict = false
 ignore_missing_imports = true
 check_untyped_defs = true
