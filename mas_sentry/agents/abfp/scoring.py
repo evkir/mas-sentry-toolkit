@@ -25,6 +25,10 @@ WEIGHTS = {
     # enough that a strong single hit reaches MEDIUM on its own and escalates
     # to HIGH/CRITICAL when combined with topic/identity drift.
     "injection": 0.60,
+    # Auto-fetch exfiltration channels emitted in agent traffic.
+    # Below injection: a legitimate agent may publish an external image,
+    # so one hit informs the operator rather than convicting alone.
+    "exfil": 0.45,
 }
 
 
