@@ -8,9 +8,10 @@ from typing import Any
 import typer
 from rich.console import Console
 
+from mas_sentry.agents.abfp.coordination import CoordinationSignal
 from mas_sentry.agents.abfp.injection_propagation import PropagationFinding
 from mas_sentry.agents.abfp.scoring import Severity as AbfpSeverity
-from mas_sentry.core.adapters import from_propagation_finding
+from mas_sentry.core.adapters import from_coordination_signal, from_propagation_finding
 from mas_sentry.core.finding import Finding, Severity
 from mas_sentry.reporting.markdown import render_markdown
 from mas_sentry.reporting.sarif import write_sarif
@@ -42,6 +43,7 @@ def report_convert(
         raise typer.BadParameter("expected a JSON array of findings or an object with a 'findings' array")
     findings = [_to_finding(d) for d in items]
     findings += _propagation_findings(raw, target)
+    findings += _coordination_findings(raw, target)
     graph = raw.get("graph") if isinstance(raw, dict) else None
     prop_summary = raw.get("propagation_summary") if isinstance(raw, dict) else None
 
@@ -92,6 +94,36 @@ def _propagation_findings(raw: Any, target: str) -> list[Finding]:
             tags=tuple(str(t) for t in d.get("tags", ())),
         )
         out.append(from_propagation_finding(pf, target, blast_radius=d.get("blast_radius")))
+    return out
+
+
+def _coordination_findings(raw: Any, target: str) -> list[Finding]:
+    """Convert the ABFP-JSON ``coordination`` block into unified Findings.
+
+    The block holds pair evidence: agents locked in time with no topic path to
+    explain the coupling. Like the propagation block it lives outside the
+    ``findings`` array, so without rebuilding it here the entire coordination
+    side-channel surface is silently dropped from SARIF, HTML, Markdown and
+    JUnit - visible only to whoever opens the raw scan JSON.
+    """
+    if not isinstance(raw, dict):
+        return []
+    block = raw.get("coordination")
+    if not isinstance(block, list):
+        return []
+    out: list[Finding] = []
+    for d in block:
+        if not isinstance(d, dict):
+            continue
+        signal = CoordinationSignal(
+            source=str(d.get("source", "?")),
+            target=str(d.get("target", "?")),
+            z=float(d.get("z", 0.0)),
+            observed=float(d.get("observed", 0.0)),
+            null_mean=float(d.get("null_mean", 0.0)),
+            events=int(d.get("events", 0)),
+        )
+        out.append(from_coordination_signal(signal, target))
     return out
 
 

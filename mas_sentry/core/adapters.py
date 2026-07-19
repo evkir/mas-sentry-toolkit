@@ -12,6 +12,7 @@ from __future__ import annotations
 from typing import Any
 
 from mas_sentry.agentic.base import AgenticFinding
+from mas_sentry.agents.abfp.coordination import CoordinationSignal
 from mas_sentry.agents.abfp.injection_propagation import PropagationFinding
 from mas_sentry.protocols.a2a.card_audit import CardFinding
 from mas_sentry.protocols.a2a.probes import ProbeResult
@@ -181,3 +182,43 @@ def _to_sev(s: str) -> Severity:
         return Severity(s.upper())
     except (ValueError, AttributeError):
         return Severity.INFO
+
+
+# A coupling this strong is worth putting in front of a reader first; below it
+# the pair is still reported, but as a lead rather than a highlighted one.
+_COORDINATION_STRONG_Z = 12.0
+
+
+def from_coordination_signal(signal: CoordinationSignal, target: str) -> Finding:
+    """Map a coordination side-channel signal into a Finding.
+
+    Severity is deliberately capped low. The detector measures that two agents
+    are locked in time with no topic path to explain it - that is a lead for a
+    human to investigate, not proof of malice, and a benign cause (an unobserved
+    broker, a shared external trigger) can produce the same shape. The z score,
+    the observed coupling and the surrogate null all ship in evidence so the
+    reader can judge the effect instead of trusting the label.
+    """
+    severity = Severity.MEDIUM if signal.z >= _COORDINATION_STRONG_Z else Severity.LOW
+    return Finding(
+        module="abfp.coordination",
+        title=f"Unexplained temporal coupling: {signal.source} -> {signal.target} (z={signal.z})",
+        detail=(
+            f"{signal.target} publishes within the response window of {signal.source} far more often "
+            f"than a phase-randomised surrogate of its own traffic would ({signal.observed} observed vs "
+            f"{signal.null_mean} expected, {signal.z} sigma over {signal.events} source events), and no "
+            "publish/consume path in the observed topic graph accounts for it. The pair is coordinating "
+            "over a channel this scan cannot see - investigate the link before treating it as benign"
+        ),
+        severity=severity,
+        target=target,
+        tags=["abfp", "coordination", "ASI06_Communication_Abuse", "CWE-514", "STRIDE_Information_Disclosure"],
+        evidence={
+            "source": signal.source,
+            "target_agent": signal.target,
+            "z": signal.z,
+            "observed": signal.observed,
+            "null_mean": signal.null_mean,
+            "source_events": signal.events,
+        },
+    )

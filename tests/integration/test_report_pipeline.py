@@ -429,3 +429,86 @@ def test_no_propagation_summary_omits_banner(tmp_path: Path):
     r2 = runner.invoke(app, ["report", "convert", str(src), "-f", "md", "-o", str(md), "--target", "t"])
     assert r2.exit_code == 0, r2.stdout
     assert "## Injection Propagation" not in md.read_text()
+
+
+def test_coordination_block_flows_into_reports(tmp_path: Path):
+    src = tmp_path / "abfp.json"
+    src.write_text(
+        json.dumps(
+            {
+                "target": "mqtt://demo:1883",
+                "findings": [],
+                "coordination": [
+                    {
+                        "source": "fleet_lead_a1",
+                        "target": "fleet_echo_b2",
+                        "z": 24.9,
+                        "observed": 1.0,
+                        "null_mean": 0.218,
+                        "events": 120,
+                    }
+                ],
+            }
+        )
+    )
+    sarif = tmp_path / "c.sarif"
+    r = runner.invoke(
+        app, ["report", "convert", str(src), "-f", "sarif", "-o", str(sarif), "--target", "mqtt://demo:1883"]
+    )
+    assert r.exit_code == 0, r.stdout
+    doc = json.loads(sarif.read_text())
+    hits = [x for x in doc["runs"][0]["results"] if x["ruleId"] == "MAS-SENTRY-ABFP.COORDINATION"]
+    assert hits, "coordination finding missing from SARIF"
+    assert "CWE-514" in hits[0]["properties"]["tags"]
+    assert hits[0]["properties"]["z"] == 24.9
+
+    for fmt, ext in [("html", "html"), ("md", "md")]:
+        out = tmp_path / f"c.{ext}"
+        rr = runner.invoke(app, ["report", "convert", str(src), "-f", fmt, "-o", str(out), "--target", "t"])
+        assert rr.exit_code == 0, rr.stdout
+        body = out.read_text()
+        assert "fleet_lead_a1" in body and "fleet_echo_b2" in body
+
+
+def test_coordination_severity_scales_with_effect(tmp_path: Path):
+    # A strong coupling is worth surfacing above a marginal one, but neither is
+    # a verdict, so the ceiling stays at MEDIUM.
+    src = tmp_path / "abfp.json"
+    src.write_text(
+        json.dumps(
+            {
+                "findings": [],
+                "coordination": [
+                    {"source": "a", "target": "b", "z": 24.9, "observed": 1.0, "null_mean": 0.2, "events": 100},
+                    {"source": "c", "target": "d", "z": 7.1, "observed": 0.5, "null_mean": 0.2, "events": 40},
+                ],
+            }
+        )
+    )
+    out = tmp_path / "c.sarif"
+    r = runner.invoke(app, ["report", "convert", str(src), "-f", "sarif", "-o", str(out), "--target", "t"])
+    assert r.exit_code == 0, r.stdout
+    doc = json.loads(out.read_text())
+    by_z = {x["properties"]["z"]: x["level"] for x in doc["runs"][0]["results"]}
+    assert by_z == {24.9: "warning", 7.1: "note"}
+
+
+def test_no_coordination_block_is_noop(tmp_path: Path):
+    src = tmp_path / "n.json"
+    src.write_text(json.dumps({"findings": [{"module": "mcp.ssrf", "title": "SSRF", "severity": "HIGH"}]}))
+    out = tmp_path / "n.sarif"
+    r = runner.invoke(app, ["report", "convert", str(src), "-f", "sarif", "-o", str(out), "--target", "t"])
+    assert r.exit_code == 0, r.stdout
+    doc = json.loads(out.read_text())
+    assert not [x for x in doc["runs"][0]["results"] if x["ruleId"] == "MAS-SENTRY-ABFP.COORDINATION"]
+
+
+def test_malformed_coordination_entries_are_skipped(tmp_path: Path):
+    src = tmp_path / "m.json"
+    src.write_text(json.dumps({"findings": [], "coordination": ["junk", {"source": "a", "target": "b"}]}))
+    out = tmp_path / "m.sarif"
+    r = runner.invoke(app, ["report", "convert", str(src), "-f", "sarif", "-o", str(out), "--target", "t"])
+    assert r.exit_code == 0, r.stdout
+    doc = json.loads(out.read_text())
+    hits = [x for x in doc["runs"][0]["results"] if x["ruleId"] == "MAS-SENTRY-ABFP.COORDINATION"]
+    assert len(hits) == 1  # the string is dropped, the sparse dict still maps

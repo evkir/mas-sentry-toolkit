@@ -119,6 +119,11 @@ def to_sarif(findings: list[dict[str, Any]], tool_version: str | None = None) ->
             properties["score"] = evidence["total"]
         if evidence.get("blast_radius"):
             properties["blast_radius"] = evidence["blast_radius"]
+        if evidence.get("z") is not None:
+            # Effect size of a coordination signal: the number a triager
+            # sorts and filters on, so it belongs in structured properties
+            # rather than only inside the message text.
+            properties["z"] = evidence["z"]
         if properties:
             result["properties"] = properties
         results.append(result)
