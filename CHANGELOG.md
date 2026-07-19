@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-07-19 - Delegation-mesh auditing, agent-output exfiltration detection, coordination side-channel
+
 ### Added
 - A2A delegation-mesh auditing (`mas-sentry a2a mesh`). The single-target card
   audit reasons over one agent in isolation, but cross-agent weaknesses live on
