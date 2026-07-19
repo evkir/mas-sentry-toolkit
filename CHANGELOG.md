@@ -2,6 +2,134 @@
 
 ## [Unreleased]
 
+### Added
+- A2A delegation-mesh auditing (`mas-sentry a2a mesh`). The single-target card
+  audit reasons over one agent in isolation, but cross-agent weaknesses live on
+  the delegation edges between agents, invisible to any one card - the
+  overbroad-scope check shipped in 0.6.0 names cross-agent privilege escalation
+  as its motive yet structurally cannot see it. The mesh scan takes an
+  operator-declared topology (`{agents: [{id, url}], edges: [[from, to]]}`),
+  fetches every card through the existing scope-enforced passive discovery, and
+  builds a delegation graph carrying each agent OAuth2 scopes as node data.
+  Topology is declared rather than inferred, mirroring `--confirm-scope`: the
+  pentester maps the mesh they are authorised to test, instead of the scanner
+  guessing edges from free-form card text (speculative) or observing them at
+  runtime (needs authentication a passive scanner does not assume).
+- Mesh detector: cross-agent privilege escalation through scope
+  non-attenuation. Privilege attenuation, the 2026 A2A delegation consensus,
+  requires every hop to carry equal or lesser authority than the hop before it.
+  An edge `A -> B` where B advertises OAuth2 scopes absent from A is a
+  non-attenuating hop: a task handed down it reaches authority A never held.
+  Severity follows the contamination depth ladder - HIGH for a first-hop
+  widening, CRITICAL when it sits two or more hops deep and compounds an
+  already-transitive chain. Scope extraction reuses the card-audit helpers, so
+  the mesh and the single-target check share one definition of granted scope.
+  Gained scopes and the full delegation chain travel as evidence rather than
+  asserting exploitability. Tagged ASI03 / CWE-269 / STRIDE Elevation of
+  Privilege; no ATLAS id, no clean verified match.
+- Mesh detector: recursive re-delegation (delegation cycles). Delegation should
+  form a DAG - a coordinator hands work down to specialists, never back up. A
+  cycle lets a task be re-delegated around the loop with no base case, the
+  recursive-DoS / delegation-deadlock vector where a single entering task
+  exhausts agent workers. Elementary cycles are enumerated and normalised to a
+  stable starting node; multi-agent cycles score HIGH, self-delegation loops
+  MEDIUM, since bounded self-recursion is at least a common intentional
+  pattern. Both mesh detectors run over the same graph in one pass. Tagged
+  ASI07 / CWE-674 / STRIDE Denial of Service. Documented in the A2A scanning
+  methodology page.
+- Structured extraction of A2A artifact Parts across spec generations
+  (`protocols/a2a/parts.py`). A2A v1.0 redesigned Part into a single
+  member-discriminated shape (`text`, `data`, `url`, `raw`), dropping the
+  v0.3.x `kind` field and the nested `file.fileWithBytes` / `fileWithUri`.
+  Discrimination is by member presence, which covers both generations for text
+  and data; both file shapes are read. Data parts are JSON-serialised so an
+  embedded canary is still found, inline base64 is decoded, and URI references
+  contribute their URL string without being fetched.
+- Agent-output exfiltration-channel scanning (`core/output_exfil.py`), a
+  neutral primitive sibling to `injection_scan`: that flags hidden directives
+  entering a model, this flags exfiltration channels in what an agent emits.
+  The 2026 disclosure class (EchoLeak CVE-2025-32711, Salesforce ForcedLeak)
+  weaponises agent output - the model is induced to embed a Markdown image or
+  link at an external URL that the rendering client auto-fetches, leaking any
+  data folded into the URL before a human sees it. Detects Markdown images,
+  reference-style link definitions (the EchoLeak link-redaction bypass) and
+  HTML img tags pointing at http(s) targets; data URIs and relative paths are
+  ignored because they trigger no external fetch. Maps to CWE-201 / OWASP
+  LLM05.
+- The A2A indirect-injection probe now also scans decoded artifact text for
+  those channels. A probe that fed an injection payload and receives output
+  embedding an auto-fetch beacon has found the EchoLeak effect - the injected
+  instruction manifested as a data-leak channel - and that fails the probe even
+  when the exact canary was never echoed verbatim.
+- ABFP: exfiltration channels detected on the inter-agent message bus, as a new
+  `exfil` scoring dimension. Where `payload_injection` flags the directive that
+  arrived, this flags the beacon that went out; a payload carrying both raises
+  two dimensions rather than one blurred signal. The 2026 AgentLeak evaluation
+  found inter-agent coordination channels to be the highest-yield exfiltration
+  vector precisely because they stay invisible to output-level defenses, which
+  is exactly what response-side probing is. Scored per distinct (channel kind,
+  destination host) rather than per message, and weighted below injection at
+  0.45: a legitimate agent may publish an external image, so one hit informs
+  the operator rather than convicting alone, and the destination is always
+  named in the reason. Payloads are scanned in flight and never retained.
+- ABFP: unexplained temporal coupling between agents, a coordination side
+  channel. This is deliberately **not** a collusion detector - state-of-the-art
+  collusion detection reads model activations a network scanner does not have,
+  and against steganographic collusion plain-text monitoring is theoretically
+  defeated by schemes computationally indistinguishable from good-faith
+  traffic. What a passive observer can measure is the consequence: whether one
+  agent systematically publishes inside the response window of another. That
+  raw fraction is meaningless on its own, since two agents on a shared timer
+  score high while coordinating nothing, so it is standardised against a
+  circular-shift surrogate null which preserves each series own cadence and
+  destroys only the phase relation. A standardised z is used rather than a
+  permutation p-value, whose resolution floor of 1/(K+1) cannot clear a
+  multiple-comparison threshold at mesh pair counts. On synthetic meshes the
+  null measures as N(0,1): the largest clean-pair z was 2.94 against 9.5 for
+  partial coupling and 24.9 for full, and a shared-timer pair scores 1.9, so
+  the six-sigma default has wide margin. Pairs already explained by a
+  publish/consume path are skipped, because a downstream agent answering its
+  upstream is the system working. Every documented limit fails toward silence
+  rather than false accusation. Reported as pair evidence in a `coordination`
+  block, not as a per-agent score, since the signal belongs to the
+  relationship. Documented in a dedicated methodology page that states the
+  bounds of the claim before the method.
+
+### Fixed
+- The A2A indirect-injection probe matched its canary against a blunt
+  stringification of the raw artifact list, which misses the payload whenever
+  an agent returns it inside a file part base64 content: the canary is encoded
+  on the wire, the substring never fires, and a real injection exfiltrating
+  through a file part reads as clean. The probe now matches against decoded
+  Part text, closing that false negative and dropping metadata and media-type
+  noise at the same time. Two existing tests fed the probe a non-spec flat
+  artifact that only passed because `str()` stringified it; both now use the
+  real `{parts: [...]}` shape.
+- Coordination signals were written into the ABFP scan JSON but never read back
+  by `report convert`, which rebuilds only the findings array and the
+  propagation block. Every unexplained-coupling signal was therefore invisible
+  in SARIF, HTML, Markdown and JUnit - the same silent drop propagation
+  suffered before 0.6.0, reintroduced on a new surface. Convert now rebuilds
+  the block through a `from_coordination_signal` adapter, so the JSON entry
+  point produces exactly the findings a live scan would. Severity is capped
+  deliberately at MEDIUM above twelve sigma and LOW below it: the detector
+  proves coupling with no topological explanation, which is a lead to
+  investigate rather than proof of malice. SARIF promotes `z` into structured
+  properties, since that is the number a triager sorts on.
+- The lint job failed inside numpy own stubs, which use PEP 695 `type`
+  statements that mypy cannot parse while `python_version` is pinned to 3.11.
+  The lint job runs on Python 3.12 and therefore installs numpy 2.5.x (itself
+  requiring >=3.12), while mypy was told to analyse everything with 3.11
+  grammar - a config contradiction numpy merely exposed. Per-module
+  `follow_imports = skip` does not help, since stubs are parsed before
+  overrides apply. The mypy target now matches the interpreter lint runs on;
+  the 3.11 floor stays honest because the test matrix exercises 3.11 to 3.14.
+  numpy is also declared as an explicit dependency, having been relied on
+  transitively through scipy despite a direct import.
+- A2A threat-model documentation still named only the legacy
+  `/.well-known/agent.json` discovery path, though discovery has preferred the
+  v1.0 `/.well-known/agent-card.json` URI since the 0.6.0 migration.
+
 ## [0.6.0] - 2026-07-15 - A2A v1.0 protocol migration, cross-agent privilege-escalation card audits, transitive injection propagation
 
 ### Added
