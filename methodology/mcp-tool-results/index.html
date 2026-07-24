@@ -10,13 +10,13 @@
       
       
       
-        <link rel="canonical" href="https://evkir.github.io/mas-sentry-toolkit/methodology/threat-modeling/">
+        <link rel="canonical" href="https://evkir.github.io/mas-sentry-toolkit/methodology/mcp-tool-results/">
       
       
-        <link rel="prev" href="../coordination-side-channel/">
+        <link rel="prev" href="../a2a-scanning/">
       
       
-        <link rel="next" href="../../agentic/">
+        <link rel="next" href="../coordination-side-channel/">
       
       
         
@@ -27,7 +27,7 @@
     
     
       
-        <title>Threat Modeling - MAS-Sentry Toolkit</title>
+        <title>MCP Tool Results - MAS-Sentry Toolkit</title>
       
     
     
@@ -80,7 +80,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#threat-modeling-guide-mas-sentry-toolkit" class="md-skip">
+        <a href="#mcp-tool-results-and-resource-content" class="md-skip">
           Skip to content
         </a>
       
@@ -114,7 +114,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Threat Modeling
+              MCP Tool Results
             
           </span>
         </div>
@@ -707,10 +707,37 @@
                 
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="../mcp-tool-results/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    MCP Tool Results
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
         
   
   
@@ -726,6 +753,70 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#tool-results-are-content-blocks-not-strings" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tool results are content blocks, not strings
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#tool-errors-do-not-arrive-as-protocol-errors" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tool errors do not arrive as protocol errors
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#resource-content-was-never-read" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Resource content was never read
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#what-this-does-not-cover" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What this does not cover
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -763,37 +854,10 @@
                 
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-        
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Threat Modeling
-  
-
-    
-  </span>
-  
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="./" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../threat-modeling/" class="md-nav__link">
         
   
   
@@ -809,81 +873,6 @@
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#overview" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Overview
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#stride-categories-in-mas-context" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        STRIDE Categories in MAS Context
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#usage" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Usage
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#abfp-stride-automatic-mapping" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        ABFP → STRIDE Automatic Mapping
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#threat-catalog" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Threat Catalog
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
     </li>
   
 
@@ -1694,10 +1683,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#overview" class="md-nav__link">
+  <a href="#tool-results-are-content-blocks-not-strings" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Overview
+        Tool results are content blocks, not strings
       
     </span>
   </a>
@@ -1705,10 +1694,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#stride-categories-in-mas-context" class="md-nav__link">
+  <a href="#tool-errors-do-not-arrive-as-protocol-errors" class="md-nav__link">
     <span class="md-ellipsis">
       
-        STRIDE Categories in MAS Context
+        Tool errors do not arrive as protocol errors
       
     </span>
   </a>
@@ -1716,10 +1705,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#usage" class="md-nav__link">
+  <a href="#resource-content-was-never-read" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Usage
+        Resource content was never read
       
     </span>
   </a>
@@ -1727,21 +1716,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#abfp-stride-automatic-mapping" class="md-nav__link">
+  <a href="#what-this-does-not-cover" class="md-nav__link">
     <span class="md-ellipsis">
       
-        ABFP → STRIDE Automatic Mapping
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#threat-catalog" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Threat Catalog
+        What this does not cover
       
     </span>
   </a>
@@ -1768,68 +1746,93 @@
   
 
 
-<h1 id="threat-modeling-guide-mas-sentry-toolkit">Threat Modeling Guide — MAS-Sentry-Toolkit</h1>
-<h2 id="overview">Overview</h2>
-<p>MAS-Sentry uses STRIDE to systematically identify threats in
-Multi-Agent System deployments over MQTT and AMQP.</p>
-<h2 id="stride-categories-in-mas-context">STRIDE Categories in MAS Context</h2>
+<h1 id="mcp-tool-results-and-resource-content">MCP Tool Results and Resource Content</h1>
+<p>Two MCP surfaces were being read incorrectly, or not at all. Both cost real
+detections against servers that behave exactly as the specification tells them
+to, which is the worst kind of blind spot: the better the target implements the
+protocol, the less the scanner saw.</p>
+<h2 id="tool-results-are-content-blocks-not-strings">Tool results are content blocks, not strings</h2>
+<p>A <code>tools/call</code> result is a list of typed content blocks. Text sits under <code>text</code>;
+images and audio arrive base64-encoded under <code>data</code>; an embedded resource nests
+its own text or blob. Stringifying the raw result object and matching a
+substring against it fails twice over:</p>
+<ul>
+<li><strong>Truncation cuts the payload.</strong> A Python repr leads with dict scaffolding, so
+  a fixed prefix spends its budget on <code>{'content': [{'type': 'text', ...</code> before
+  reaching the content. An indicator further in is simply not seen.</li>
+<li><strong>Base64 hides everything.</strong> Content delivered as an image or resource blob is
+  encoded on the wire. No plaintext indicator can ever match it.</li>
+</ul>
+<p>The second failure is the same class the A2A artifact reader closed: a scanner
+that greps an encoded payload finds nothing and calls the target clean.
+Extraction now decodes each block, so matching runs on what a reader would see,
+and truncation applies only to the evidence recorded in a finding.</p>
+<h2 id="tool-errors-do-not-arrive-as-protocol-errors">Tool errors do not arrive as protocol errors</h2>
+<p>MCP deliberately splits errors in two:</p>
 <table>
 <thead>
 <tr>
-<th>Category</th>
-<th>MAS Example</th>
-<th>Severity</th>
+<th>Layer</th>
+<th>Carried as</th>
+<th>Example</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td><strong>Spoofing</strong></td>
-<td>Client ID impersonation</td>
-<td>CRITICAL</td>
+<td>Protocol</td>
+<td>JSON-RPC <code>error</code></td>
+<td>unknown tool, malformed request</td>
 </tr>
 <tr>
-<td><strong>Tampering</strong></td>
-<td>Retained message poisoning</td>
-<td>HIGH</td>
-</tr>
-<tr>
-<td><strong>Repudiation</strong></td>
-<td>No message signing</td>
-<td>MEDIUM</td>
-</tr>
-<tr>
-<td><strong>Info Disclosure</strong></td>
-<td>Wildcard topic enumeration</td>
-<td>HIGH</td>
-</tr>
-<tr>
-<td><strong>Denial of Service</strong></td>
-<td>Message flood</td>
-<td>HIGH</td>
-</tr>
-<tr>
-<td><strong>Elevation of Privilege</strong></td>
-<td>Topic ACL bypass</td>
-<td>CRITICAL</td>
+<td>Tool</td>
+<td>successful response with <code>isError: true</code></td>
+<td>fetch blocked, path rejected</td>
 </tr>
 </tbody>
 </table>
-<h2 id="usage">Usage</h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">mas_sentry.threat_modeling.stride</span><span class="w"> </span><span class="kn">import</span> <span class="n">MAS_MQTT_THREATS</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">mas_sentry.threat_modeling.stride_reporter</span><span class="w"> </span><span class="kn">import</span> <span class="n">format_threat_report</span>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="n">report</span> <span class="o">=</span> <span class="n">format_threat_report</span><span class="p">(</span><span class="n">MAS_MQTT_THREATS</span><span class="p">)</span>
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="nb">print</span><span class="p">(</span><span class="n">report</span><span class="p">)</span>
+<p>The split exists so the model can see a tool failure and self-correct - a
+protocol error never reaches it. For a scanner the consequence is sharp: a
+server that <strong>firmly refuses</strong> a probe payload returns a successful JSON-RPC
+response. Checking only the <code>error</code> field, that refusal falls through to
+indicator matching, matches nothing, and is discarded as an unremarkable
+success.</p>
+<p>A properly guarded tool therefore looked identical to a silent one. All probes
+now treat a tool-level error as a denial alongside a protocol-level one.</p>
+<h2 id="resource-content-was-never-read">Resource content was never read</h2>
+<p>Resources were enumerated and never fetched, leaving their contents the one
+agent-facing MCP surface with no audit at all - and the wrong one to skip. A
+resource is what an agent pulls into its own context on its own initiative,
+which makes a poisoned resource the textbook indirect-injection vector: the
+instruction does not come from the user, it arrives with data the agent fetched
+and trusted.</p>
+<p>Reading is safe here in a way that calling arbitrary tools is not.
+<code>resources/read</code> returns application-controlled data with no side effects by
+design, whereas invoking an unknown tool could write, delete or spend. The audit
+reads what a client would read and nothing more.</p>
+<p>Each resource is scanned on two axes with the shared core primitives:</p>
+<ul>
+<li><code>injection_scan</code> - hidden directives arriving in the content (the cause)</li>
+<li><code>output_exfil</code> - auto-fetch beacons embedded in it (the effect)</li>
+</ul>
+<p>A resource carrying a beacon leaks on render; one carrying a directive is the
+ingestion half of the same attack. HIGH is reserved for unambiguous signal - a
+strong injection pattern such as invisible characters, an explicit override or a
+tool-call hijack, or a concrete external beacon. Softer phrasing matches alone
+stay MEDIUM, because they are a lead rather than a verdict.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="c1"># Resource content is part of a full scan, or can be run alone</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>mas-sentry<span class="w"> </span>mcp<span class="w"> </span>scan<span class="w"> </span>--target<span class="w"> </span>http://localhost:3000<span class="w"> </span>--checks<span class="w"> </span>resources
 </code></pre></div>
-<h2 id="abfp-stride-automatic-mapping">ABFP → STRIDE Automatic Mapping</h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">mas_sentry.threat_modeling.abfp_stride_mapper</span><span class="w"> </span><span class="kn">import</span> <span class="n">map_session_findings</span>
-<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>
-<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="c1"># session.findings populated by ABFP engine</span>
-<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="n">threats</span> <span class="o">=</span> <span class="n">map_session_findings</span><span class="p">(</span><span class="n">session</span><span class="o">.</span><span class="n">findings</span><span class="p">)</span>
-</code></pre></div>
-<h2 id="threat-catalog">Threat Catalog</h2>
-<p>Current catalog covers 6 STRIDE categories with MAS-specific
-attack scenarios validated against real MQTT broker deployments.</p>
+<p>Findings flow through <code>report convert</code> like every other check.</p>
+<h2 id="what-this-does-not-cover">What this does not cover</h2>
+<ul>
+<li><strong>Tool outputs at large.</strong> Only tools the existing probes already invoke are
+  read. Calling arbitrary tools to inspect their output is not something a
+  scanner should do uninvited, since an unknown tool may have side effects.</li>
+<li><strong>Prompt templates.</strong> <code>prompts/get</code> renders a template with arguments and is
+  not yet audited.</li>
+<li><strong>Resources requiring arguments.</strong> Only resources returned by <code>resources/list</code>
+  are read; templated resource URIs are out of scope for now.</li>
+</ul>
 
 
 
