@@ -6,6 +6,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from ..client import McpClient
+from ..content import is_tool_error, tool_result_text
 from ..jsonrpc import JsonRpcCodec
 
 _SENSITIVE_URLS = [
@@ -51,7 +52,15 @@ def probe_ssrf(client: McpClient) -> list[SsrfFinding]:
                     )
                 )
                 continue
-            text = str(resp.result)[:400]
+            text = tool_result_text(resp.result)
+            if is_tool_error(resp.result):
+                # The spec routes tool failures into a successful response with
+                # isError set, not to the JSON-RPC error field, so a server that
+                # refuses the fetch lands here rather than above. Without this the
+                # refusal reads as an unremarkable success and is dropped, making a
+                # properly guarded tool indistinguishable from a silent one.
+                out.append(SsrfFinding(tool=tool.name, url=url, status="DENIED", evidence=text[:200]))
+                continue
             if _ssrf_indicator(url, text):
                 # Confirmed exfiltration of sensitive content.
                 out.append(SsrfFinding(tool=tool.name, url=url, status="OK", evidence=text[:200]))

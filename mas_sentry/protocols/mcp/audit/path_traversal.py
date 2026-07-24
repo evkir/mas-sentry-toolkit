@@ -15,6 +15,7 @@ from pathlib import Path
 from typing import Any
 
 from ..client import McpClient
+from ..content import is_tool_error, tool_result_text
 from ..jsonrpc import JsonRpcCodec
 
 _PATH_PAYLOADS = [
@@ -64,7 +65,19 @@ def probe_path_traversal(client: McpClient) -> list[TraversalFinding]:
                     )
                 )
                 continue
-            body = str(resp.result)[:300]
+            body = tool_result_text(resp.result)
+            if is_tool_error(resp.result):
+                # Tool-level refusal, which the spec keeps inside a successful
+                # response; treated as a denial like a protocol-level one.
+                out.append(
+                    TraversalFinding(
+                        tool=tool.name,
+                        payload=payload,
+                        confirmed=False,
+                        note=f"tool refused: {body[:120]}",
+                    )
+                )
+                continue
             confirmed = "root:" in body or "[fonts]" in body.lower()
             if confirmed:
                 out.append(
@@ -104,13 +117,16 @@ def probe_arg_injection(client: McpClient) -> list[TraversalFinding]:
                         note="canary file created",
                     )
                 )
-            elif resp.is_error:
+            elif resp.is_error or is_tool_error(resp.result):
+                # Either layer counts as a denial: protocol errors reject the
+                # call outright, tool errors reject the argument.
+                reason = str(resp.error)[:120] if resp.is_error else tool_result_text(resp.result)[:120]
                 out.append(
                     TraversalFinding(
                         tool=tool.name,
                         payload=payload,
                         confirmed=False,
-                        note=f"server denied: {str(resp.error)[:120]}",
+                        note=f"server denied: {reason}",
                     )
                 )
             # silent OK without canary is dropped
