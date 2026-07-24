@@ -14,6 +14,7 @@ from mas_sentry.core.finding import Finding, Severity
 
 engine = UnifiedThreatEngine()
 
+
 def example_module(ctx: dict) -> list[Finding]:
     return [
         Finding(
@@ -26,12 +27,13 @@ def example_module(ctx: dict) -> list[Finding]:
         )
     ]
 
+
 engine.register("example", example_module)
 run = engine.run(target="127.0.0.1", ctx={"target": "127.0.0.1"})
 
-print(run.max_severity)               # highest severity across findings
-print(run.by_severity(Severity.HIGH)) # filter
-print(run.errors)                     # per-module failures, isolated
+print(run.max_severity)  # highest severity across findings
+print(run.by_severity(Severity.HIGH))  # filter
+print(run.errors)  # per-module failures, isolated
 ```
 
 For a real wiring of the agentic ASI modules, see `mas_sentry/agentic/run.py`.
@@ -65,8 +67,7 @@ print(mapper.to_json())
 ```python
 from mas_sentry.threat_modeling.cvss_calculator import CVSSVector, calculate_cvss
 
-vector = CVSSVector(attack_vector="N", confidentiality="H",
-                    integrity="H", availability="H")
+vector = CVSSVector(attack_vector="N", confidentiality="H", integrity="H", availability="H")
 score = calculate_cvss(vector)  # 9.8
 ```
 
@@ -76,9 +77,9 @@ score = calculate_cvss(vector)  # 9.8
 from mas_sentry.threat_modeling.threat_aggregator import aggregate_threats
 
 score = aggregate_threats(threats)
-print(score.risk_level)      # CRITICAL / HIGH / MEDIUM / LOW
+print(score.risk_level)  # CRITICAL / HIGH / MEDIUM / LOW
 print(score.weighted_score)  # float
-print(score.top_threats)     # top 3 by CVSS
+print(score.top_threats)  # top 3 by CVSS
 ```
 
 ## ABFP engine
