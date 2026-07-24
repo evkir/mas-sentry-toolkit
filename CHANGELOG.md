@@ -2,6 +2,54 @@
 
 ## [Unreleased]
 
+### Added
+- MCP resource-content auditing (`--checks resources`). Resources were
+  enumerated and never read, leaving their contents the one agent-facing MCP
+  surface with no audit at all - and the wrong one to skip, since a resource is
+  what an agent pulls into its own context on its own initiative. That makes a
+  poisoned resource the textbook indirect-injection vector: the instruction does
+  not come from the user, it arrives with data the agent fetched and trusted.
+  Reading is safe here in a way that calling arbitrary tools is not, because
+  `resources/read` returns application-controlled data with no side effects by
+  design, whereas invoking an unknown tool could write, delete or spend - so the
+  audit reads what a client would read and nothing more. Each resource is
+  scanned on two axes with the shared core primitives: `injection_scan` for
+  directives arriving in the content, and `output_exfil` for auto-fetch beacons
+  embedded in it, making this the third consumer of that primitive after the A2A
+  probe and the ABFP message bus. HIGH is reserved for unambiguous signal, a
+  strong injection pattern or a concrete external beacon; softer phrasing
+  matches stay MEDIUM. Wired through `run_mcp_scan` so findings reach every
+  report format rather than stopping at the audit layer.
+- Structured reading of MCP `CallToolResult` payloads
+  (`protocols/mcp/content.py`): content-block extraction across text, image,
+  audio, embedded-resource and resource-link types, base64 decoding for inline
+  payloads, top-level `text` / `blob` handling for `resources/read`, and an
+  `is_tool_error` helper. A non-conforming server falls back to a JSON dump
+  rather than being scanned as an empty string.
+
+### Fixed
+- The MCP SSRF and path-traversal probes matched indicators against a truncated
+  stringification of the raw result object, which failed twice over against
+  spec-conforming servers. A Python repr leads with dict scaffolding, so a fixed
+  prefix was spent before reaching the content and an indicator further in was
+  never seen; and content delivered as a base64 image or resource blob could not
+  match a plaintext indicator at all - the same false negative the A2A artifact
+  reader closed. Matching now runs over decoded content-block text, with
+  truncation applied only to recorded evidence.
+- Those probes treated only JSON-RPC errors as denials, but MCP routes
+  tool-raised failures into a *successful* response with `isError: true`,
+  reserving protocol errors for malformed requests and unknown tools. A server
+  that firmly refused a probe payload therefore fell through to indicator
+  matching, matched nothing, and was discarded as an unremarkable success,
+  making a properly guarded tool indistinguishable from a silent one. All three
+  probes now treat a tool-level error as a denial alongside a protocol-level
+  one. Note that the scan report still surfaces only confirmed findings, so a
+  denial refines classification rather than adding report noise.
+- These probe bodies had no test coverage at all; 24 tests were added across
+  content extraction and probe behaviour, including a refusal delivered as
+  `isError`, an indicator inside base64, and one past the old truncation
+  boundary.
+
 ## [0.7.0] - 2026-07-19 - Delegation-mesh auditing, agent-output exfiltration detection, coordination side-channel
 
 ### Added

@@ -59,6 +59,7 @@ nav:
       - Consume-Edge Inference: methodology/consume-edge-inference.md
       - Propagation in Reporting: methodology/propagation-in-reporting.md
       - A2A Scanning: methodology/a2a-scanning.md
+      - MCP Tool Results: methodology/mcp-tool-results.md
       - Coordination Side-Channel: methodology/coordination-side-channel.md
       - Threat Modeling: methodology/threat-modeling.md
   - Modules:
