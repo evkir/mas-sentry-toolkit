@@ -111,3 +111,13 @@ def test_non_conforming_result_falls_back_to_json() -> None:
 
 def test_unserialisable_result_falls_back_to_str() -> None:
     assert tool_result_text({"k": object()}).startswith("{'k': <object")
+
+
+def test_top_level_blob_is_decoded() -> None:
+    # resources/read returns ResourceContents with a top-level text or blob,
+    # not a typed content block.
+    assert extract_block_text({"uri": "file:///x", "blob": _b64("payload")}) == "payload"
+
+
+def test_top_level_text_wins_over_blob() -> None:
+    assert extract_block_text({"uri": "file:///x", "text": "plain", "blob": _b64("other")}) == "plain"

@@ -64,6 +64,11 @@ def extract_block_text(block: Any) -> str:
     data = block.get("data")
     if isinstance(data, str):
         return _decode_base64(data)
+    blob = block.get("blob")
+    if isinstance(blob, str):
+        # resources/read returns ResourceContents, which carries its payload as
+        # a top-level text or blob rather than as a typed content block.
+        return _decode_base64(blob)
     resource = block.get("resource")
     if isinstance(resource, dict):
         nested = resource.get("text")
