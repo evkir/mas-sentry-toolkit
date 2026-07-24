@@ -261,8 +261,8 @@ The attacker must compromise K honest agents to add one fake. For N=10, K=7 — 
 
 For each agent, periodically (T_fp = 5 min) collect:
 
-```python
-fingerprint = {
+```json
+{
   "agent_id": "agent_7a9f...",
   "window_start": 1746732000,
   "window_end": 1746732300,
