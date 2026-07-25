@@ -1,7 +1,7 @@
 # HCAP — Hierarchical Capability and Attestation Protocol
 
 **Specification draft v0.1** — research preview
-**Author:** panda (user70616E6461)
+**Author:** Evgeny Kiriyak (evkir) — MASec Lab
 **Status:** Working Draft
 **Last updated:** 2026-05-08
 
@@ -433,4 +433,4 @@ This specification is released under CC-BY-4.0. The reference implementation is 
 ## Contact
 
 Open an issue with `[HCAP]` in the title at:
-https://github.com/user70616E6461/mas-sentry-toolkit
+https://github.com/evkir/mas-sentry-toolkit
