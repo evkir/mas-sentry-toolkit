@@ -45,6 +45,17 @@ services:
     networks:
       - mas_net
 
+  agent_a2a:
+    build: ./lab/a2a
+    container_name: mas_agent_a2a
+    ports:
+      - "9700:9700"
+    environment:
+      - A2A_LAB_HOST=0.0.0.0
+      - A2A_LAB_PORT=9700
+    networks:
+      - mas_net
+
   rabbitmq:
     image: rabbitmq:3-management
     container_name: mas_rabbitmq

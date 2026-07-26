@@ -45,7 +45,7 @@ dependencies = [
 pdf = ["weasyprint>=63.1"]
 dev = ["pytest>=8.3", "pytest-cov>=6.0", "pytest-asyncio>=0.25", "ruff>=0.16", "mypy>=1.13", "bandit>=1.8", "packaging>=24"]
 docs = ["mkdocs-material>=9.5", "mkdocstrings[python]>=0.27"]
-lab = ["pyyaml>=6.0"]
+lab = ["pyyaml>=6.0", "a2a-sdk[http-server]>=1.1", "uvicorn>=0.30"]
 
 [project.urls]
 Homepage = "https://github.com/evkir/mas-sentry-toolkit"

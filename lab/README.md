@@ -65,6 +65,9 @@ lab/
 ├── victim/                         # MQTT victim agents (Day 14)
 │   ├── mosquitto.conf
 │   └── agents/{sensor,logger,controller}/
+├── a2a/                            # intentional-vuln A2A agent (Day 76)
+│   ├── agent.py                    # built on the reference a2a-sdk
+│   └── Dockerfile
 ├── vuln-mcp/                       # intentional-vuln MCP server (Day 28)
 │   ├── server.py
 │   └── Dockerfile                  # optional, for `docker run -i`
@@ -73,3 +76,23 @@ lab/
     ├── mcp-stdio-rce.yaml          # MCP scenario (Day 28)
     └── run.py                      # YAML scenario runner with expect-validation
 ```
+
+## A2A lab agent
+
+`lab/a2a/agent.py` runs a deliberately weak A2A agent on the reference
+`a2a-sdk`. Using the reference implementation is the point: a hand-written
+victim would only echo back the scanner's own assumptions about the wire,
+so it could never catch a divergence between what MAS-Sentry emits and
+what a real A2A server accepts.
+
+```bash
+pip install -e '.[lab]'
+python -m lab.a2a.agent                     # 127.0.0.1:9700, strict v1.0
+A2A_LAB_COMPAT=1 python -m lab.a2a.agent    # also accept legacy v0.3.x
+mas-sentry a2a scan --target http://127.0.0.1:9700
+```
+
+The published card is built to trigger the passive audit: no security
+requirement, wildcard and admin-family OAuth2 scopes, no signature,
+cleartext transport, and skill descriptions carrying an injection
+directive and a selection-steering directive.
