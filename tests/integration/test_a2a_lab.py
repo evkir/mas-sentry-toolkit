@@ -154,12 +154,6 @@ def _active_findings(target: str, out: Path) -> list:
     return run_a2a_scan(target=target, out=out, scope_confirmed=False, active=True)
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="Client emits the v0.3.x method vocabulary (message/send) and no A2A-Version "
-    "header, so a reference v1.0 server answers -32601 and two of three probes are "
-    "swallowed by the per-probe error handler",
-)
 def test_active_scan_runs_every_probe(lab_agent: str, tmp_path: Path) -> None:
     """All three active probes must reach the endpoint and report."""
     findings = _active_findings(lab_agent, tmp_path / "a2a.json")
@@ -167,11 +161,6 @@ def test_active_scan_runs_every_probe(lab_agent: str, tmp_path: Path) -> None:
     assert modules == _PROBE_MODULES
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="The indirect-injection probe never completes its send, so the canary the "
-    "echo agent reflects verbatim is never observed",
-)
 def test_echoed_canary_is_flagged(lab_agent: str, tmp_path: Path) -> None:
     """The lab agent echoes the payload, so the canary probe must flag it."""
     findings = _active_findings(lab_agent, tmp_path / "a2a.json")

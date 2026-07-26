@@ -15,7 +15,13 @@ from mas_sentry.protocols.a2a.card_audit import (
     CardFinding,
     audit_agent_card,
 )
-from mas_sentry.protocols.a2a.client import _resolve_jsonrpc_endpoint
+from mas_sentry.protocols.a2a.client import (
+    PROTOCOL_VERSION_0_3,
+    PROTOCOL_VERSION_1_0,
+    VERSION_HEADER,
+    _resolve_jsonrpc_endpoint,
+    _resolve_protocol_version,
+)
 from mas_sentry.protocols.a2a.probes import (
     ProbeResult,
     probe_indirect_injection,
@@ -447,8 +453,8 @@ def test_client_send_task_generates_id_when_none() -> None:
         body = json.loads(req.content)
         assert body["jsonrpc"] == "2.0"
         assert body["method"] == "message/send"
-        assert body["params"]["message"]["role"] == "ROLE_USER"
-        tid = body["params"]["id"]
+        assert body["params"]["message"]["role"] == "user"
+        tid = body["params"]["message"]["messageId"]
         captured["id"] = tid
         return httpx.Response(
             200,
@@ -537,9 +543,14 @@ def test_client_discover_rejects_non_dict_json() -> None:
 
 
 def test_probe_task_id_collision_unsafe_when_accepted() -> None:
+    """Model a server that lets a client-supplied identifier become the task id."""
+
     def handler(req: httpx.Request) -> httpx.Response:
         body = json.loads(req.content)
-        tid = body["params"]["id"]
+        params = body["params"]
+        # send carries the identifier inside the message; tasks/get carries it
+        # at the top level, so the mock cannot read one field unconditionally.
+        tid = params["message"]["messageId"] if "message" in params else params["id"]
         return httpx.Response(
             200,
             json={
@@ -592,7 +603,7 @@ def test_probe_indirect_injection_detects_canary_leak() -> None:
 
     def handler(req: httpx.Request) -> httpx.Response:
         body = json.loads(req.content)
-        tid = body["params"]["id"]
+        tid = body["params"]["message"]["messageId"]
         return httpx.Response(
             200,
             json={
@@ -621,7 +632,7 @@ def test_probe_indirect_injection_detects_canary_leak() -> None:
 def _injection_handler(artifacts: list[dict]):
     def handler(req: httpx.Request) -> httpx.Response:
         body = json.loads(req.content)
-        tid = body["params"]["id"]
+        tid = body["params"]["message"]["messageId"]
         return httpx.Response(
             200,
             json={
@@ -896,3 +907,119 @@ def test_routing_hijack_distinct_from_poisoning() -> None:
     findings = audit_agent_card(card)
     assert any("routing-hijack" in f.title for f in findings)
     assert not any("Agent Card Poisoning" in f.title for f in findings)
+
+
+# --- Protocol dialect resolution -------------------------------------------
+
+_V1_CARD = {
+    "name": "v1",
+    "description": "",
+    "supportedInterfaces": [{"url": "http://lab/a2a/v1", "protocolBinding": "JSONRPC", "protocolVersion": "1.0"}],
+}
+_V03_CARD = {"name": "v03", "description": "", "url": "http://lab", "preferredTransport": "JSONRPC"}
+
+
+def _card_route(card: dict, rpc: object) -> object:
+    def handler(req: httpx.Request) -> httpx.Response:
+        if req.url.path.startswith("/.well-known/"):
+            if req.url.path == "/.well-known/agent-card.json":
+                return httpx.Response(200, json=card)
+            return httpx.Response(404)
+        return rpc(req)
+
+    return httpx.MockTransport(handler)
+
+
+def test_resolve_protocol_version_reads_the_card_shape() -> None:
+    assert _resolve_protocol_version(_V1_CARD) == PROTOCOL_VERSION_1_0
+    assert _resolve_protocol_version(_V03_CARD) == PROTOCOL_VERSION_0_3
+    assert _resolve_protocol_version({}) == PROTOCOL_VERSION_0_3
+
+
+def test_resolve_protocol_version_honours_an_explicit_legacy_interface() -> None:
+    """A v1.0-shaped card may still front a 0.3 endpoint mid-migration."""
+    card = {
+        "supportedInterfaces": [
+            {"url": "http://lab", "protocolBinding": "JSONRPC", "protocolVersion": "0.3.0"},
+        ]
+    }
+    assert _resolve_protocol_version(card) == PROTOCOL_VERSION_0_3
+
+
+def test_send_task_speaks_the_v1_dialect_for_a_v1_card() -> None:
+    seen: dict[str, object] = {}
+
+    def rpc(req: httpx.Request) -> httpx.Response:
+        body = json.loads(req.content)
+        seen["method"] = body["method"]
+        seen["header"] = req.headers.get(VERSION_HEADER)
+        seen["message"] = body["params"]["message"]
+        return httpx.Response(
+            200,
+            json={
+                "jsonrpc": "2.0",
+                "id": body["id"],
+                # v1.0 wraps the Task in the SendMessageResponse oneof.
+                "result": {"task": {"id": "srv-1", "status": {"state": "TASK_STATE_COMPLETED"}, "artifacts": []}},
+            },
+        )
+
+    with A2AClient("http://lab", transport=_card_route(_V1_CARD, rpc)) as client:
+        client.discover()
+        result = client.send_task("hello", task_id="m-1")
+
+    assert seen["method"] == "SendMessage"
+    assert seen["header"] == PROTOCOL_VERSION_1_0
+    assert seen["message"] == {"messageId": "m-1", "role": "ROLE_USER", "parts": [{"text": "hello"}]}
+    assert result.task_id == "srv-1"
+    assert result.state == TaskState.COMPLETED
+
+
+def test_get_task_is_not_unwrapped_for_a_v1_card() -> None:
+    """GetTask returns the Task flat; only the send response is wrapped."""
+
+    def rpc(req: httpx.Request) -> httpx.Response:
+        body = json.loads(req.content)
+        assert body["method"] == "GetTask"
+        return httpx.Response(
+            200,
+            json={
+                "jsonrpc": "2.0",
+                "id": body["id"],
+                "result": {"id": "srv-1", "status": {"state": "TASK_STATE_COMPLETED"}, "artifacts": []},
+            },
+        )
+
+    with A2AClient("http://lab", transport=_card_route(_V1_CARD, rpc)) as client:
+        client.discover()
+        result = client.get_task("srv-1")
+
+    assert result.task_id == "srv-1"
+    assert result.state == TaskState.COMPLETED
+
+
+def test_send_task_speaks_the_legacy_dialect_for_a_v03_card() -> None:
+    seen: dict[str, object] = {}
+
+    def rpc(req: httpx.Request) -> httpx.Response:
+        body = json.loads(req.content)
+        seen["method"] = body["method"]
+        seen["header"] = req.headers.get(VERSION_HEADER)
+        seen["message"] = body["params"]["message"]
+        return httpx.Response(
+            200,
+            json={
+                "jsonrpc": "2.0",
+                "id": body["id"],
+                "result": {"id": "srv-2", "status": {"state": "completed"}, "artifacts": []},
+            },
+        )
+
+    with A2AClient("http://lab", transport=_card_route(_V03_CARD, rpc)) as client:
+        client.discover()
+        result = client.send_task("hello", task_id="m-2")
+
+    assert seen["method"] == "message/send"
+    assert seen["header"] is None
+    assert seen["message"] == {"messageId": "m-2", "role": "user", "parts": [{"text": "hello"}]}
+    assert result.task_id == "srv-2"

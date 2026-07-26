@@ -6,17 +6,18 @@ guidance, and v0.3.x was JSON-RPC-only. We implement only the surface we
 need to test:
 
 - /.well-known/agent-card.json | /.well-known/agent.json (card discovery)
-- message/send  (submit, JSON-RPC method)
-- tasks/get     (poll, JSON-RPC method)
-- tasks/cancel  (JSON-RPC method)
+- submit / poll / cancel a task (JSON-RPC methods; spelled SendMessage,
+  GetTask and CancelTask in v1.0 and message/send, tasks/get and
+  tasks/cancel in v0.3.x)
 
 Requests POST a {"jsonrpc": "2.0", "id", "method", "params"} envelope. The
 target URL is resolved from the discovered AgentCard's declared interfaces
 (v1.0 supportedInterfaces[], or v0.3.x url/preferredTransport/
 additionalInterfaces) rather than always hitting `base_url` - see
-_resolve_jsonrpc_endpoint. JSON-RPC method names are shared between v0.3 and
-v1.0 (only the params/result payload shapes moved - see TaskState/Role/Part
-handling below), so no version branch is needed for those.
+_resolve_jsonrpc_endpoint. JSON-RPC method names are NOT shared between v0.3 and
+v1.0: v1.0 renamed each one to its gRPC service-method spelling and gates
+them behind an A2A-Version header, so the dialect is resolved from the
+discovered card - see _resolve_protocol_version.
 """
 
 from __future__ import annotations
@@ -43,6 +44,24 @@ class TaskState(StrEnum):
     REJECTED = "rejected"
     UNKNOWN = "unknown"
 
+
+PROTOCOL_VERSION_1_0 = "1.0"
+PROTOCOL_VERSION_0_3 = "0.3"
+
+# A2A v1.0 renamed every JSON-RPC method to its gRPC service-method spelling
+# and gates them behind a version header; v0.3.x used slash-separated names
+# and no header. The two vocabularies are disjoint, so a client that guesses
+# wrong gets -32601 Method not found on every call rather than a soft
+# degradation. See _resolve_protocol_version for how the dialect is picked.
+_METHODS = {
+    PROTOCOL_VERSION_1_0: {"send": "SendMessage", "get": "GetTask", "cancel": "CancelTask"},
+    PROTOCOL_VERSION_0_3: {"send": "message/send", "get": "tasks/get", "cancel": "tasks/cancel"},
+}
+# Role is a proto enum in v1.0 and a lowercase string literal in v0.3.x.
+_USER_ROLE = {PROTOCOL_VERSION_1_0: "ROLE_USER", PROTOCOL_VERSION_0_3: "user"}
+# Servers read the dialect from this header; per the v1.0 spec an absent or
+# empty header means v0.3, which is why it is only sent for v1.0.
+VERSION_HEADER = "A2A-Version"
 
 _V1_STATE_PREFIX = "TASK_STATE_"
 
@@ -148,6 +167,46 @@ def _resolve_jsonrpc_endpoint(data: dict[str, Any]) -> str | None:
     return None
 
 
+def _resolve_protocol_version(data: dict[str, Any]) -> str:
+    """Pick the A2A generation a discovered AgentCard speaks.
+
+    supportedInterfaces[] exists only in v1.0, so its presence is itself the
+    signal; when the matching JSONRPC entry also carries an explicit
+    protocolVersion that value wins, since an operator may publish a v1.0
+    card that still fronts a 0.3 endpoint during a migration. A card with no
+    supportedInterfaces is the v0.3.x shape (top-level url plus optional
+    preferredTransport), and an undiscovered card resolves to v0.3 as well -
+    the reference implementation reads an absent version header as 0.3, so
+    matching that default keeps us wrong in the same direction a server is.
+    """
+    interfaces = data.get("supportedInterfaces")
+    if not isinstance(interfaces, list) or not interfaces:
+        return PROTOCOL_VERSION_0_3
+    for iface in interfaces:
+        if isinstance(iface, dict) and iface.get("protocolBinding") == "JSONRPC":
+            declared = iface.get("protocolVersion")
+            if isinstance(declared, str) and declared.startswith(PROTOCOL_VERSION_0_3):
+                return PROTOCOL_VERSION_0_3
+            break
+    return PROTOCOL_VERSION_1_0
+
+
+def _unwrap_send_result(result: dict[str, Any], version: str) -> dict[str, Any]:
+    """Return the Task object out of a send response.
+
+    v1.0's SendMessageResponse is a oneof, so a task-producing agent answers
+    {"task": {...}} while an agent replying inline answers {"message": {...}}.
+    v0.3.x returns the Task flat. Only the send response is wrapped - GetTask
+    and CancelTask return the Task at the top level in both generations, so
+    unwrapping unconditionally would blank those out.
+    """
+    if version == PROTOCOL_VERSION_1_0:
+        task = result.get("task")
+        if isinstance(task, dict):
+            return task
+    return result
+
+
 @dataclass(slots=True)
 class AgentCard:
     name: str
@@ -242,23 +301,33 @@ class A2AClient:
         return r.json()
 
     def send_task(self, message: str, task_id: str | None = None) -> TaskResult:
-        tid = task_id or secrets.token_hex(8)
-        params = {
-            "id": tid,
+        """Submit a message and return the resulting Task.
+
+        `task_id` labels the outgoing message, not the task. A2A has no field
+        that lets a client choose the id of a task it is creating in either
+        generation - Message.taskId references an already existing task, and a
+        spec-compliant server answers -32001 for one it has never issued. Task
+        ids are server-assigned, so callers that need to correlate submissions
+        should read the id back off the returned TaskResult.
+        """
+        mid = task_id or secrets.token_hex(8)
+        version = self._protocol_version()
+        params: dict[str, Any] = {
             "message": {
-                "role": "ROLE_USER",
+                "messageId": mid,
+                "role": _USER_ROLE[version],
                 "parts": [{"text": message}],
             },
         }
-        result = self._rpc_call("message/send", params)
-        return self._parse_task(result)
+        result = self._rpc_call(_METHODS[version]["send"], params)
+        return self._parse_task(_unwrap_send_result(result, version))
 
     def get_task(self, task_id: str) -> TaskResult:
-        result = self._rpc_call("tasks/get", {"id": task_id})
+        result = self._rpc_call(_METHODS[self._protocol_version()]["get"], {"id": task_id})
         return self._parse_task(result)
 
     def cancel_task(self, task_id: str) -> TaskResult:
-        result = self._rpc_call("tasks/cancel", {"id": task_id})
+        result = self._rpc_call(_METHODS[self._protocol_version()]["cancel"], {"id": task_id})
         return self._parse_task(result)
 
     def _rpc_call(self, method: str, params: dict[str, Any]) -> dict[str, Any]:
@@ -273,7 +342,11 @@ class A2AClient:
         url = self._rpc_endpoint()
         req_id = secrets.token_hex(8)
         body = {"jsonrpc": "2.0", "id": req_id, "method": method, "params": params}
-        r = self._client.post(url, json=body)
+        headers = {}
+        version = self._protocol_version()
+        if version == PROTOCOL_VERSION_1_0:
+            headers[VERSION_HEADER] = version
+        r = self._client.post(url, json=body, headers=headers)
         r.raise_for_status()
         data = r.json()
         if "error" in data:
@@ -298,6 +371,12 @@ class A2AClient:
         if self._card_raw is None:
             return self.base_url
         return _resolve_jsonrpc_endpoint(self._card_raw) or self.base_url
+
+    def _protocol_version(self) -> str:
+        """Resolve which A2A generation to speak, from the discovered card."""
+        if self._card_raw is None:
+            return PROTOCOL_VERSION_0_3
+        return _resolve_protocol_version(self._card_raw)
 
     @staticmethod
     def _parse_task(data: dict[str, Any]) -> TaskResult:
