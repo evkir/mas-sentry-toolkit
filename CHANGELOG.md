@@ -3,6 +3,16 @@
 ## [Unreleased]
 
 ### Added
+- A2A integration rig built on the reference `a2a-sdk` (`lab/a2a/agent.py`,
+  `pip install -e '.[lab]'`). Every A2A test so far drove the client through
+  `httpx.MockTransport`, which only ever confirms that MAS-Sentry agrees with
+  its own idea of the wire - a circular check, and the reason five protocol
+  defects survived to this release. The lab agent publishes a deliberately weak
+  v1.0 AgentCard and echoes task text back as an artifact, so the passive audit
+  and the injection canary both have something real to find. It serves strict
+  v1.0 by default and the legacy v0.3.x vocabulary under `A2A_LAB_COMPAT=1`,
+  and the CI integration job installs the extra so the rig runs rather than
+  skipping.
 - MCP resource-content auditing (`--checks resources`). Resources were
   enumerated and never read, leaving their contents the one agent-facing MCP
   surface with no audit at all - and the wrong one to skip, since a resource is
@@ -28,6 +38,39 @@
   rather than being scanned as an empty string.
 
 ### Fixed
+- The A2A client spoke the v0.3.x JSON-RPC vocabulary unconditionally and sent
+  no `A2A-Version` header, so a reference v1.0 server answered -32601 Method
+  not found to every call. Two of the three active probes were swallowed by the
+  per-probe error handler and the third reported success, so an active scan
+  returned a clean result for an endpoint it had never reached. The dialect is
+  now resolved from the discovered card, mirroring how the endpoint already
+  was: `supportedInterfaces` means v1.0, a top-level `url` with
+  `preferredTransport` means v0.3.x, and an explicit `protocolVersion` on the
+  JSONRPC interface overrides the shape for an operator still fronting a legacy
+  endpoint. An undiscovered card resolves to v0.3 because a server reads an
+  absent version header the same way.
+- v1.0 returns the Task inside the `SendMessageResponse` oneof while `GetTask`
+  and `CancelTask` return it flat in both generations, so the send response is
+  unwrapped and the others deliberately are not - unwrapping everywhere would
+  have blanked out task polling.
+- Dropped the invented `params.id`. Neither generation lets a client choose the
+  id of a task it is creating; `Message.taskId` references an existing task and
+  a compliant server answers -32001 for one it never issued. The identifier now
+  labels the message, which is what the wire actually carries. Seven unit mocks
+  asserted that invented field, which is precisely why the divergence survived;
+  they now model the real shape.
+- `probe_unauthorized_cancel` accepted any JSON-RPC error as proof the server
+  had rejected the call, so -32601 Method not found was reported to the operator
+  as "server behaved safely". A protocol error laundered into a positive
+  assurance is worse than a missing finding. Only the task-domain codes A2A
+  defines for the operation (-32001, -32002) count as a rejection, along with an
+  HTTP 401/403 from a fronting gateway; every other code now yields an
+  inconclusive verdict carrying the code it was drawn from.
+- A probe that raised a transport error was written to the audit log and
+  dropped, leaving the report looking as though the check had run and found
+  nothing - the same silent-loss class as the propagation and coordination
+  blocks, one level further up. Skipped probes are now reported as inconclusive
+  findings that claim nothing about the target.
 - The MCP SSRF and path-traversal probes matched indicators against a truncated
   stringification of the raw result object, which failed twice over against
   spec-conforming servers. A Python repr leads with dict scaffolding, so a fixed
