@@ -131,3 +131,71 @@ def test_passive_scan_writes_findings_to_disk(lab_agent: str, tmp_path: Path) ->
     findings = run_a2a_scan(target=lab_agent, out=out, scope_confirmed=False, active=False)
     payload = json.loads(out.read_text())
     assert len(payload["findings"]) == len(findings)
+
+
+# --- Active probing: pinned defects ---------------------------------------
+#
+# These encode the behaviour the active scan is supposed to have. They fail
+# today, which is the point: the probes cannot complete a single JSON-RPC
+# call against a reference v1.0 server, and the scan reports that as a clean
+# result instead of as an error. strict=True means each one starts failing
+# the suite the moment it is fixed but not un-marked.
+
+_PROBE_MODULES = {
+    "a2a.probe.task-id-collision",
+    "a2a.probe.unauthorized-cancel",
+    "a2a.probe.indirect-injection",
+}
+
+
+def _active_findings(target: str, out: Path) -> list:
+    from mas_sentry.protocols.a2a.runtime import run_a2a_scan
+
+    return run_a2a_scan(target=target, out=out, scope_confirmed=False, active=True)
+
+
+@pytest.mark.xfail(
+    strict=True,
+    reason="Client emits the v0.3.x method vocabulary (message/send) and no A2A-Version "
+    "header, so a reference v1.0 server answers -32601 and two of three probes are "
+    "swallowed by the per-probe error handler",
+)
+def test_active_scan_runs_every_probe(lab_agent: str, tmp_path: Path) -> None:
+    """All three active probes must reach the endpoint and report."""
+    findings = _active_findings(lab_agent, tmp_path / "a2a.json")
+    modules = {f.module for f in findings if f.module.startswith("a2a.probe.")}
+    assert modules == _PROBE_MODULES
+
+
+@pytest.mark.xfail(
+    strict=True,
+    reason="The indirect-injection probe never completes its send, so the canary the "
+    "echo agent reflects verbatim is never observed",
+)
+def test_echoed_canary_is_flagged(lab_agent: str, tmp_path: Path) -> None:
+    """The lab agent echoes the payload, so the canary probe must flag it."""
+    findings = _active_findings(lab_agent, tmp_path / "a2a.json")
+    injection = [f for f in findings if f.module == "a2a.probe.indirect-injection"]
+    assert injection, "indirect-injection probe produced no finding"
+    assert injection[0].severity.value != "INFO"
+
+
+@pytest.mark.xfail(
+    strict=True,
+    reason="probe_unauthorized_cancel treats any A2ARpcError as proof of a safe server, "
+    "so -32601 Method not found is laundered into 'server behaved safely' and the "
+    "detail does not record which error was actually seen",
+)
+def test_cancel_probe_records_the_rpc_error_code(lab_agent: str, tmp_path: Path) -> None:
+    """A rejection verdict must name the JSON-RPC code it was drawn from.
+
+    Without the code an operator cannot tell an authorization control
+    ("task not found") from an endpoint that never implemented the method
+    at all - the second is not evidence of anything.
+    """
+    import re
+
+    findings = _active_findings(lab_agent, tmp_path / "a2a.json")
+    cancel = [f for f in findings if f.module == "a2a.probe.unauthorized-cancel"]
+    assert cancel, "unauthorized-cancel probe produced no finding"
+    assert re.search(r"-3\d{4}", cancel[0].detail), cancel[0].detail
