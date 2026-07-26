@@ -24,6 +24,7 @@ from mas_sentry.protocols.a2a.client import (
 )
 from mas_sentry.protocols.a2a.probes import (
     ProbeResult,
+    inconclusive_result,
     probe_indirect_injection,
     probe_task_id_collision,
     probe_unauthorized_cancel,
@@ -583,7 +584,8 @@ def test_probe_unauthorized_cancel_safe_when_json_rpc_error() -> None:
     with A2AClient("http://lab", transport=httpx.MockTransport(handler)) as client:
         result = probe_unauthorized_cancel(client)
     assert result.passed
-    assert "A2ARpcError" in result.detail
+    assert result.conclusive
+    assert "-32001" in result.detail
 
 
 def test_probe_unauthorized_cancel_safe_when_http_error() -> None:
@@ -595,7 +597,8 @@ def test_probe_unauthorized_cancel_safe_when_http_error() -> None:
     with A2AClient("http://lab", transport=httpx.MockTransport(handler)) as client:
         result = probe_unauthorized_cancel(client)
     assert result.passed
-    assert "HTTPStatusError" in result.detail
+    assert result.conclusive
+    assert "403" in result.detail
 
 
 def test_probe_indirect_injection_detects_canary_leak() -> None:
@@ -1023,3 +1026,54 @@ def test_send_task_speaks_the_legacy_dialect_for_a_v03_card() -> None:
     assert seen["header"] is None
     assert seen["message"] == {"messageId": "m-2", "role": "user", "parts": [{"text": "hello"}]}
     assert result.task_id == "srv-2"
+
+
+# --- Inconclusive verdicts --------------------------------------------------
+
+
+def _rpc_error_client(code: int, message: str) -> A2AClient:
+    def handler(req: httpx.Request) -> httpx.Response:
+        body = json.loads(req.content)
+        return httpx.Response(
+            200,
+            json={"jsonrpc": "2.0", "id": body["id"], "error": {"code": code, "message": message, "data": None}},
+        )
+
+    return A2AClient("http://lab", transport=httpx.MockTransport(handler))
+
+
+@pytest.mark.parametrize(
+    ("code", "message"),
+    [
+        (-32601, "Method not found"),
+        (-32602, "Invalid params"),
+        (-32603, "Internal error"),
+        (-32009, "Version not supported"),
+    ],
+)
+def test_cancel_probe_is_inconclusive_outside_the_task_rejection_codes(code: int, message: str) -> None:
+    """Only a task-domain rejection is evidence of an authorization control."""
+    with _rpc_error_client(code, message) as client:
+        result = probe_unauthorized_cancel(client)
+    assert not result.conclusive
+    assert not result.passed
+    assert str(code) in result.detail
+
+
+def test_cancel_probe_is_inconclusive_on_a_non_auth_http_status() -> None:
+    def handler(req: httpx.Request) -> httpx.Response:
+        return httpx.Response(500, json={"error": "boom"})
+
+    with A2AClient("http://lab", transport=httpx.MockTransport(handler)) as client:
+        result = probe_unauthorized_cancel(client)
+    assert not result.conclusive
+
+
+def test_inconclusive_probe_maps_to_an_info_finding_that_claims_nothing() -> None:
+    finding = from_probe_result(
+        inconclusive_result("unauthorized-cancel", A2ARpcError(-32601, "Method not found")), "t"
+    )
+    assert finding.severity is Severity.INFO
+    assert "could not run" in finding.title
+    assert "safely" not in finding.title
+    assert "-32601" in finding.detail

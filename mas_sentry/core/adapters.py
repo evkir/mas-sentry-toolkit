@@ -119,12 +119,25 @@ _PROBE_SEVERITY = {
 def from_probe_result(probe: ProbeResult, target: str) -> Finding:
     """Map an A2A ProbeResult into the unified Finding.
 
+    A probe that could not complete carries no verdict at all and is recorded
+    as an INFO finding saying so - dropping it would leave the report looking
+    like the check ran and found nothing.
+
     `probe.passed is True` means the server behaved safely; that is recorded
     as an INFO finding so the scan report shows every probe that ran, but it
     carries no vulnerability taxonomy because nothing was exploited. A failed
     probe is the real security finding and carries the mapped severity + tags.
     """
     base_tags = ["a2a", "probe", probe.name]
+    if not probe.conclusive:
+        return Finding(
+            module=f"a2a.probe.{probe.name}",
+            title=f"{probe.name}: probe could not run",
+            detail=probe.detail,
+            severity=Severity.INFO,
+            target=target,
+            tags=base_tags,
+        )
     if probe.passed:
         return Finding(
             module=f"a2a.probe.{probe.name}",

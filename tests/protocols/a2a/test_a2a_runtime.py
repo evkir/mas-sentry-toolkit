@@ -105,12 +105,15 @@ def test_scan_output_is_convert_compatible(tmp_path: Path) -> None:
 
 
 def test_probe_transport_error_is_tolerated(tmp_path: Path) -> None:
-    """Send-based probes hitting a transport error are skipped; scan completes.
+    """Send-based probes hitting a transport error still reach the report.
 
     The two task-submitting probes (collision, injection) do not catch
-    transport errors themselves, so a failing /tasks/send propagates into
-    _run_probes, which logs and skips them. The cancel probe catches its own
-    HTTP errors internally, so it still yields a (safe) finding.
+    transport errors themselves, so a failing send propagates into
+    _run_probes, which records each as an inconclusive finding rather than
+    dropping it - a reader of the report must be able to tell a check that
+    ran and found nothing from one that never ran. The cancel probe handles
+    its own HTTP errors, and a 403 is a real authority decision, so it still
+    yields a safe verdict.
     """
 
     def flaky(req: httpx.Request) -> httpx.Response:
@@ -127,12 +130,14 @@ def test_probe_transport_error_is_tolerated(tmp_path: Path) -> None:
     findings = run_a2a_scan(
         "http://victim.lab", out=out, scope_confirmed=False, active=True, transport=httpx.MockTransport(flaky)
     )
-    modules = {f.module for f in findings}
-    # Card audit still ran; send-based probes were skipped, cancel survived.
+    by_module = {f.module: f for f in findings}
+    # Card audit still ran; send-based probes reported themselves as skipped.
     assert any(f.module == "a2a.card_audit" for f in findings)
-    assert "a2a.probe.task-id-collision" not in modules
-    assert "a2a.probe.indirect-injection" not in modules
-    assert "a2a.probe.unauthorized-cancel" in modules
+    for name in ("task-id-collision", "indirect-injection"):
+        skipped = by_module[f"a2a.probe.{name}"]
+        assert "could not run" in skipped.title
+        assert "Probe did not run" in skipped.detail
+    assert "probe could not run" not in by_module["a2a.probe.unauthorized-cancel"].title
 
 
 def test_active_scan_skips_probes_when_card_offers_no_jsonrpc(tmp_path: Path) -> None:

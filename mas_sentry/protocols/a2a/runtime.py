@@ -35,6 +35,7 @@ from .mesh import (
     load_mesh_manifest,
 )
 from .probes import (
+    inconclusive_result,
     probe_indirect_injection,
     probe_task_id_collision,
     probe_unauthorized_cancel,
@@ -86,21 +87,28 @@ def _run_probes(client: A2AClient, target: str) -> list[Finding]:
 
     A probe that raises a transport error (httpx.HTTPError) or a JSON-RPC-
     level rejection (A2ARpcError - HTTP 200, error in body; see client.py)
-    is logged and skipped rather than aborting the whole scan - one hostile
-    or strict endpoint should not mask the findings already collected.
+    does not abort the whole scan - one hostile or strict endpoint should not
+    mask the findings already collected. It is logged and also reported as an
+    inconclusive finding, so the report distinguishes a check that ran and
+    found nothing from a check that never ran at all.
     """
     out: list[Finding] = []
-    for probe in (probe_task_id_collision, probe_unauthorized_cancel):
+    for name, probe in (
+        ("task-id-collision", probe_task_id_collision),
+        ("unauthorized-cancel", probe_unauthorized_cancel),
+    ):
         try:
             out.append(from_probe_result(probe(client), target))
         except (httpx.HTTPError, A2ARpcError) as exc:
             audit_write({"action": "a2a_probe_error", "probe": probe.__name__, "error": type(exc).__name__})
+            out.append(from_probe_result(inconclusive_result(name, exc), target))
     canary = f"MST-A2A-{secrets.token_hex(6)}"
     try:
         result = probe_indirect_injection(client, payload=_IPI_PAYLOAD.format(canary=canary), canary=canary)
         out.append(from_probe_result(result, target))
     except (httpx.HTTPError, A2ARpcError) as exc:
         audit_write({"action": "a2a_probe_error", "probe": "probe_indirect_injection", "error": type(exc).__name__})
+        out.append(from_probe_result(inconclusive_result("indirect-injection", exc), target))
     return out
 
 

@@ -169,12 +169,6 @@ def test_echoed_canary_is_flagged(lab_agent: str, tmp_path: Path) -> None:
     assert injection[0].severity.value != "INFO"
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="probe_unauthorized_cancel treats any A2ARpcError as proof of a safe server, "
-    "so -32601 Method not found is laundered into 'server behaved safely' and the "
-    "detail does not record which error was actually seen",
-)
 def test_cancel_probe_records_the_rpc_error_code(lab_agent: str, tmp_path: Path) -> None:
     """A rejection verdict must name the JSON-RPC code it was drawn from.
 
