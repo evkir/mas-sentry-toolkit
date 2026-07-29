@@ -1,4 +1,5 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
+import contextlib
 import time
 from typing import Any
 
@@ -7,6 +8,7 @@ from rich.console import Console
 from rich.panel import Panel
 
 from mas_sentry.core.scope import assert_in_scope
+from mas_sentry.protocols.mqtt_connect import BrokerUnreachable, await_connack
 
 console = Console()
 
@@ -21,20 +23,38 @@ class MQTTBrokerFingerprinter:
         self.sys_topics: dict[str, str] = {}
 
     def fingerprint(self) -> dict[str, Any]:
+        """Read $SYS and identify the broker.
+
+        Raises BrokerUnreachable / BrokerRefusedConnection rather than returning
+        a dict with broker_type "unreachable": a failure encoded as a normal
+        return value is a failure the caller can forget to check, and this one
+        was reported by a different mechanism than the two sibling probes used.
+        """
         client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2, client_id="mas-sentry-fp")
         client.on_message = lambda c, u, msg: self.sys_topics.__setitem__(
             msg.topic, msg.payload.decode(errors="replace")
         )
-        client.on_connect = lambda c, u, f, rc, properties=None: c.subscribe("$SYS/#", qos=0)
+        state: dict[str, Any] = {}
 
+        def on_connect(c, u, f, rc, properties=None):
+            state["rc"] = rc
+            if rc == 0:
+                c.subscribe("$SYS/#", qos=0)
+
+        client.on_connect = on_connect
         try:
             client.connect(self.host, self.port, keepalive=5)
-            client.loop_start()
+        except (OSError, TimeoutError) as exc:
+            raise BrokerUnreachable(f"{self.host}:{self.port} unreachable: {exc}") from exc
+
+        client.loop_start()
+        try:
+            await_connack(state)
             time.sleep(4)
+        finally:
             client.loop_stop()
-            client.disconnect()
-        except Exception as e:
-            return {"error": str(e), "broker_type": "unreachable"}
+            with contextlib.suppress(OSError):
+                client.disconnect()
 
         broker_type = self._identify()
         result = {

@@ -54,7 +54,13 @@ def test_unreachable_raises_distinct_error():
         MQTTAuthChecker("127.0.0.1")._try_connect(label="anon")
 
 
-def test_run_all_handles_unreachable_without_false_security():
+def test_run_all_refuses_to_return_a_result_it_never_measured():
+    """An unreachable broker must not come back as a mapping.
+
+    run_all used to catch BrokerUnreachable and return whatever it had, so a
+    broker that never answered produced {} - indistinguishable from a broker
+    that answered and rejected every credential.
+    """
     _FakeClient.raise_connect = True
-    results = MQTTAuthChecker("127.0.0.1").run_all()
-    assert "anonymous_access" not in results
+    with pytest.raises(BrokerUnreachable):
+        MQTTAuthChecker("127.0.0.1").run_all()

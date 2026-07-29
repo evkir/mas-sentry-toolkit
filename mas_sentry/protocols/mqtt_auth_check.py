@@ -6,16 +6,11 @@ import paho.mqtt.client as mqtt
 from rich.console import Console
 
 from mas_sentry.core.scope import assert_in_scope
+from mas_sentry.protocols.mqtt_connect import BrokerUnreachable
+
+__all__ = ["BrokerUnreachable", "MQTTAuthChecker"]
 
 console = Console()
-
-
-class BrokerUnreachable(ConnectionError):
-    """Raised when the broker cannot be reached at the transport level.
-
-    Distinct from an authentication rejection: unreachable must never be
-    reported as "authentication enforced".
-    """
 
 
 class MQTTAuthChecker:
@@ -73,6 +68,10 @@ class MQTTAuthChecker:
                 console.print("[bold red]  [HIGH] Default admin:admin credentials work![/bold red]")
             else:
                 console.print("[green]  [+] admin:admin rejected[/green]")
-        except BrokerUnreachable as exc:
-            console.print(f"[bold red]  [AUTH] broker unreachable, cannot assess: {exc}[/bold red]")
+        except BrokerUnreachable:
+            # Deliberately not swallowed. Returning the partial mapping here
+            # handed the caller a result that looked like "no weak auth found"
+            # when in fact no check had run at all.
+            console.print("[bold red]  [AUTH] broker unreachable, cannot assess[/bold red]")
+            raise
         return results
