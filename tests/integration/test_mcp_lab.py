@@ -9,14 +9,12 @@ server from lab/mcp/server.py and scans it over a real transport, so a
 divergence between what MST emits and what a conforming server accepts shows up
 as a test failure rather than as a silent empty scan in the field.
 
-The HTTP cases are marked xfail(strict=True) on purpose. They encode the
-behaviour the scanner is supposed to have and fail today, which is the finding:
-over Streamable HTTP the reference server mints an `Mcp-Session-Id` on
-initialize and rejects every later request without it, MST never carries it, and
-the enumeration helpers degrade an error to an empty list - so a fully populated
-server is reported as having no tools, no prompts and no resources at all.
-strict=True means each one starts failing the suite the moment it is fixed but
-not un-marked.
+The HTTP cases were pinned as xfail(strict=True) when this module landed: the
+reference server mints an `Mcp-Session-Id` on initialize and rejects every later
+request without it, MST never carried it, and the enumeration helpers degrade an
+error to an empty list, so a fully populated server was reported as having no
+tools, no prompts and no resources at all. The transport now carries the session
+and the negotiated revision, so they assert normally.
 
 Skipped when the optional lab dependencies are absent (pip install -e .[lab]).
 """
@@ -42,11 +40,6 @@ LAB_TOOLS = {"echo", "search_notes", "read_file", "fetch_url"}
 LAB_PROMPTS = {"summarize"}
 LAB_STATIC_RESOURCE = "file://lab/policy"
 LAB_TEMPLATED_RESOURCE = "file://lab/notes/{name}"
-
-_HTTP_SESSION_DEFECT = (
-    "MST does not carry the Mcp-Session-Id minted by initialize, so every "
-    "later request is rejected and enumeration degrades to empty lists"
-)
 
 
 def _free_port() -> int:
@@ -203,10 +196,9 @@ def test_templated_resources_are_enumerated(stdio_config) -> None:
     assert LAB_TEMPLATED_RESOURCE in uris
 
 
-# --- Streamable HTTP: pinned defect ----------------------------------------
+# --- Streamable HTTP: the transport the session fix unblocked ---------------
 
 
-@pytest.mark.xfail(strict=True, reason=_HTTP_SESSION_DEFECT)
 def test_http_enumerates_the_full_inventory(http_url: str) -> None:
     """The same server, the same inventory, over the remote transport."""
     from mas_sentry.protocols.mcp.client import McpClient
@@ -222,7 +214,6 @@ def test_http_enumerates_the_full_inventory(http_url: str) -> None:
     assert {r.uri for r in enumeration.resources} == {LAB_STATIC_RESOURCE}
 
 
-@pytest.mark.xfail(strict=True, reason=_HTTP_SESSION_DEFECT)
 def test_http_scan_flags_the_poisoned_tool(http_url: str, tmp_path: Path) -> None:
     """A populated remote server must not scan clean."""
     from mas_sentry.protocols.mcp.runtime import run_mcp_scan
@@ -238,7 +229,6 @@ def test_http_scan_flags_the_poisoned_tool(http_url: str, tmp_path: Path) -> Non
     assert any(d.startswith("search_notes:") for d in _details(findings, "tool_poisoning")), findings
 
 
-@pytest.mark.xfail(strict=True, reason=_HTTP_SESSION_DEFECT)
 def test_http_fingerprint_counts_the_tools(http_url: str, tmp_path: Path) -> None:
     """The fingerprint line is what an operator reads first; zero is a lie."""
     from mas_sentry.protocols.mcp.runtime import run_mcp_scan
@@ -253,3 +243,14 @@ def test_http_fingerprint_counts_the_tools(http_url: str, tmp_path: Path) -> Non
     )
     fingerprint = _details(findings, "fingerprint")
     assert fingerprint and f"({len(LAB_TOOLS)} tools)" in fingerprint[0], fingerprint
+
+
+def test_http_transport_adopts_the_session_and_revision(http_url: str) -> None:
+    """The session and the negotiated revision are read off the wire, not guessed."""
+    from mas_sentry.protocols.mcp.client import McpClient
+    from mas_sentry.protocols.mcp.transport_http import HttpConfig, open_http
+
+    with open_http(HttpConfig(url=http_url)) as transport:
+        info = McpClient(transport).initialize()
+        assert transport.session_id, "server minted a session that was not adopted"
+        assert transport.protocol_version == info.protocol_version
