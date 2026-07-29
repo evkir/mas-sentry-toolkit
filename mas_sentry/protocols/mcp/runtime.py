@@ -136,6 +136,13 @@ def _run_all_checks(
         for df in detect_tool_drift(client, tool_baseline):
             out.append({"check": df.kind, "severity": df.severity, "detail": df.detail})
 
+    # Reported last, after every auditor has had its chance to list something.
+    # A surface that refused to enumerate produced no findings for a reason
+    # that is not "it was clean", and that distinction has to survive into the
+    # report or the scan quietly overstates its own coverage.
+    for issue in client.enumeration_issues:
+        out.append({"check": "enumeration_gap", "severity": issue.severity, "detail": issue.detail})
+
     return out
 
 

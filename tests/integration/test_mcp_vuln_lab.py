@@ -43,3 +43,25 @@ def test_vuln_mcp_path_traversal_detected(vuln_mcp_client):
     vuln_mcp_client.initialize()
     findings = probe_path_traversal(vuln_mcp_client)
     assert any(f.confirmed and "passwd" in f.payload for f in findings)
+
+
+@pytest.mark.skipif(not LAB_SERVER.exists(), reason="lab not present")
+def test_vuln_mcp_unlisted_surfaces_reach_the_report(tmp_path):
+    """This server implements no prompts and no resources, and says so.
+
+    Before the gap was recorded, the two refusals were flattened into empty
+    lists and the scan claimed a coverage it never had. They are INFO, not a
+    defect: -32601 means the surface does not exist.
+    """
+    from mas_sentry.protocols.mcp.runtime import run_mcp_scan
+
+    findings = run_mcp_scan(
+        scheme="stdio",
+        command=[sys.executable, str(LAB_SERVER)],
+        target_label="vuln-mcp-lab",
+        checks="fingerprint",
+        out=tmp_path / "mcp.json",
+        scope_confirmed=False,
+    )
+    gaps = {f["detail"].split(" ")[0]: f["severity"] for f in findings if f["check"] == "enumeration_gap"}
+    assert gaps == {"prompts/list": "INFO", "resources/list": "INFO"}, findings
