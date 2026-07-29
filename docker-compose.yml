@@ -56,6 +56,18 @@ services:
     networks:
       - mas_net
 
+  mcp_ref:
+    build: ./lab/mcp
+    container_name: mas_mcp_ref
+    ports:
+      - "9800:9800"
+    environment:
+      - MCP_LAB_HOST=0.0.0.0
+      - MCP_LAB_PORT=9800
+      - MCP_LAB_TRANSPORT=streamable-http
+    networks:
+      - mas_net
+
   rabbitmq:
     image: rabbitmq:3-management
     container_name: mas_rabbitmq
