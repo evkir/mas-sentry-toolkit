@@ -191,6 +191,24 @@ def _resolve_protocol_version(data: dict[str, Any]) -> str:
     return PROTOCOL_VERSION_1_0
 
 
+def _extract_inline_message(result: dict[str, Any], version: str) -> dict[str, Any] | None:
+    """Return the agent Message from a send response that replied inline.
+
+    Sending a message does not have to produce a Task: v1.0 models the reply
+    as a oneof of task or message, and v0.3.x returns either shape flat with a
+    "kind" discriminator. An agent that answers in one turn legitimately
+    replies with a Message and no Task at all, so a client that only ever
+    looks for a Task sees an empty result and, worse, then polls a task id it
+    never received.
+    """
+    if version == PROTOCOL_VERSION_1_0:
+        message = result.get("message")
+        return message if isinstance(message, dict) else None
+    if result.get("kind") == "message":
+        return result
+    return None
+
+
 def _unwrap_send_result(result: dict[str, Any], version: str) -> dict[str, Any]:
     """Return the Task object out of a send response.
 
@@ -224,6 +242,12 @@ class TaskResult:
     task_id: str
     state: TaskState
     artifacts: list[dict[str, Any]] = field(default_factory=list)
+    # Agent Messages returned instead of a Task. Kept apart from artifacts
+    # because they are a different carrier, but both hold Parts, so a caller
+    # scanning agent output must read both. Only the agent's own reply lands
+    # here - never task history, which contains the caller's own input and
+    # would make any output scan trivially self-matching.
+    messages: list[dict[str, Any]] = field(default_factory=list)
     raw: dict[str, Any] = field(default_factory=dict)
 
 
@@ -320,6 +344,11 @@ class A2AClient:
             },
         }
         result = self._rpc_call(_METHODS[version]["send"], params)
+        inline = _extract_inline_message(result, version)
+        if inline is not None:
+            # An inline reply is the end of the exchange; marking it terminal
+            # keeps callers from polling a task id that was never issued.
+            return TaskResult(task_id="", state=TaskState.COMPLETED, messages=[inline], raw=result)
         return self._parse_task(_unwrap_send_result(result, version))
 
     def get_task(self, task_id: str) -> TaskResult:

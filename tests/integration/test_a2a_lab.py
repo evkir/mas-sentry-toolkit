@@ -47,9 +47,8 @@ def _wait_for_port(port: int, deadline_s: float = STARTUP_TIMEOUT_S) -> bool:
     return False
 
 
-@pytest.fixture(scope="module")
-def lab_agent() -> Iterator[str]:
-    """Spawn the lab A2A agent in strict v1.0 mode, yield its base URL."""
+def _spawn_agent(extra_env: dict[str, str] | None = None) -> Iterator[str]:
+    """Spawn the lab A2A agent and yield its base URL."""
     port = _free_port()
     env = {
         "A2A_LAB_HOST": "127.0.0.1",
@@ -57,6 +56,7 @@ def lab_agent() -> Iterator[str]:
         "PATH": "/usr/bin:/bin",
         "PYTHONPATH": str(REPO_ROOT),
     }
+    env.update(extra_env or {})
     proc = subprocess.Popen(
         [sys.executable, "-m", "lab.a2a.agent"],
         cwd=str(REPO_ROOT),
@@ -76,6 +76,22 @@ def lab_agent() -> Iterator[str]:
             proc.wait(timeout=10)
         except subprocess.TimeoutExpired:
             proc.kill()
+
+
+@pytest.fixture(scope="module")
+def lab_agent() -> Iterator[str]:
+    """The default agent: strict v1.0, replying with a Task."""
+    yield from _spawn_agent()
+
+
+@pytest.fixture(scope="module")
+def inline_reply_agent() -> Iterator[str]:
+    """An agent answering in one turn with a Message and no Task.
+
+    This is spec-legal - SendMessageResponse is a oneof - and it is the shape
+    a scanner reading only artifacts cannot see.
+    """
+    yield from _spawn_agent({"A2A_LAB_REPLY": "message"})
 
 
 def _titles(findings: list) -> set[str]:
@@ -182,3 +198,12 @@ def test_cancel_probe_records_the_rpc_error_code(lab_agent: str, tmp_path: Path)
     cancel = [f for f in findings if f.module == "a2a.probe.unauthorized-cancel"]
     assert cancel, "unauthorized-cancel probe produced no finding"
     assert re.search(r"-3\d{4}", cancel[0].detail), cancel[0].detail
+
+
+def test_canary_is_found_when_the_agent_replies_with_a_message(inline_reply_agent: str, tmp_path: Path) -> None:
+    """An agent that never creates a Task must still be caught echoing."""
+    findings = _active_findings(inline_reply_agent, tmp_path / "a2a.json")
+    injection = [f for f in findings if f.module == "a2a.probe.indirect-injection"]
+    assert injection, "indirect-injection probe produced no finding"
+    assert injection[0].severity.value != "INFO"
+    assert "could not run" not in injection[0].title

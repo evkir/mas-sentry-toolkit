@@ -101,8 +101,21 @@ def build_card(base_url: str) -> t.AgentCard:
 class EchoExecutor(AgentExecutor):
     """Echo the inbound message back as a task artifact, unsanitized."""
 
+    def __init__(self, reply_with_message: bool = False) -> None:
+        self.reply_with_message = reply_with_message
+
     async def execute(self, context: RequestContext, event_queue: EventQueue) -> None:
         echoed = "".join(p.text for p in context.message.parts if p.HasField("text"))
+        if self.reply_with_message:
+            await event_queue.enqueue_event(
+                t.Message(
+                    message_id="echo-msg-0",
+                    context_id=context.context_id,
+                    role=t.Role.ROLE_AGENT,
+                    parts=[t.Part(text=f"You said: {echoed}")],
+                )
+            )
+            return
         task = t.Task(
             id=context.task_id,
             context_id=context.context_id,
@@ -126,11 +139,11 @@ class EchoExecutor(AgentExecutor):
         await event_queue.enqueue_event(task)
 
 
-def build_app(base_url: str, compat: bool = False) -> Starlette:
+def build_app(base_url: str, compat: bool = False, reply_with_message: bool = False) -> Starlette:
     """Assemble the Starlette app serving the card and the JSON-RPC binding."""
     card = build_card(base_url)
     handler = DefaultRequestHandler(
-        agent_executor=EchoExecutor(),
+        agent_executor=EchoExecutor(reply_with_message=reply_with_message),
         task_store=InMemoryTaskStore(),
         agent_card=card,
     )
@@ -145,7 +158,8 @@ def main() -> None:
     host = os.environ.get("A2A_LAB_HOST", DEFAULT_HOST)
     port = int(os.environ.get("A2A_LAB_PORT", str(DEFAULT_PORT)))
     compat = os.environ.get("A2A_LAB_COMPAT", "") == "1"
-    app = build_app(f"http://{host}:{port}", compat=compat)
+    inline = os.environ.get("A2A_LAB_REPLY", "") == "message"
+    app = build_app(f"http://{host}:{port}", compat=compat, reply_with_message=inline)
     uvicorn.run(app, host=host, port=port, log_level="warning")
 
 
