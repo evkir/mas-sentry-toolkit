@@ -36,6 +36,36 @@
   payloads, top-level `text` / `blob` handling for `resources/read`, and an
   `is_tool_error` helper. A non-conforming server falls back to a JSON dump
   rather than being scanned as an empty string.
+- MCP integration rig built on the reference `mcp` SDK (`lab/mcp/server.py`,
+  `pip install -e '.[lab]'`, plus a compose service). Every MCP test until now
+  drove the client through hand-written JSON-RPC fixtures or the hand-rolled
+  `lab/vuln-mcp` script, which answers only the three methods the scanner
+  already knew how to ask for - both validate the scanner against its own idea
+  of the wire, the same circular check that let five A2A defects survive. The
+  rig serves both transports and both protocol generations from one endpoint,
+  and is deliberately vulnerable along each detector axis: a poisoned tool
+  description, an unguarded `read_file`, a `fetch_url` that dereferences
+  anything including `file://`, a resource carrying both an injection directive
+  and a Markdown-image beacon, and a templated resource whose description
+  smuggles a directive of its own. It found four transport and reporting
+  defects within the first hour.
+- Paginated listings are walked to the end. MCP list results carry a
+  `nextCursor` and expect the client to keep asking; all three list methods read
+  page one and stopped, so a server with more tools than fit a page was audited
+  on a prefix - and there is no reason the interesting tools sit before the cut
+  rather than after it. Two hostile shapes are bounded rather than trusted: a
+  server that repeats a cursor, or that never stops issuing them, would spin the
+  scanner in place, so both end the walk and are recorded as gaps. The rig
+  paginates behind `MCP_LAB_PAGE_SIZE`, built on the SDK result model so the
+  page shape is the reference one.
+- Templated resources are enumerated and scanned (`resources/templates/list`,
+  check `resource_template`). They never appear in `resources/list`, so a server
+  exposing half its resource surface through templates was audited on the other
+  half and the omission read as a clean result. A template body needs a
+  parameter value and stays out of reach, but its name and description do not,
+  and those are the text an agent weighs before expanding the template and
+  pulling the result into context - the same ingestion surface as a tool
+  description, open to the same directive smuggling.
 
 ### Fixed
 - A fully secured A2A v0.3.x AgentCard was reported HIGH as enforcing no
@@ -124,6 +154,56 @@
   content extraction and probe behaviour, including a refusal delivered as
   `isError`, an indicator inside base64, and one past the old truncation
   boundary.
+- A populated MCP server reached over Streamable HTTP scanned completely clean.
+  The transport dropped both pieces of per-connection state the generation
+  carries: a server that mints an `Mcp-Session-Id` on `initialize` rejects every
+  later request that does not carry it back, and since the enumeration helpers
+  turned an error into an empty list, a reference server with four tools, a
+  prompt and two resources fingerprinted as zero tools with every downstream
+  audit running over nothing. Remote and hosted servers are exactly the ones an
+  operator points a scanner at, so the blind spot covered the whole practical
+  MCP surface. The negotiated revision had a quieter failure alongside it: with
+  no `MCP-Protocol-Version` header the spec tells a server to assume 2025-03-26,
+  so the scanner silently reasoned about a generation the server was not
+  speaking. Both are now read off whatever the server returns rather than
+  assumed, so a stateless deployment that mints no session is not handed one,
+  and `close()` releases the session with a DELETE instead of leaving it to
+  expire.
+- A refused listing was reported as an empty inventory. `list_tools`,
+  `list_prompts` and `list_resources` each returned `[]` on error, which is the
+  same value they return for a server that genuinely has none, so a server that
+  would not enumerate produced a scan with no findings and nothing to say about
+  why - the coverage claim and the clean result were indistinguishable. This is
+  the same silent-loss class as the propagation and coordination blocks, and the
+  sixth instance across three cycles. Failures are now recorded once per method
+  with the JSON-RPC code and surface as an `enumeration_gap` check, with the
+  code deciding severity: -32601 means the method was never implemented and the
+  surface does not exist, so INFO; anything else - an authorization refusal, a
+  transport error, an HTTP status folded into the error field - means the
+  surface may exist and went unexamined, so MEDIUM.
+- Every MCP finding reached HTML, Markdown, SARIF and JUnit as module `unknown`
+  with a blank title and no taxonomy - a CRITICAL tool-poisoning hit filed under
+  SARIF ruleId `MAS-SENTRY-UNKNOWN`. `from_mcp_check` synthesizes the title and
+  attaches the ASI/CWE/STRIDE/ATLAS tags for each check; it was written,
+  unit-tested and never called, because `report convert` fell through to the
+  unified-Finding branch, which looks for `module`/`title`/`tags` while the MCP
+  scan writes `{check, severity, detail}`. Rows carrying `check` without
+  `module` now route to the adapter, the way ABFP agent rows already did. The
+  new tests drive the CLI rather than the adapter, since full coverage of the
+  function was exactly what hid the missing call.
+- `StdioConfig.timeout` was declared and never applied: the transport called a
+  blocking readline, so a server that accepted a request and answered nothing
+  stopped the scan for good - and whether it answers is the target choice. A
+  pentest tool the scanned host can hang is a denial of service on its own
+  operator, and in CI a job that runs until the runner is killed. Reads now poll
+  with a deadline and buffer across calls, since framing is by newline rather
+  than by read boundary. A timeout and a closed pipe both come back as JSON-RPC
+  errors instead of raising, so they land in the report as enumeration gaps and
+  the rest of the scan proceeds; a closed pipe reports the exit code and the
+  tail of stderr, which is what identifies a server that died during startup.
+  Writing to a dead pipe raised too, and is handled the same way. `select()` on
+  a pipe is POSIX-only, so elsewhere the unbounded read remains, documented as
+  such rather than silently pretending to be bounded.
 
 ## [0.7.0] - 2026-07-19 - Delegation-mesh auditing, agent-output exfiltration detection, coordination side-channel
 
