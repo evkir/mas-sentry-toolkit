@@ -17,6 +17,9 @@ PROTOCOL_VERSION = "2025-06-18"  # spec rev — bump as needed
 CLIENT_NAME = "mas-sentry"
 CLIENT_VERSION = "0.2.0"
 METHOD_NOT_FOUND = -32601
+# A hostile server can hand back cursors forever. Every listing is bounded, and
+# hitting the bound is reported rather than silently accepted as a full result.
+MAX_LIST_PAGES = 50
 
 
 @dataclass(slots=True)
@@ -79,7 +82,7 @@ class EnumerationIssue:
     @property
     def detail(self) -> str:
         code = "no code" if self.code is None else f"code {self.code}"
-        return f"{self.method} returned no inventory: {self.message} ({code})"
+        return f"{self.method} did not return a complete inventory: {self.message} ({code})"
 
 
 @dataclass(slots=True)
@@ -116,6 +119,46 @@ class McpClient:
             )
         )
 
+    def _list_paged(self, method: str, key: str) -> list[dict[str, Any]]:
+        """Walk every page of a list method and return the raw entries.
+
+        MCP list results are paginated: a server answers with a slice and a
+        `nextCursor`, and the client is expected to keep asking until the cursor
+        is absent. Reading only the first page is the quiet version of the
+        empty-inventory defect - a server with more tools than fit one page gets
+        audited on the prefix, and the tools an attacker would care about are as
+        likely to sit past the cut as before it.
+
+        Two failure modes are treated as findings rather than as results. A
+        server that repeats a cursor, or that never stops issuing them, would
+        otherwise spin the scanner indefinitely; the walk is bounded, and both
+        outcomes are recorded so a truncated inventory is never presented as a
+        complete one.
+        """
+        items: list[dict[str, Any]] = []
+        cursor: str | None = None
+        seen: set[str] = set()
+        for _ in range(MAX_LIST_PAGES):
+            params: dict[str, Any] = {} if cursor is None else {"cursor": cursor}
+            resp = self.transport.send(JsonRpcCodec.request(method, params, req_id=self._id()))
+            if resp.is_error:
+                self._record_issue(method, resp.error)
+                return items
+            result = resp.result if isinstance(resp.result, dict) else {}
+            page = result.get(key)
+            if isinstance(page, list):
+                items.extend(entry for entry in page if isinstance(entry, dict))
+            nxt = result.get("nextCursor")
+            if not isinstance(nxt, str) or not nxt:
+                return items
+            if nxt in seen:
+                self._record_issue(method, {"message": f"server repeated pagination cursor {nxt!r}"})
+                return items
+            seen.add(nxt)
+            cursor = nxt
+        self._record_issue(method, {"message": f"pagination did not terminate within {MAX_LIST_PAGES} pages"})
+        return items
+
     def _id(self) -> int:
         self._next_id += 1
         return self._next_id
@@ -151,12 +194,8 @@ class McpClient:
         return self.server
 
     def list_tools(self) -> list[ToolDef]:
-        resp = self.transport.send(JsonRpcCodec.request("tools/list", {}, req_id=self._id()))
-        if resp.is_error:
-            self._record_issue("tools/list", resp.error)
-            return []
         out: list[ToolDef] = []
-        for t in (resp.result or {}).get("tools", []):
+        for t in self._list_paged("tools/list", "tools"):
             out.append(
                 ToolDef(
                     name=t.get("name", ""),
@@ -168,12 +207,8 @@ class McpClient:
         return out
 
     def list_prompts(self) -> list[PromptDef]:
-        resp = self.transport.send(JsonRpcCodec.request("prompts/list", {}, req_id=self._id()))
-        if resp.is_error:
-            self._record_issue("prompts/list", resp.error)
-            return []
         out: list[PromptDef] = []
-        for p in (resp.result or {}).get("prompts", []):
+        for p in self._list_paged("prompts/list", "prompts"):
             out.append(
                 PromptDef(
                     name=p.get("name", ""),
@@ -184,12 +219,8 @@ class McpClient:
         return out
 
     def list_resources(self) -> list[ResourceDef]:
-        resp = self.transport.send(JsonRpcCodec.request("resources/list", {}, req_id=self._id()))
-        if resp.is_error:
-            self._record_issue("resources/list", resp.error)
-            return []
         out: list[ResourceDef] = []
-        for r in (resp.result or {}).get("resources", []):
+        for r in self._list_paged("resources/list", "resources"):
             out.append(
                 ResourceDef(
                     uri=r.get("uri", ""),

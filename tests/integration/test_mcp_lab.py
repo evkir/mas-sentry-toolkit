@@ -74,6 +74,18 @@ def stdio_config():
 
 
 @pytest.fixture(scope="module")
+def paged_stdio_config():
+    """The same rig, serving tools/list two at a time."""
+    from mas_sentry.protocols.mcp.transport_stdio import StdioConfig
+
+    return StdioConfig(
+        command=[sys.executable, "-m", "lab.mcp.server"],
+        env=_lab_env({"MCP_LAB_PAGE_SIZE": "2"}),
+        cwd=str(REPO_ROOT),
+    )
+
+
+@pytest.fixture(scope="module")
 def http_url() -> Iterator[str]:
     """Spawn the rig on Streamable HTTP and yield its endpoint URL."""
     port = _free_port()
@@ -254,3 +266,22 @@ def test_http_transport_adopts_the_session_and_revision(http_url: str) -> None:
         info = McpClient(transport).initialize()
         assert transport.session_id, "server minted a session that was not adopted"
         assert transport.protocol_version == info.protocol_version
+
+
+def test_a_paginated_inventory_is_walked_to_the_end(paged_stdio_config) -> None:
+    """Four tools served two at a time are still four tools.
+
+    The reference server pages through the SDK result model, so the cursor
+    shape is the real one rather than our own idea of it. A client reading only
+    the first page would report half this inventory and audit half the surface.
+    """
+    from mas_sentry.protocols.mcp.client import McpClient
+    from mas_sentry.protocols.mcp.transport_stdio import open_stdio
+
+    with open_stdio(paged_stdio_config) as transport:
+        client = McpClient(transport)
+        client.initialize()
+        tools = client.list_tools()
+
+    assert {t.name for t in tools} == LAB_TOOLS
+    assert client.enumeration_issues == []
