@@ -10,7 +10,7 @@ score them for anomalies.
 ABFP needs a reachable MQTT broker. Start the bundled lab broker:
 
 ```bash
-docker compose -f lab/docker-compose.yml up -d mosquitto
+docker compose up -d mosquitto
 ```
 
 ## Run
