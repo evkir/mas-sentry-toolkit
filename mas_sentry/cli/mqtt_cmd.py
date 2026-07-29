@@ -19,7 +19,7 @@ def mqtt_scan(
         "-t",
         help="mqtt://host[:port] | host[:port] (default port 1883)",
     ),
-    checks: str = typer.Option("all", "--checks", help="all|auth|fingerprint|topics (comma-separated)"),
+    checks: str = typer.Option("all", "--checks", help="all|auth|fingerprint|topics|retained (comma-separated)"),
     duration: int = typer.Option(20, "--duration", "-d", help="Topic collection seconds"),
     out: Path = typer.Option(Path("reports/mqtt.json"), "--out", "-o"),
     confirm_scope: bool = typer.Option(

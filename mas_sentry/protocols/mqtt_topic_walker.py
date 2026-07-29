@@ -23,6 +23,11 @@ class MQTTTopicWalker:
         self.host = host
         self.port = port
         self.discovered: set[str] = set()
+        # Retained payloads are captured on the same pass. A retained message is
+        # delivered to every new subscriber the instant it subscribes, so the
+        # wildcard walk already receives them - collecting them here costs no
+        # extra connection and no extra second on the wire.
+        self.retained: dict[str, str] = {}
 
     def walk(self, duration: int = 20) -> list[str]:
         """Collect every topic the broker will hand an anonymous wildcard subscriber.
@@ -33,7 +38,7 @@ class MQTTTopicWalker:
         a refused subscription was reported as "no topics found".
         """
         client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2, client_id="mas-sentry-walker")
-        client.on_message = lambda c, u, msg: self.discovered.add(msg.topic)
+        client.on_message = self._on_message
         state: dict[str, Any] = {}
 
         def on_connect(c, u, f, rc, properties=None):
@@ -61,6 +66,11 @@ class MQTTTopicWalker:
         self._print_tree()
         console.print(f"[green][WALKER] Found {len(self.discovered)} unique topics[/green]")
         return sorted(self.discovered)
+
+    def _on_message(self, client, userdata, msg) -> None:
+        self.discovered.add(msg.topic)
+        if msg.retain:
+            self.retained[msg.topic] = msg.payload.decode(errors="replace")
 
     def _print_tree(self):
         tree = Tree("[bold red]MQTT Topic Tree[/bold red]")

@@ -43,10 +43,11 @@ from mas_sentry.core.scope import assert_in_scope
 from mas_sentry.protocols.mqtt_auth_check import MQTTAuthChecker
 from mas_sentry.protocols.mqtt_connect import BrokerRefusedConnection, BrokerUnreachable
 from mas_sentry.protocols.mqtt_fingerprint import MQTTBrokerFingerprinter
+from mas_sentry.protocols.mqtt_retained_audit import audit_retained, retained_inventory
 from mas_sentry.protocols.mqtt_topic_walker import MQTTTopicWalker
 from mas_sentry.reporting.structured import write_json
 
-ALL_CHECKS = ("auth", "fingerprint", "topics")
+ALL_CHECKS = ("auth", "fingerprint", "topics", "retained")
 DEFAULT_PORT = 1883
 # Topic names carried in evidence. The report is for a human deciding where to
 # look next, so the inventory is sampled rather than dumped whole.
@@ -283,10 +284,17 @@ def run_mqtt_scan(
         except BrokerUnreachable as exc:
             findings.append(_gap(target, "fingerprint", str(exc), Severity.MEDIUM))
 
-    if "topics" in selected:
+    if "topics" in selected or "retained" in selected:
+        # One walk serves both checks: retained messages arrive on the same
+        # wildcard subscription, so collecting them costs no second connection.
+        walker = MQTTTopicWalker(host, port, confirmed=scope_confirmed)
         try:
-            topics = MQTTTopicWalker(host, port, confirmed=scope_confirmed).walk(duration=duration)
-            findings.extend(_topic_findings(target, topics, duration, anonymous))
+            topics = walker.walk(duration=duration)
+            if "topics" in selected:
+                findings.extend(_topic_findings(target, topics, duration, anonymous))
+            if "retained" in selected:
+                findings.append(retained_inventory(walker.retained, target))
+                findings.extend(audit_retained(walker.retained, target))
         except BrokerRefusedConnection as exc:
             findings.append(_refusal_gap(target, "topic_walk", exc))
         except BrokerUnreachable as exc:
