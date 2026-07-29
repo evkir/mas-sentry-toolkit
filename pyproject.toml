@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "mas-sentry-toolkit"
 version = "0.8.0"
-description = "Unified offensive-security toolkit for Multi-Agent Systems: MQTT/AMQP IoT swarms and MCP/A2A LLM agents. Aligned with OWASP Agentic Top 10 (2026)."
+description = "Offensive-security scanner for multi-agent systems: MCP and A2A agent protocols plus MQTT agent messaging, verified against the reference SDKs. Aligned with OWASP Agentic Top 10 (2026)."
 readme = "README.md"
 requires-python = ">=3.11"
 license = "AGPL-3.0-or-later"
