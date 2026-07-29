@@ -9,12 +9,13 @@ server from lab/mcp/server.py and scans it over a real transport, so a
 divergence between what MST emits and what a conforming server accepts shows up
 as a test failure rather than as a silent empty scan in the field.
 
-The HTTP cases were pinned as xfail(strict=True) when this module landed: the
+Every case here was pinned as xfail(strict=True) when this module landed. The
 reference server mints an `Mcp-Session-Id` on initialize and rejects every later
 request without it, MST never carried it, and the enumeration helpers degrade an
 error to an empty list, so a fully populated server was reported as having no
 tools, no prompts and no resources at all. The transport now carries the session
-and the negotiated revision, so they assert normally.
+and the negotiated revision, and resources/templates/list is now requested, so
+they assert normally.
 
 Skipped when the optional lab dependencies are absent (pip install -e .[lab]).
 """
@@ -191,21 +192,40 @@ def test_stdio_scan_confirms_path_traversal(stdio_config, tmp_path: Path) -> Non
     assert any(d.startswith("read_file:") for d in _details(findings, "path_traversal")), findings
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="resources/templates/list is never requested, so templated resources are invisible",
-)
 def test_templated_resources_are_enumerated(stdio_config) -> None:
-    """A templated resource is part of the attack surface and must be listed."""
+    """A templated resource is part of the attack surface and must be listed.
+
+    It lives behind its own method, so a client that only asks for concrete
+    resources sees a smaller server than the one in front of it.
+    """
     from mas_sentry.protocols.mcp.client import McpClient
     from mas_sentry.protocols.mcp.transport_stdio import open_stdio
 
     with open_stdio(stdio_config) as transport:
         client = McpClient(transport)
         client.initialize()
-        uris = {r.uri for r in client.list_resources()}
+        enumeration = client.enumerate_all()
 
-    assert LAB_TEMPLATED_RESOURCE in uris
+    assert {t.uri_template for t in enumeration.resource_templates} == {LAB_TEMPLATED_RESOURCE}
+    assert {r.uri for r in enumeration.resources} == {LAB_STATIC_RESOURCE}
+
+
+def test_a_poisoned_template_description_is_flagged(stdio_config, tmp_path: Path) -> None:
+    """The description is what an agent reads before expanding the template."""
+    from mas_sentry.protocols.mcp.runtime import run_mcp_scan
+
+    findings = run_mcp_scan(
+        scheme="stdio",
+        command=stdio_config.command,
+        target_label="lab-mcp-stdio",
+        checks="resources",
+        out=tmp_path / "mcp.json",
+        scope_confirmed=False,
+    )
+    templates = _details(findings, "resource_template")
+    assert len(templates) == 1, findings
+    assert templates[0].startswith(f"{LAB_TEMPLATED_RESOURCE}:")
+    assert "ignore-previous" in templates[0]
 
 
 # --- Streamable HTTP: the transport the session fix unblocked ---------------

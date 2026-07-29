@@ -64,6 +64,7 @@ def _git_server_script() -> list[dict[str, Any]]:
         },
         {"jsonrpc": "2.0", "id": 3, "result": {"prompts": []}},
         {"jsonrpc": "2.0", "id": 4, "result": {"resources": []}},
+        {"jsonrpc": "2.0", "id": 5, "result": {"resourceTemplates": []}},
     ]
 
 

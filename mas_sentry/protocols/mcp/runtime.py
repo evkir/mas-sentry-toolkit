@@ -12,7 +12,7 @@ from mas_sentry.core.scope import assert_in_scope
 
 from .audit.dns_rebind import test_dns_rebinding
 from .audit.path_traversal import probe_arg_injection, probe_path_traversal
-from .audit.resource_content import audit_resource_content
+from .audit.resource_content import audit_resource_content, audit_resource_templates
 from .audit.ssrf import probe_ssrf
 from .audit.tool_drift import detect_tool_drift
 from .audit.tool_poisoning import detect_tool_poisoning
@@ -98,6 +98,15 @@ def _run_all_checks(
                     "check": "resource_content",
                     "severity": rf.severity,
                     "detail": f"{rf.uri}: {'; '.join(signals)}",
+                }
+            )
+        for rt in audit_resource_templates(client):
+            signals = list(rt.injection_patterns) + list(rt.exfil_channels)
+            out.append(
+                {
+                    "check": "resource_template",
+                    "severity": rt.severity,
+                    "detail": f"{rt.uri}: {'; '.join(signals)}",
                 }
             )
 

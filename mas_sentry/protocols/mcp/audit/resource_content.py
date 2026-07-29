@@ -28,7 +28,7 @@ from dataclasses import dataclass
 from mas_sentry.core.injection_scan import STRONG_PATTERNS, scan_string
 from mas_sentry.core.output_exfil import scan_exfiltration_channels
 
-from ..client import McpClient
+from ..client import McpClient, ResourceTemplateDef
 from ..content import extract_block_text, is_tool_error
 from ..jsonrpc import JsonRpcCodec
 
@@ -74,6 +74,42 @@ def _read_resource_text(client: McpClient, uri: str) -> str:
     if not isinstance(contents, list):
         return ""
     return "\n".join(t for t in (extract_block_text(c) for c in contents) if t)
+
+
+def audit_resource_templates(client: McpClient) -> list[ResourceFinding]:
+    """Scan the metadata of every templated resource the server advertises.
+
+    A template cannot be read without choosing a value for its parameters, so
+    its body is out of reach here. Its name and description are not: those are
+    the text an agent weighs when deciding whether to expand the template and
+    pull the result into context, which makes them the same ingestion surface
+    as a tool description and vulnerable to the same directive smuggling.
+
+    Reported against the template expression rather than a concrete URI, since
+    that is the only identifier the server gave us.
+    """
+    out: list[ResourceFinding] = []
+    for template in client.list_resource_templates():
+        text = _template_metadata(template)
+        if not text:
+            continue
+        patterns = tuple(sorted({m.pattern for m in scan_string(text)}))
+        channels = tuple(sorted({f"{c.kind} -> {c.url}" for c in scan_exfiltration_channels(text)}))
+        if not patterns and not channels:
+            continue
+        out.append(
+            ResourceFinding(
+                uri=template.uri_template,
+                injection_patterns=patterns,
+                exfil_channels=channels,
+                sample=text[:160],
+            )
+        )
+    return out
+
+
+def _template_metadata(template: ResourceTemplateDef) -> str:
+    return "\n".join(part for part in (template.name, template.description) if part)
 
 
 def audit_resource_content(client: McpClient) -> list[ResourceFinding]:

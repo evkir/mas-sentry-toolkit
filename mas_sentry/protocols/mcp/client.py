@@ -85,6 +85,22 @@ class EnumerationIssue:
         return f"{self.method} did not return a complete inventory: {self.message} ({code})"
 
 
+@dataclass(frozen=True, slots=True)
+class ResourceTemplateDef:
+    """A parameterised resource URI the server will expand on request.
+
+    Templates are listed by their own method and never appear in
+    `resources/list`, so a client that asks only for concrete resources sees a
+    server with fewer of them than it has - and the description field, which is
+    what the model reads when deciding to fetch, goes unscanned.
+    """
+
+    uri_template: str
+    name: str = ""
+    description: str = ""
+    mime_type: str = ""
+
+
 @dataclass(slots=True)
 class Enumeration:
     """Aggregated result of one full server enumeration pass."""
@@ -92,10 +108,11 @@ class Enumeration:
     tools: list[ToolDef] = field(default_factory=list)
     prompts: list[PromptDef] = field(default_factory=list)
     resources: list[ResourceDef] = field(default_factory=list)
+    resource_templates: list[ResourceTemplateDef] = field(default_factory=list)
 
     @property
     def total(self) -> int:
-        return len(self.tools) + len(self.prompts) + len(self.resources)
+        return len(self.tools) + len(self.prompts) + len(self.resources) + len(self.resource_templates)
 
 
 class McpClient:
@@ -230,10 +247,29 @@ class McpClient:
             )
         return out
 
+    def list_resource_templates(self) -> list[ResourceTemplateDef]:
+        out: list[ResourceTemplateDef] = []
+        for t in self._list_paged("resources/templates/list", "resourceTemplates"):
+            out.append(
+                ResourceTemplateDef(
+                    uri_template=t.get("uriTemplate", ""),
+                    name=t.get("name", ""),
+                    description=t.get("description", ""),
+                    mime_type=t.get("mimeType", ""),
+                )
+            )
+        return out
+
     def enumerate_all(self) -> Enumeration:
-        """Single pass: tools + prompts + resources. Errors degrade to empty lists."""
+        """Single pass over every inventory the server exposes.
+
+        Failures are recorded as enumeration issues rather than swallowed, so a
+        listing that did not come back is distinguishable from one that came
+        back empty.
+        """
         return Enumeration(
             tools=self.list_tools(),
             prompts=self.list_prompts(),
             resources=self.list_resources(),
+            resource_templates=self.list_resource_templates(),
         )

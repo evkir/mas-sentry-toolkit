@@ -64,4 +64,8 @@ def test_vuln_mcp_unlisted_surfaces_reach_the_report(tmp_path):
         scope_confirmed=False,
     )
     gaps = {f["detail"].split(" ")[0]: f["severity"] for f in findings if f["check"] == "enumeration_gap"}
-    assert gaps == {"prompts/list": "INFO", "resources/list": "INFO"}, findings
+    assert gaps == {
+        "prompts/list": "INFO",
+        "resources/list": "INFO",
+        "resources/templates/list": "INFO",
+    }, findings
