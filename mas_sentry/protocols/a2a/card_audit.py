@@ -1,5 +1,17 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
-"""Audit a discovered A2A AgentCard for security-relevant configuration."""
+"""Audit a discovered A2A AgentCard for security-relevant configuration.
+
+Only properties an AgentCard can actually express are checked here. Two
+earlier checks read fields that exist in no A2A generation - a rate-limit
+declaration under capabilities, and a webhook signing scheme under
+authentication - so they fired on every card advertising streaming or push
+notifications and could not be cleared by any real agent. Rate limiting is
+simply not card-expressible, and push-callback authentication is negotiated
+per task in TaskPushNotificationConfig.authentication at runtime rather than
+declared up front, so neither has a card-side replacement. A check that
+cannot distinguish a secure agent from an insecure one is noise regardless
+of how sound its motivating threat is.
+"""
 
 from __future__ import annotations
 
@@ -27,10 +39,6 @@ _CLEARTEXT_TAGS = ["CWE-319", "STRIDE_Tampering"]
 # consistent SARIF ranking and cross-taxonomy filtering.
 # Missing / anonymous auth -> anyone can act as a client (impersonation).
 _MISSING_AUTH_TAGS = ["ASI03_Identity_Abuse", "CWE-306", "STRIDE_Spoofing"]
-# Uncapped streaming -> long-lived streams abused for resource exhaustion.
-_STREAMING_TAGS = ["ASI07_Resource_Exhaustion", "CWE-400", "STRIDE_Denial_Of_Service"]
-# Unsigned push callbacks -> receiver cannot verify sender authenticity.
-_PUSH_TAGS = ["ASI03_Identity_Abuse", "CWE-345", "STRIDE_Spoofing"]
 # Excessive advertised skill surface -> least-privilege violation, broader
 # abuse paths. Softest of the set; kept LOW and tagged honestly, not padded.
 _SKILL_SURFACE_TAGS = ["ASI02_Tool_Misuse", "CWE-272", "STRIDE_Elevation_Of_Privilege"]
@@ -89,28 +97,6 @@ def audit_agent_card(card: AgentCard) -> list[CardFinding]:
     out.extend(_check_no_auth(card))
     out.extend(_check_weak_scheme_only(card))
     out.extend(_check_overbroad_scopes(card))
-
-    auth = card.authentication or {}
-    caps = card.capabilities or {}
-    if caps.get("streaming") and not caps.get("rateLimits"):
-        out.append(
-            CardFinding(
-                severity="MEDIUM",
-                title="Streaming enabled without rate limits in capabilities",
-                detail=("Long-lived streams can be abused for resource exhaustion"),
-                tags=_STREAMING_TAGS,
-            )
-        )
-
-    if caps.get("pushNotifications") and not auth.get("webhookSigning"):
-        out.append(
-            CardFinding(
-                severity="MEDIUM",
-                title="Push notifications enabled without webhook signing",
-                detail=("Outgoing callbacks can be spoofed if no signing scheme is published"),
-                tags=_PUSH_TAGS,
-            )
-        )
 
     if len(card.skills) > LARGE_SKILL_THRESHOLD:
         out.append(

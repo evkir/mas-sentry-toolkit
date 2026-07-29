@@ -142,30 +142,6 @@ def test_card_legacy_v03_not_checked_for_weak_scheme() -> None:
     assert not any("bare api key" in f.title.lower() for f in findings)
 
 
-def test_card_streaming_without_ratelimit() -> None:
-    card = AgentCard(
-        name="x",
-        description="",
-        url="",
-        authentication={"schemes": ["bearer"]},
-        capabilities={"streaming": True},
-    )
-    findings = audit_agent_card(card)
-    assert any("streaming enabled without rate limits" in f.title.lower() for f in findings)
-
-
-def test_card_push_without_webhook_signing() -> None:
-    card = AgentCard(
-        name="x",
-        description="",
-        url="",
-        authentication={"schemes": ["bearer"]},
-        capabilities={"pushNotifications": True},
-    )
-    findings = audit_agent_card(card)
-    assert any("push notifications" in f.title.lower() for f in findings)
-
-
 def test_card_large_skill_surface() -> None:
     card = AgentCard(
         name="x",
@@ -258,23 +234,26 @@ def test_card_empty_signatures_list_flagged() -> None:
 
 
 def test_card_clean_no_findings() -> None:
-    """Card with bearer auth, rate-limited streaming, signed webhooks,
-    a small skill surface, and a JWS signature should produce zero findings."""
+    """A card a real agent can actually publish must be able to score clean.
+
+    The previous fixture declared rateLimits and webhookSigning, neither of
+    which exists in any A2A generation, so the only card that scored clean was
+    one no agent could serve. This one uses the real v1.0 shape: an OAuth2
+    scheme, a security requirement that makes it mandatory, streaming and push
+    enabled, a small skill surface, HTTPS, and a JWS signature.
+    """
+    raw = {
+        "securitySchemes": {"oauth2": {"type": "oauth2"}},
+        "securityRequirements": [{"schemes": {"oauth2": ["read"]}}],
+        "signatures": [{"protected": "eyJhbGciOiJFZERTQSJ9", "signature": "abc"}],
+    }
     card = AgentCard(
         name="x",
         description="",
-        url="",
-        authentication={
-            "schemes": ["bearer"],
-            "webhookSigning": "hmac-sha256",
-        },
-        capabilities={
-            "streaming": True,
-            "rateLimits": {"perMinute": 60},
-            "pushNotifications": True,
-        },
+        url="https://agent.example",
+        capabilities={"streaming": True, "pushNotifications": True},
         skills=[{"id": "echo"}, {"id": "summarize"}],
-        raw={"signatures": [{"protected": "eyJhbGciOiJFZERTQSJ9", "signature": "abc"}]},
+        raw=raw,
     )
     assert audit_agent_card(card) == []
 
@@ -765,8 +744,6 @@ def test_card_structural_findings_carry_full_taxonomy() -> None:
     )
     f = audit_agent_card(no_auth_card)
     assert _tags(f, "no authentication") == ["ASI03_Identity_Abuse", "CWE-306", "STRIDE_Spoofing"]
-    assert _tags(f, "streaming enabled") == ["ASI07_Resource_Exhaustion", "CWE-400", "STRIDE_Denial_Of_Service"]
-    assert _tags(f, "push notifications") == ["ASI03_Identity_Abuse", "CWE-345", "STRIDE_Spoofing"]
     assert _tags(f, "advertises") == ["ASI02_Tool_Misuse", "CWE-272", "STRIDE_Elevation_Of_Privilege"]
     assert _tags(f, "is not signed") == ["ASI03_Identity_Abuse", "CWE-347", "STRIDE_Spoofing"]
 
