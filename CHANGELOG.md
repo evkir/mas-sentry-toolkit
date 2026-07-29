@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-07-29 - Reference-SDK rigs for A2A and MCP; eleven wire-level defects
+
 ### Added
 - A2A integration rig built on the reference `a2a-sdk` (`lab/a2a/agent.py`,
   `pip install -e '.[lab]'`). Every A2A test so far drove the client through
