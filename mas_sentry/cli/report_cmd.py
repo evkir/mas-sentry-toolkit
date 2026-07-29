@@ -11,7 +11,7 @@ from rich.console import Console
 from mas_sentry.agents.abfp.coordination import CoordinationSignal
 from mas_sentry.agents.abfp.injection_propagation import PropagationFinding
 from mas_sentry.agents.abfp.scoring import Severity as AbfpSeverity
-from mas_sentry.core.adapters import from_coordination_signal, from_propagation_finding
+from mas_sentry.core.adapters import from_coordination_signal, from_mcp_check, from_propagation_finding
 from mas_sentry.core.finding import Finding, Severity
 from mas_sentry.reporting.markdown import render_markdown
 from mas_sentry.reporting.sarif import write_sarif
@@ -41,7 +41,7 @@ def report_convert(
     items = raw.get("findings", raw) if isinstance(raw, dict) else raw
     if not isinstance(items, list):
         raise typer.BadParameter("expected a JSON array of findings or an object with a 'findings' array")
-    findings = [_to_finding(d) for d in items]
+    findings = [_to_finding(d, target) for d in items]
     findings += _propagation_findings(raw, target)
     findings += _coordination_findings(raw, target)
     graph = raw.get("graph") if isinstance(raw, dict) else None
@@ -207,9 +207,23 @@ def _abfp_to_finding(d: dict[str, Any]) -> Finding:
     )
 
 
-def _to_finding(d: dict[str, Any]) -> Finding:
+def _to_finding(d: dict[str, Any], target: str) -> Finding:
+    """Route one raw entry to the adapter that understands its shape.
+
+    Scans do not all emit the unified Finding shape. ABFP writes agent rows and
+    the MCP scan writes {check, severity, detail}, so an entry without `module`
+    has to be recognised by what it does carry. The MCP branch is the reason
+    this function takes a target: `from_mcp_check` synthesizes the title and
+    attaches the ASI/CWE/STRIDE/ATLAS tags for the check, and until it was
+    wired in here every MCP finding reached HTML, Markdown, SARIF and JUnit as
+    module `unknown` with an empty title and no taxonomy - a SARIF ruleId of
+    `unknown` for a CRITICAL tool-poisoning hit. The adapter existed and was
+    unit-tested; nothing in the product called it.
+    """
     if "agent_id" in d and "module" not in d:
         return _abfp_to_finding(d)
+    if "check" in d and "module" not in d:
+        return from_mcp_check(d, target)
     return Finding(
         module=d.get("module", "unknown"),
         title=d.get("title", ""),
