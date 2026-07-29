@@ -38,6 +38,38 @@
   rather than being scanned as an empty string.
 
 ### Fixed
+- A fully secured A2A v0.3.x AgentCard was reported HIGH as enforcing no
+  authentication. Both generations publish securitySchemes and then name the
+  mandatory subset under a different key - securityRequirements in v1.0,
+  security in v0.3.x - and only the v1.0 spelling was read, so a legacy agent
+  that had configured OAuth2 correctly was told it had no auth at all. A false
+  positive at HIGH, aimed precisely at the operators who got it right. Both
+  requirement keys are now honoured. The remaining authentication.schemes
+  fallback is kept for genuinely old cards but described accurately: 0.3 had
+  already moved to securitySchemes, so that shape predates the versions this
+  scanner claims to support.
+- Removed the streaming rate-limit and push webhook-signing card checks. They
+  read capabilities.rateLimits and authentication.webhookSigning, neither of
+  which exists in A2A v1.0 or v0.3.x - AgentCapabilities carries exactly
+  streaming, pushNotifications, extensions and extendedAgentCard - so both
+  fired on every card advertising the capability and no configuration could
+  clear them. Neither has a card-side replacement: rate limiting is not
+  card-expressible, and push-callback authentication is negotiated per task in
+  TaskPushNotificationConfig.authentication at runtime rather than declared up
+  front. The motivating threats are real; the signal was not. The clean-card
+  test fixture asserted zero findings for a card carrying both invented
+  fields, which meant the only card able to score clean was one no agent could
+  publish; it now uses the real v1.0 shape.
+- An agent replying with a Message instead of a Task went unscanned.
+  SendMessageResponse is a oneof, so an agent that answers in one turn never
+  creates a Task at all - v1.0 wraps the reply as result.message, v0.3.x
+  returns it flat under kind: message. The client looked only for a Task,
+  parsed an empty result, then polled a task id it had never been given, and
+  the canary the agent had just echoed went unseen. TaskResult now carries
+  those replies in a separate messages field, marked terminal so nothing polls
+  a phantom id, and the injection probe scans both carriers. Task history is
+  deliberately excluded from that scan: it contains the probe payload itself
+  and would make every agent self-match.
 - The A2A client spoke the v0.3.x JSON-RPC vocabulary unconditionally and sent
   no `A2A-Version` header, so a reference v1.0 server answered -32601 Method
   not found to every call. Two of the three active probes were swallowed by the
