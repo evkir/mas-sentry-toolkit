@@ -2705,31 +2705,7 @@ discovered card - see _resolve_protocol_version.</p>
 
               <details class="mkdocstrings-source">
                 <summary>Source code in <code>mas_sentry/protocols/a2a/client.py</code></summary>
-                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-230">230</a></span>
-<span class="normal"><a href="#__codelineno-0-231">231</a></span>
-<span class="normal"><a href="#__codelineno-0-232">232</a></span>
-<span class="normal"><a href="#__codelineno-0-233">233</a></span>
-<span class="normal"><a href="#__codelineno-0-234">234</a></span>
-<span class="normal"><a href="#__codelineno-0-235">235</a></span>
-<span class="normal"><a href="#__codelineno-0-236">236</a></span>
-<span class="normal"><a href="#__codelineno-0-237">237</a></span>
-<span class="normal"><a href="#__codelineno-0-238">238</a></span>
-<span class="normal"><a href="#__codelineno-0-239">239</a></span>
-<span class="normal"><a href="#__codelineno-0-240">240</a></span>
-<span class="normal"><a href="#__codelineno-0-241">241</a></span>
-<span class="normal"><a href="#__codelineno-0-242">242</a></span>
-<span class="normal"><a href="#__codelineno-0-243">243</a></span>
-<span class="normal"><a href="#__codelineno-0-244">244</a></span>
-<span class="normal"><a href="#__codelineno-0-245">245</a></span>
-<span class="normal"><a href="#__codelineno-0-246">246</a></span>
-<span class="normal"><a href="#__codelineno-0-247">247</a></span>
-<span class="normal"><a href="#__codelineno-0-248">248</a></span>
-<span class="normal"><a href="#__codelineno-0-249">249</a></span>
-<span class="normal"><a href="#__codelineno-0-250">250</a></span>
-<span class="normal"><a href="#__codelineno-0-251">251</a></span>
-<span class="normal"><a href="#__codelineno-0-252">252</a></span>
-<span class="normal"><a href="#__codelineno-0-253">253</a></span>
-<span class="normal"><a href="#__codelineno-0-254">254</a></span>
+                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-254">254</a></span>
 <span class="normal"><a href="#__codelineno-0-255">255</a></span>
 <span class="normal"><a href="#__codelineno-0-256">256</a></span>
 <span class="normal"><a href="#__codelineno-0-257">257</a></span>
@@ -2865,167 +2841,201 @@ discovered card - see _resolve_protocol_version.</p>
 <span class="normal"><a href="#__codelineno-0-387">387</a></span>
 <span class="normal"><a href="#__codelineno-0-388">388</a></span>
 <span class="normal"><a href="#__codelineno-0-389">389</a></span>
-<span class="normal"><a href="#__codelineno-0-390">390</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-230" name="__codelineno-0-230"></a><span class="k">class</span><span class="w"> </span><span class="nc">A2AClient</span><span class="p">:</span>
-<a id="__codelineno-0-231" name="__codelineno-0-231"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Minimal HTTP+JSON client for the Google A2A protocol.</span>
-<a id="__codelineno-0-232" name="__codelineno-0-232"></a>
-<a id="__codelineno-0-233" name="__codelineno-0-233"></a><span class="sd">    Pass `transport=httpx.MockTransport(...)` for offline tests.</span>
-<a id="__codelineno-0-234" name="__codelineno-0-234"></a><span class="sd">    &quot;&quot;&quot;</span>
-<a id="__codelineno-0-235" name="__codelineno-0-235"></a>
-<a id="__codelineno-0-236" name="__codelineno-0-236"></a>    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
-<a id="__codelineno-0-237" name="__codelineno-0-237"></a>        <span class="bp">self</span><span class="p">,</span>
-<a id="__codelineno-0-238" name="__codelineno-0-238"></a>        <span class="n">base_url</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
-<a id="__codelineno-0-239" name="__codelineno-0-239"></a>        <span class="n">headers</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-<a id="__codelineno-0-240" name="__codelineno-0-240"></a>        <span class="n">timeout</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">15.0</span><span class="p">,</span>
-<a id="__codelineno-0-241" name="__codelineno-0-241"></a>        <span class="n">verify_tls</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
-<a id="__codelineno-0-242" name="__codelineno-0-242"></a>        <span class="n">transport</span><span class="p">:</span> <span class="n">httpx</span><span class="o">.</span><span class="n">BaseTransport</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-<a id="__codelineno-0-243" name="__codelineno-0-243"></a>        <span class="n">confirmed</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
-<a id="__codelineno-0-244" name="__codelineno-0-244"></a>    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<a id="__codelineno-0-245" name="__codelineno-0-245"></a>        <span class="k">if</span> <span class="n">transport</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-<a id="__codelineno-0-246" name="__codelineno-0-246"></a>            <span class="n">assert_in_scope</span><span class="p">(</span><span class="n">base_url</span><span class="p">,</span> <span class="n">confirmed</span><span class="o">=</span><span class="n">confirmed</span><span class="p">)</span>
-<a id="__codelineno-0-247" name="__codelineno-0-247"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">base_url</span> <span class="o">=</span> <span class="n">base_url</span><span class="o">.</span><span class="n">rstrip</span><span class="p">(</span><span class="s2">&quot;/&quot;</span><span class="p">)</span>
-<a id="__codelineno-0-248" name="__codelineno-0-248"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">_card_raw</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
-<a id="__codelineno-0-249" name="__codelineno-0-249"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">_client</span> <span class="o">=</span> <span class="n">httpx</span><span class="o">.</span><span class="n">Client</span><span class="p">(</span>
-<a id="__codelineno-0-250" name="__codelineno-0-250"></a>            <span class="n">headers</span><span class="o">=</span><span class="n">headers</span> <span class="ow">or</span> <span class="p">{},</span>
-<a id="__codelineno-0-251" name="__codelineno-0-251"></a>            <span class="n">timeout</span><span class="o">=</span><span class="n">timeout</span><span class="p">,</span>
-<a id="__codelineno-0-252" name="__codelineno-0-252"></a>            <span class="n">verify</span><span class="o">=</span><span class="n">verify_tls</span><span class="p">,</span>
-<a id="__codelineno-0-253" name="__codelineno-0-253"></a>            <span class="n">transport</span><span class="o">=</span><span class="n">transport</span><span class="p">,</span>
-<a id="__codelineno-0-254" name="__codelineno-0-254"></a>        <span class="p">)</span>
-<a id="__codelineno-0-255" name="__codelineno-0-255"></a>
-<a id="__codelineno-0-256" name="__codelineno-0-256"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">close</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<a id="__codelineno-0-257" name="__codelineno-0-257"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">_client</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
-<a id="__codelineno-0-258" name="__codelineno-0-258"></a>
-<a id="__codelineno-0-259" name="__codelineno-0-259"></a>    <span class="k">def</span><span class="w"> </span><span class="fm">__enter__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">A2AClient</span><span class="p">:</span>
-<a id="__codelineno-0-260" name="__codelineno-0-260"></a>        <span class="k">return</span> <span class="bp">self</span>
-<a id="__codelineno-0-261" name="__codelineno-0-261"></a>
-<a id="__codelineno-0-262" name="__codelineno-0-262"></a>    <span class="k">def</span><span class="w"> </span><span class="fm">__exit__</span><span class="p">(</span>
-<a id="__codelineno-0-263" name="__codelineno-0-263"></a>        <span class="bp">self</span><span class="p">,</span>
-<a id="__codelineno-0-264" name="__codelineno-0-264"></a>        <span class="n">exc_type</span><span class="p">:</span> <span class="nb">type</span><span class="p">[</span><span class="ne">BaseException</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>
-<a id="__codelineno-0-265" name="__codelineno-0-265"></a>        <span class="n">exc</span><span class="p">:</span> <span class="ne">BaseException</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>
-<a id="__codelineno-0-266" name="__codelineno-0-266"></a>        <span class="n">tb</span><span class="p">:</span> <span class="n">TracebackType</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>
-<a id="__codelineno-0-267" name="__codelineno-0-267"></a>    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<a id="__codelineno-0-268" name="__codelineno-0-268"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
-<a id="__codelineno-0-269" name="__codelineno-0-269"></a>
-<a id="__codelineno-0-270" name="__codelineno-0-270"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">discover</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">AgentCard</span><span class="p">:</span>
-<a id="__codelineno-0-271" name="__codelineno-0-271"></a>        <span class="n">data</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_fetch_card_json</span><span class="p">()</span>
-<a id="__codelineno-0-272" name="__codelineno-0-272"></a>        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
-<a id="__codelineno-0-273" name="__codelineno-0-273"></a>            <span class="k">raise</span> <span class="n">httpx</span><span class="o">.</span><span class="n">DecodingError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;AgentCard JSON must be an object, got </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">data</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-<a id="__codelineno-0-274" name="__codelineno-0-274"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">_card_raw</span> <span class="o">=</span> <span class="n">data</span>
-<a id="__codelineno-0-275" name="__codelineno-0-275"></a>        <span class="k">return</span> <span class="n">AgentCard</span><span class="p">(</span>
-<a id="__codelineno-0-276" name="__codelineno-0-276"></a>            <span class="n">name</span><span class="o">=</span><span class="n">data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;name&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">),</span>
-<a id="__codelineno-0-277" name="__codelineno-0-277"></a>            <span class="n">description</span><span class="o">=</span><span class="n">data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;description&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">),</span>
-<a id="__codelineno-0-278" name="__codelineno-0-278"></a>            <span class="n">url</span><span class="o">=</span><span class="n">data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;url&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">base_url</span><span class="p">),</span>
-<a id="__codelineno-0-279" name="__codelineno-0-279"></a>            <span class="n">version</span><span class="o">=</span><span class="n">data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;version&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">),</span>
-<a id="__codelineno-0-280" name="__codelineno-0-280"></a>            <span class="n">skills</span><span class="o">=</span><span class="n">data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;skills&quot;</span><span class="p">,</span> <span class="p">[]),</span>
-<a id="__codelineno-0-281" name="__codelineno-0-281"></a>            <span class="n">capabilities</span><span class="o">=</span><span class="n">data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;capabilities&quot;</span><span class="p">,</span> <span class="p">{}),</span>
-<a id="__codelineno-0-282" name="__codelineno-0-282"></a>            <span class="n">authentication</span><span class="o">=</span><span class="n">data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;authentication&quot;</span><span class="p">,</span> <span class="p">{}),</span>
-<a id="__codelineno-0-283" name="__codelineno-0-283"></a>            <span class="n">raw</span><span class="o">=</span><span class="n">data</span><span class="p">,</span>
-<a id="__codelineno-0-284" name="__codelineno-0-284"></a>        <span class="p">)</span>
+<span class="normal"><a href="#__codelineno-0-390">390</a></span>
+<span class="normal"><a href="#__codelineno-0-391">391</a></span>
+<span class="normal"><a href="#__codelineno-0-392">392</a></span>
+<span class="normal"><a href="#__codelineno-0-393">393</a></span>
+<span class="normal"><a href="#__codelineno-0-394">394</a></span>
+<span class="normal"><a href="#__codelineno-0-395">395</a></span>
+<span class="normal"><a href="#__codelineno-0-396">396</a></span>
+<span class="normal"><a href="#__codelineno-0-397">397</a></span>
+<span class="normal"><a href="#__codelineno-0-398">398</a></span>
+<span class="normal"><a href="#__codelineno-0-399">399</a></span>
+<span class="normal"><a href="#__codelineno-0-400">400</a></span>
+<span class="normal"><a href="#__codelineno-0-401">401</a></span>
+<span class="normal"><a href="#__codelineno-0-402">402</a></span>
+<span class="normal"><a href="#__codelineno-0-403">403</a></span>
+<span class="normal"><a href="#__codelineno-0-404">404</a></span>
+<span class="normal"><a href="#__codelineno-0-405">405</a></span>
+<span class="normal"><a href="#__codelineno-0-406">406</a></span>
+<span class="normal"><a href="#__codelineno-0-407">407</a></span>
+<span class="normal"><a href="#__codelineno-0-408">408</a></span>
+<span class="normal"><a href="#__codelineno-0-409">409</a></span>
+<span class="normal"><a href="#__codelineno-0-410">410</a></span>
+<span class="normal"><a href="#__codelineno-0-411">411</a></span>
+<span class="normal"><a href="#__codelineno-0-412">412</a></span>
+<span class="normal"><a href="#__codelineno-0-413">413</a></span>
+<span class="normal"><a href="#__codelineno-0-414">414</a></span>
+<span class="normal"><a href="#__codelineno-0-415">415</a></span>
+<span class="normal"><a href="#__codelineno-0-416">416</a></span>
+<span class="normal"><a href="#__codelineno-0-417">417</a></span>
+<span class="normal"><a href="#__codelineno-0-418">418</a></span>
+<span class="normal"><a href="#__codelineno-0-419">419</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-254" name="__codelineno-0-254"></a><span class="k">class</span><span class="w"> </span><span class="nc">A2AClient</span><span class="p">:</span>
+<a id="__codelineno-0-255" name="__codelineno-0-255"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Minimal HTTP+JSON client for the Google A2A protocol.</span>
+<a id="__codelineno-0-256" name="__codelineno-0-256"></a>
+<a id="__codelineno-0-257" name="__codelineno-0-257"></a><span class="sd">    Pass `transport=httpx.MockTransport(...)` for offline tests.</span>
+<a id="__codelineno-0-258" name="__codelineno-0-258"></a><span class="sd">    &quot;&quot;&quot;</span>
+<a id="__codelineno-0-259" name="__codelineno-0-259"></a>
+<a id="__codelineno-0-260" name="__codelineno-0-260"></a>    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+<a id="__codelineno-0-261" name="__codelineno-0-261"></a>        <span class="bp">self</span><span class="p">,</span>
+<a id="__codelineno-0-262" name="__codelineno-0-262"></a>        <span class="n">base_url</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+<a id="__codelineno-0-263" name="__codelineno-0-263"></a>        <span class="n">headers</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<a id="__codelineno-0-264" name="__codelineno-0-264"></a>        <span class="n">timeout</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">15.0</span><span class="p">,</span>
+<a id="__codelineno-0-265" name="__codelineno-0-265"></a>        <span class="n">verify_tls</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+<a id="__codelineno-0-266" name="__codelineno-0-266"></a>        <span class="n">transport</span><span class="p">:</span> <span class="n">httpx</span><span class="o">.</span><span class="n">BaseTransport</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<a id="__codelineno-0-267" name="__codelineno-0-267"></a>        <span class="n">confirmed</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+<a id="__codelineno-0-268" name="__codelineno-0-268"></a>    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<a id="__codelineno-0-269" name="__codelineno-0-269"></a>        <span class="k">if</span> <span class="n">transport</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+<a id="__codelineno-0-270" name="__codelineno-0-270"></a>            <span class="n">assert_in_scope</span><span class="p">(</span><span class="n">base_url</span><span class="p">,</span> <span class="n">confirmed</span><span class="o">=</span><span class="n">confirmed</span><span class="p">)</span>
+<a id="__codelineno-0-271" name="__codelineno-0-271"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">base_url</span> <span class="o">=</span> <span class="n">base_url</span><span class="o">.</span><span class="n">rstrip</span><span class="p">(</span><span class="s2">&quot;/&quot;</span><span class="p">)</span>
+<a id="__codelineno-0-272" name="__codelineno-0-272"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">_card_raw</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+<a id="__codelineno-0-273" name="__codelineno-0-273"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">_client</span> <span class="o">=</span> <span class="n">httpx</span><span class="o">.</span><span class="n">Client</span><span class="p">(</span>
+<a id="__codelineno-0-274" name="__codelineno-0-274"></a>            <span class="n">headers</span><span class="o">=</span><span class="n">headers</span> <span class="ow">or</span> <span class="p">{},</span>
+<a id="__codelineno-0-275" name="__codelineno-0-275"></a>            <span class="n">timeout</span><span class="o">=</span><span class="n">timeout</span><span class="p">,</span>
+<a id="__codelineno-0-276" name="__codelineno-0-276"></a>            <span class="n">verify</span><span class="o">=</span><span class="n">verify_tls</span><span class="p">,</span>
+<a id="__codelineno-0-277" name="__codelineno-0-277"></a>            <span class="n">transport</span><span class="o">=</span><span class="n">transport</span><span class="p">,</span>
+<a id="__codelineno-0-278" name="__codelineno-0-278"></a>        <span class="p">)</span>
+<a id="__codelineno-0-279" name="__codelineno-0-279"></a>
+<a id="__codelineno-0-280" name="__codelineno-0-280"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">close</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<a id="__codelineno-0-281" name="__codelineno-0-281"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">_client</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+<a id="__codelineno-0-282" name="__codelineno-0-282"></a>
+<a id="__codelineno-0-283" name="__codelineno-0-283"></a>    <span class="k">def</span><span class="w"> </span><span class="fm">__enter__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">A2AClient</span><span class="p">:</span>
+<a id="__codelineno-0-284" name="__codelineno-0-284"></a>        <span class="k">return</span> <span class="bp">self</span>
 <a id="__codelineno-0-285" name="__codelineno-0-285"></a>
-<a id="__codelineno-0-286" name="__codelineno-0-286"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">_fetch_card_json</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
-<a id="__codelineno-0-287" name="__codelineno-0-287"></a><span class="w">        </span><span class="sd">&quot;&quot;&quot;Fetch the raw AgentCard JSON, trying the A2A v1.0 well-known URI first.</span>
-<a id="__codelineno-0-288" name="__codelineno-0-288"></a>
-<a id="__codelineno-0-289" name="__codelineno-0-289"></a><span class="sd">        A2A v1.0 (stable since April 2026, Linux Foundation) moved discovery</span>
-<a id="__codelineno-0-290" name="__codelineno-0-290"></a><span class="sd">        from /.well-known/agent.json (v0.3.x) to /.well-known/agent-card.json.</span>
-<a id="__codelineno-0-291" name="__codelineno-0-291"></a><span class="sd">        Real targets are a mixed fleet during the migration window, so a plain</span>
-<a id="__codelineno-0-292" name="__codelineno-0-292"></a><span class="sd">        404 on the current path falls back to the legacy one rather than</span>
-<a id="__codelineno-0-293" name="__codelineno-0-293"></a><span class="sd">        hard-rejecting an agent that has not upgraded yet. Any other transport</span>
-<a id="__codelineno-0-294" name="__codelineno-0-294"></a><span class="sd">        failure (connection error, 5xx, etc.) propagates immediately - only</span>
-<a id="__codelineno-0-295" name="__codelineno-0-295"></a><span class="sd">        &quot;not found&quot; is treated as a version signal worth retrying.</span>
-<a id="__codelineno-0-296" name="__codelineno-0-296"></a><span class="sd">        &quot;&quot;&quot;</span>
-<a id="__codelineno-0-297" name="__codelineno-0-297"></a>        <span class="n">r</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_client</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">base_url</span><span class="si">}</span><span class="s2">/.well-known/agent-card.json&quot;</span><span class="p">)</span>
-<a id="__codelineno-0-298" name="__codelineno-0-298"></a>        <span class="k">if</span> <span class="n">r</span><span class="o">.</span><span class="n">status_code</span> <span class="o">==</span> <span class="mi">404</span><span class="p">:</span>
-<a id="__codelineno-0-299" name="__codelineno-0-299"></a>            <span class="n">r</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_client</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">base_url</span><span class="si">}</span><span class="s2">/.well-known/agent.json&quot;</span><span class="p">)</span>
-<a id="__codelineno-0-300" name="__codelineno-0-300"></a>        <span class="n">r</span><span class="o">.</span><span class="n">raise_for_status</span><span class="p">()</span>
-<a id="__codelineno-0-301" name="__codelineno-0-301"></a>        <span class="k">return</span> <span class="n">r</span><span class="o">.</span><span class="n">json</span><span class="p">()</span>
-<a id="__codelineno-0-302" name="__codelineno-0-302"></a>
-<a id="__codelineno-0-303" name="__codelineno-0-303"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">send_task</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">message</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">task_id</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">TaskResult</span><span class="p">:</span>
-<a id="__codelineno-0-304" name="__codelineno-0-304"></a><span class="w">        </span><span class="sd">&quot;&quot;&quot;Submit a message and return the resulting Task.</span>
-<a id="__codelineno-0-305" name="__codelineno-0-305"></a>
-<a id="__codelineno-0-306" name="__codelineno-0-306"></a><span class="sd">        `task_id` labels the outgoing message, not the task. A2A has no field</span>
-<a id="__codelineno-0-307" name="__codelineno-0-307"></a><span class="sd">        that lets a client choose the id of a task it is creating in either</span>
-<a id="__codelineno-0-308" name="__codelineno-0-308"></a><span class="sd">        generation - Message.taskId references an already existing task, and a</span>
-<a id="__codelineno-0-309" name="__codelineno-0-309"></a><span class="sd">        spec-compliant server answers -32001 for one it has never issued. Task</span>
-<a id="__codelineno-0-310" name="__codelineno-0-310"></a><span class="sd">        ids are server-assigned, so callers that need to correlate submissions</span>
-<a id="__codelineno-0-311" name="__codelineno-0-311"></a><span class="sd">        should read the id back off the returned TaskResult.</span>
-<a id="__codelineno-0-312" name="__codelineno-0-312"></a><span class="sd">        &quot;&quot;&quot;</span>
-<a id="__codelineno-0-313" name="__codelineno-0-313"></a>        <span class="n">mid</span> <span class="o">=</span> <span class="n">task_id</span> <span class="ow">or</span> <span class="n">secrets</span><span class="o">.</span><span class="n">token_hex</span><span class="p">(</span><span class="mi">8</span><span class="p">)</span>
-<a id="__codelineno-0-314" name="__codelineno-0-314"></a>        <span class="n">version</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_protocol_version</span><span class="p">()</span>
-<a id="__codelineno-0-315" name="__codelineno-0-315"></a>        <span class="n">params</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
-<a id="__codelineno-0-316" name="__codelineno-0-316"></a>            <span class="s2">&quot;message&quot;</span><span class="p">:</span> <span class="p">{</span>
-<a id="__codelineno-0-317" name="__codelineno-0-317"></a>                <span class="s2">&quot;messageId&quot;</span><span class="p">:</span> <span class="n">mid</span><span class="p">,</span>
-<a id="__codelineno-0-318" name="__codelineno-0-318"></a>                <span class="s2">&quot;role&quot;</span><span class="p">:</span> <span class="n">_USER_ROLE</span><span class="p">[</span><span class="n">version</span><span class="p">],</span>
-<a id="__codelineno-0-319" name="__codelineno-0-319"></a>                <span class="s2">&quot;parts&quot;</span><span class="p">:</span> <span class="p">[{</span><span class="s2">&quot;text&quot;</span><span class="p">:</span> <span class="n">message</span><span class="p">}],</span>
-<a id="__codelineno-0-320" name="__codelineno-0-320"></a>            <span class="p">},</span>
-<a id="__codelineno-0-321" name="__codelineno-0-321"></a>        <span class="p">}</span>
-<a id="__codelineno-0-322" name="__codelineno-0-322"></a>        <span class="n">result</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_rpc_call</span><span class="p">(</span><span class="n">_METHODS</span><span class="p">[</span><span class="n">version</span><span class="p">][</span><span class="s2">&quot;send&quot;</span><span class="p">],</span> <span class="n">params</span><span class="p">)</span>
-<a id="__codelineno-0-323" name="__codelineno-0-323"></a>        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_parse_task</span><span class="p">(</span><span class="n">_unwrap_send_result</span><span class="p">(</span><span class="n">result</span><span class="p">,</span> <span class="n">version</span><span class="p">))</span>
-<a id="__codelineno-0-324" name="__codelineno-0-324"></a>
-<a id="__codelineno-0-325" name="__codelineno-0-325"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">get_task</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">task_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">TaskResult</span><span class="p">:</span>
-<a id="__codelineno-0-326" name="__codelineno-0-326"></a>        <span class="n">result</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_rpc_call</span><span class="p">(</span><span class="n">_METHODS</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">_protocol_version</span><span class="p">()][</span><span class="s2">&quot;get&quot;</span><span class="p">],</span> <span class="p">{</span><span class="s2">&quot;id&quot;</span><span class="p">:</span> <span class="n">task_id</span><span class="p">})</span>
-<a id="__codelineno-0-327" name="__codelineno-0-327"></a>        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_parse_task</span><span class="p">(</span><span class="n">result</span><span class="p">)</span>
-<a id="__codelineno-0-328" name="__codelineno-0-328"></a>
-<a id="__codelineno-0-329" name="__codelineno-0-329"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">cancel_task</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">task_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">TaskResult</span><span class="p">:</span>
-<a id="__codelineno-0-330" name="__codelineno-0-330"></a>        <span class="n">result</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_rpc_call</span><span class="p">(</span><span class="n">_METHODS</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">_protocol_version</span><span class="p">()][</span><span class="s2">&quot;cancel&quot;</span><span class="p">],</span> <span class="p">{</span><span class="s2">&quot;id&quot;</span><span class="p">:</span> <span class="n">task_id</span><span class="p">})</span>
-<a id="__codelineno-0-331" name="__codelineno-0-331"></a>        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_parse_task</span><span class="p">(</span><span class="n">result</span><span class="p">)</span>
-<a id="__codelineno-0-332" name="__codelineno-0-332"></a>
-<a id="__codelineno-0-333" name="__codelineno-0-333"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">_rpc_call</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">method</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">params</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
-<a id="__codelineno-0-334" name="__codelineno-0-334"></a><span class="w">        </span><span class="sd">&quot;&quot;&quot;Issue a JSON-RPC 2.0 request and return its `result` object.</span>
-<a id="__codelineno-0-335" name="__codelineno-0-335"></a>
-<a id="__codelineno-0-336" name="__codelineno-0-336"></a><span class="sd">        A2A&#39;s JSON-RPC binding returns HTTP 200 for protocol-level errors</span>
-<a id="__codelineno-0-337" name="__codelineno-0-337"></a><span class="sd">        too, with the failure in the response body&#39;s `error` field - only a</span>
-<a id="__codelineno-0-338" name="__codelineno-0-338"></a><span class="sd">        transport/HTTP failure surfaces as a non-2xx status. Both are</span>
-<a id="__codelineno-0-339" name="__codelineno-0-339"></a><span class="sd">        surfaced to the caller, as httpx.HTTPError and A2ARpcError</span>
-<a id="__codelineno-0-340" name="__codelineno-0-340"></a><span class="sd">        respectively, so probes can tell &quot;rejected&quot; from &quot;unreachable&quot;.</span>
-<a id="__codelineno-0-341" name="__codelineno-0-341"></a><span class="sd">        &quot;&quot;&quot;</span>
-<a id="__codelineno-0-342" name="__codelineno-0-342"></a>        <span class="n">url</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_rpc_endpoint</span><span class="p">()</span>
-<a id="__codelineno-0-343" name="__codelineno-0-343"></a>        <span class="n">req_id</span> <span class="o">=</span> <span class="n">secrets</span><span class="o">.</span><span class="n">token_hex</span><span class="p">(</span><span class="mi">8</span><span class="p">)</span>
-<a id="__codelineno-0-344" name="__codelineno-0-344"></a>        <span class="n">body</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;jsonrpc&quot;</span><span class="p">:</span> <span class="s2">&quot;2.0&quot;</span><span class="p">,</span> <span class="s2">&quot;id&quot;</span><span class="p">:</span> <span class="n">req_id</span><span class="p">,</span> <span class="s2">&quot;method&quot;</span><span class="p">:</span> <span class="n">method</span><span class="p">,</span> <span class="s2">&quot;params&quot;</span><span class="p">:</span> <span class="n">params</span><span class="p">}</span>
-<a id="__codelineno-0-345" name="__codelineno-0-345"></a>        <span class="n">headers</span> <span class="o">=</span> <span class="p">{}</span>
-<a id="__codelineno-0-346" name="__codelineno-0-346"></a>        <span class="n">version</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_protocol_version</span><span class="p">()</span>
-<a id="__codelineno-0-347" name="__codelineno-0-347"></a>        <span class="k">if</span> <span class="n">version</span> <span class="o">==</span> <span class="n">PROTOCOL_VERSION_1_0</span><span class="p">:</span>
-<a id="__codelineno-0-348" name="__codelineno-0-348"></a>            <span class="n">headers</span><span class="p">[</span><span class="n">VERSION_HEADER</span><span class="p">]</span> <span class="o">=</span> <span class="n">version</span>
-<a id="__codelineno-0-349" name="__codelineno-0-349"></a>        <span class="n">r</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_client</span><span class="o">.</span><span class="n">post</span><span class="p">(</span><span class="n">url</span><span class="p">,</span> <span class="n">json</span><span class="o">=</span><span class="n">body</span><span class="p">,</span> <span class="n">headers</span><span class="o">=</span><span class="n">headers</span><span class="p">)</span>
-<a id="__codelineno-0-350" name="__codelineno-0-350"></a>        <span class="n">r</span><span class="o">.</span><span class="n">raise_for_status</span><span class="p">()</span>
-<a id="__codelineno-0-351" name="__codelineno-0-351"></a>        <span class="n">data</span> <span class="o">=</span> <span class="n">r</span><span class="o">.</span><span class="n">json</span><span class="p">()</span>
-<a id="__codelineno-0-352" name="__codelineno-0-352"></a>        <span class="k">if</span> <span class="s2">&quot;error&quot;</span> <span class="ow">in</span> <span class="n">data</span><span class="p">:</span>
-<a id="__codelineno-0-353" name="__codelineno-0-353"></a>            <span class="n">err</span> <span class="o">=</span> <span class="n">data</span><span class="p">[</span><span class="s2">&quot;error&quot;</span><span class="p">]</span> <span class="ow">or</span> <span class="p">{}</span>
-<a id="__codelineno-0-354" name="__codelineno-0-354"></a>            <span class="k">raise</span> <span class="n">A2ARpcError</span><span class="p">(</span>
-<a id="__codelineno-0-355" name="__codelineno-0-355"></a>                <span class="n">code</span><span class="o">=</span><span class="n">err</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;code&quot;</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span>
-<a id="__codelineno-0-356" name="__codelineno-0-356"></a>                <span class="n">message</span><span class="o">=</span><span class="n">err</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;message&quot;</span><span class="p">,</span> <span class="s2">&quot;unknown JSON-RPC error&quot;</span><span class="p">),</span>
-<a id="__codelineno-0-357" name="__codelineno-0-357"></a>                <span class="n">data</span><span class="o">=</span><span class="n">err</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;data&quot;</span><span class="p">),</span>
-<a id="__codelineno-0-358" name="__codelineno-0-358"></a>            <span class="p">)</span>
-<a id="__codelineno-0-359" name="__codelineno-0-359"></a>        <span class="n">result</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;result&quot;</span><span class="p">)</span>
-<a id="__codelineno-0-360" name="__codelineno-0-360"></a>        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">result</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
-<a id="__codelineno-0-361" name="__codelineno-0-361"></a>            <span class="k">raise</span> <span class="n">httpx</span><span class="o">.</span><span class="n">DecodingError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;JSON-RPC result must be an object, got </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">result</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-<a id="__codelineno-0-362" name="__codelineno-0-362"></a>        <span class="k">return</span> <span class="n">result</span>
-<a id="__codelineno-0-363" name="__codelineno-0-363"></a>
-<a id="__codelineno-0-364" name="__codelineno-0-364"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">_rpc_endpoint</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-<a id="__codelineno-0-365" name="__codelineno-0-365"></a><span class="w">        </span><span class="sd">&quot;&quot;&quot;Resolve where to send JSON-RPC calls.</span>
-<a id="__codelineno-0-366" name="__codelineno-0-366"></a>
-<a id="__codelineno-0-367" name="__codelineno-0-367"></a><span class="sd">        Uses the card&#39;s declared interface if one was discovered, else</span>
-<a id="__codelineno-0-368" name="__codelineno-0-368"></a><span class="sd">        `base_url` (no discovery run yet, e.g. a caller driving send/get/</span>
-<a id="__codelineno-0-369" name="__codelineno-0-369"></a><span class="sd">        cancel directly - existing behavior, preserved as the fallback).</span>
+<a id="__codelineno-0-286" name="__codelineno-0-286"></a>    <span class="k">def</span><span class="w"> </span><span class="fm">__exit__</span><span class="p">(</span>
+<a id="__codelineno-0-287" name="__codelineno-0-287"></a>        <span class="bp">self</span><span class="p">,</span>
+<a id="__codelineno-0-288" name="__codelineno-0-288"></a>        <span class="n">exc_type</span><span class="p">:</span> <span class="nb">type</span><span class="p">[</span><span class="ne">BaseException</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>
+<a id="__codelineno-0-289" name="__codelineno-0-289"></a>        <span class="n">exc</span><span class="p">:</span> <span class="ne">BaseException</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>
+<a id="__codelineno-0-290" name="__codelineno-0-290"></a>        <span class="n">tb</span><span class="p">:</span> <span class="n">TracebackType</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>
+<a id="__codelineno-0-291" name="__codelineno-0-291"></a>    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<a id="__codelineno-0-292" name="__codelineno-0-292"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+<a id="__codelineno-0-293" name="__codelineno-0-293"></a>
+<a id="__codelineno-0-294" name="__codelineno-0-294"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">discover</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">AgentCard</span><span class="p">:</span>
+<a id="__codelineno-0-295" name="__codelineno-0-295"></a>        <span class="n">data</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_fetch_card_json</span><span class="p">()</span>
+<a id="__codelineno-0-296" name="__codelineno-0-296"></a>        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
+<a id="__codelineno-0-297" name="__codelineno-0-297"></a>            <span class="k">raise</span> <span class="n">httpx</span><span class="o">.</span><span class="n">DecodingError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;AgentCard JSON must be an object, got </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">data</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<a id="__codelineno-0-298" name="__codelineno-0-298"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">_card_raw</span> <span class="o">=</span> <span class="n">data</span>
+<a id="__codelineno-0-299" name="__codelineno-0-299"></a>        <span class="k">return</span> <span class="n">AgentCard</span><span class="p">(</span>
+<a id="__codelineno-0-300" name="__codelineno-0-300"></a>            <span class="n">name</span><span class="o">=</span><span class="n">data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;name&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">),</span>
+<a id="__codelineno-0-301" name="__codelineno-0-301"></a>            <span class="n">description</span><span class="o">=</span><span class="n">data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;description&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">),</span>
+<a id="__codelineno-0-302" name="__codelineno-0-302"></a>            <span class="n">url</span><span class="o">=</span><span class="n">data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;url&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">base_url</span><span class="p">),</span>
+<a id="__codelineno-0-303" name="__codelineno-0-303"></a>            <span class="n">version</span><span class="o">=</span><span class="n">data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;version&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">),</span>
+<a id="__codelineno-0-304" name="__codelineno-0-304"></a>            <span class="n">skills</span><span class="o">=</span><span class="n">data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;skills&quot;</span><span class="p">,</span> <span class="p">[]),</span>
+<a id="__codelineno-0-305" name="__codelineno-0-305"></a>            <span class="n">capabilities</span><span class="o">=</span><span class="n">data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;capabilities&quot;</span><span class="p">,</span> <span class="p">{}),</span>
+<a id="__codelineno-0-306" name="__codelineno-0-306"></a>            <span class="n">authentication</span><span class="o">=</span><span class="n">data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;authentication&quot;</span><span class="p">,</span> <span class="p">{}),</span>
+<a id="__codelineno-0-307" name="__codelineno-0-307"></a>            <span class="n">raw</span><span class="o">=</span><span class="n">data</span><span class="p">,</span>
+<a id="__codelineno-0-308" name="__codelineno-0-308"></a>        <span class="p">)</span>
+<a id="__codelineno-0-309" name="__codelineno-0-309"></a>
+<a id="__codelineno-0-310" name="__codelineno-0-310"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">_fetch_card_json</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
+<a id="__codelineno-0-311" name="__codelineno-0-311"></a><span class="w">        </span><span class="sd">&quot;&quot;&quot;Fetch the raw AgentCard JSON, trying the A2A v1.0 well-known URI first.</span>
+<a id="__codelineno-0-312" name="__codelineno-0-312"></a>
+<a id="__codelineno-0-313" name="__codelineno-0-313"></a><span class="sd">        A2A v1.0 (stable since April 2026, Linux Foundation) moved discovery</span>
+<a id="__codelineno-0-314" name="__codelineno-0-314"></a><span class="sd">        from /.well-known/agent.json (v0.3.x) to /.well-known/agent-card.json.</span>
+<a id="__codelineno-0-315" name="__codelineno-0-315"></a><span class="sd">        Real targets are a mixed fleet during the migration window, so a plain</span>
+<a id="__codelineno-0-316" name="__codelineno-0-316"></a><span class="sd">        404 on the current path falls back to the legacy one rather than</span>
+<a id="__codelineno-0-317" name="__codelineno-0-317"></a><span class="sd">        hard-rejecting an agent that has not upgraded yet. Any other transport</span>
+<a id="__codelineno-0-318" name="__codelineno-0-318"></a><span class="sd">        failure (connection error, 5xx, etc.) propagates immediately - only</span>
+<a id="__codelineno-0-319" name="__codelineno-0-319"></a><span class="sd">        &quot;not found&quot; is treated as a version signal worth retrying.</span>
+<a id="__codelineno-0-320" name="__codelineno-0-320"></a><span class="sd">        &quot;&quot;&quot;</span>
+<a id="__codelineno-0-321" name="__codelineno-0-321"></a>        <span class="n">r</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_client</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">base_url</span><span class="si">}</span><span class="s2">/.well-known/agent-card.json&quot;</span><span class="p">)</span>
+<a id="__codelineno-0-322" name="__codelineno-0-322"></a>        <span class="k">if</span> <span class="n">r</span><span class="o">.</span><span class="n">status_code</span> <span class="o">==</span> <span class="mi">404</span><span class="p">:</span>
+<a id="__codelineno-0-323" name="__codelineno-0-323"></a>            <span class="n">r</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_client</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">base_url</span><span class="si">}</span><span class="s2">/.well-known/agent.json&quot;</span><span class="p">)</span>
+<a id="__codelineno-0-324" name="__codelineno-0-324"></a>        <span class="n">r</span><span class="o">.</span><span class="n">raise_for_status</span><span class="p">()</span>
+<a id="__codelineno-0-325" name="__codelineno-0-325"></a>        <span class="k">return</span> <span class="n">r</span><span class="o">.</span><span class="n">json</span><span class="p">()</span>
+<a id="__codelineno-0-326" name="__codelineno-0-326"></a>
+<a id="__codelineno-0-327" name="__codelineno-0-327"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">send_task</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">message</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">task_id</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">TaskResult</span><span class="p">:</span>
+<a id="__codelineno-0-328" name="__codelineno-0-328"></a><span class="w">        </span><span class="sd">&quot;&quot;&quot;Submit a message and return the resulting Task.</span>
+<a id="__codelineno-0-329" name="__codelineno-0-329"></a>
+<a id="__codelineno-0-330" name="__codelineno-0-330"></a><span class="sd">        `task_id` labels the outgoing message, not the task. A2A has no field</span>
+<a id="__codelineno-0-331" name="__codelineno-0-331"></a><span class="sd">        that lets a client choose the id of a task it is creating in either</span>
+<a id="__codelineno-0-332" name="__codelineno-0-332"></a><span class="sd">        generation - Message.taskId references an already existing task, and a</span>
+<a id="__codelineno-0-333" name="__codelineno-0-333"></a><span class="sd">        spec-compliant server answers -32001 for one it has never issued. Task</span>
+<a id="__codelineno-0-334" name="__codelineno-0-334"></a><span class="sd">        ids are server-assigned, so callers that need to correlate submissions</span>
+<a id="__codelineno-0-335" name="__codelineno-0-335"></a><span class="sd">        should read the id back off the returned TaskResult.</span>
+<a id="__codelineno-0-336" name="__codelineno-0-336"></a><span class="sd">        &quot;&quot;&quot;</span>
+<a id="__codelineno-0-337" name="__codelineno-0-337"></a>        <span class="n">mid</span> <span class="o">=</span> <span class="n">task_id</span> <span class="ow">or</span> <span class="n">secrets</span><span class="o">.</span><span class="n">token_hex</span><span class="p">(</span><span class="mi">8</span><span class="p">)</span>
+<a id="__codelineno-0-338" name="__codelineno-0-338"></a>        <span class="n">version</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_protocol_version</span><span class="p">()</span>
+<a id="__codelineno-0-339" name="__codelineno-0-339"></a>        <span class="n">params</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
+<a id="__codelineno-0-340" name="__codelineno-0-340"></a>            <span class="s2">&quot;message&quot;</span><span class="p">:</span> <span class="p">{</span>
+<a id="__codelineno-0-341" name="__codelineno-0-341"></a>                <span class="s2">&quot;messageId&quot;</span><span class="p">:</span> <span class="n">mid</span><span class="p">,</span>
+<a id="__codelineno-0-342" name="__codelineno-0-342"></a>                <span class="s2">&quot;role&quot;</span><span class="p">:</span> <span class="n">_USER_ROLE</span><span class="p">[</span><span class="n">version</span><span class="p">],</span>
+<a id="__codelineno-0-343" name="__codelineno-0-343"></a>                <span class="s2">&quot;parts&quot;</span><span class="p">:</span> <span class="p">[{</span><span class="s2">&quot;text&quot;</span><span class="p">:</span> <span class="n">message</span><span class="p">}],</span>
+<a id="__codelineno-0-344" name="__codelineno-0-344"></a>            <span class="p">},</span>
+<a id="__codelineno-0-345" name="__codelineno-0-345"></a>        <span class="p">}</span>
+<a id="__codelineno-0-346" name="__codelineno-0-346"></a>        <span class="n">result</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_rpc_call</span><span class="p">(</span><span class="n">_METHODS</span><span class="p">[</span><span class="n">version</span><span class="p">][</span><span class="s2">&quot;send&quot;</span><span class="p">],</span> <span class="n">params</span><span class="p">)</span>
+<a id="__codelineno-0-347" name="__codelineno-0-347"></a>        <span class="n">inline</span> <span class="o">=</span> <span class="n">_extract_inline_message</span><span class="p">(</span><span class="n">result</span><span class="p">,</span> <span class="n">version</span><span class="p">)</span>
+<a id="__codelineno-0-348" name="__codelineno-0-348"></a>        <span class="k">if</span> <span class="n">inline</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+<a id="__codelineno-0-349" name="__codelineno-0-349"></a>            <span class="c1"># An inline reply is the end of the exchange; marking it terminal</span>
+<a id="__codelineno-0-350" name="__codelineno-0-350"></a>            <span class="c1"># keeps callers from polling a task id that was never issued.</span>
+<a id="__codelineno-0-351" name="__codelineno-0-351"></a>            <span class="k">return</span> <span class="n">TaskResult</span><span class="p">(</span><span class="n">task_id</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">,</span> <span class="n">state</span><span class="o">=</span><span class="n">TaskState</span><span class="o">.</span><span class="n">COMPLETED</span><span class="p">,</span> <span class="n">messages</span><span class="o">=</span><span class="p">[</span><span class="n">inline</span><span class="p">],</span> <span class="n">raw</span><span class="o">=</span><span class="n">result</span><span class="p">)</span>
+<a id="__codelineno-0-352" name="__codelineno-0-352"></a>        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_parse_task</span><span class="p">(</span><span class="n">_unwrap_send_result</span><span class="p">(</span><span class="n">result</span><span class="p">,</span> <span class="n">version</span><span class="p">))</span>
+<a id="__codelineno-0-353" name="__codelineno-0-353"></a>
+<a id="__codelineno-0-354" name="__codelineno-0-354"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">get_task</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">task_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">TaskResult</span><span class="p">:</span>
+<a id="__codelineno-0-355" name="__codelineno-0-355"></a>        <span class="n">result</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_rpc_call</span><span class="p">(</span><span class="n">_METHODS</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">_protocol_version</span><span class="p">()][</span><span class="s2">&quot;get&quot;</span><span class="p">],</span> <span class="p">{</span><span class="s2">&quot;id&quot;</span><span class="p">:</span> <span class="n">task_id</span><span class="p">})</span>
+<a id="__codelineno-0-356" name="__codelineno-0-356"></a>        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_parse_task</span><span class="p">(</span><span class="n">result</span><span class="p">)</span>
+<a id="__codelineno-0-357" name="__codelineno-0-357"></a>
+<a id="__codelineno-0-358" name="__codelineno-0-358"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">cancel_task</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">task_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">TaskResult</span><span class="p">:</span>
+<a id="__codelineno-0-359" name="__codelineno-0-359"></a>        <span class="n">result</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_rpc_call</span><span class="p">(</span><span class="n">_METHODS</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">_protocol_version</span><span class="p">()][</span><span class="s2">&quot;cancel&quot;</span><span class="p">],</span> <span class="p">{</span><span class="s2">&quot;id&quot;</span><span class="p">:</span> <span class="n">task_id</span><span class="p">})</span>
+<a id="__codelineno-0-360" name="__codelineno-0-360"></a>        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_parse_task</span><span class="p">(</span><span class="n">result</span><span class="p">)</span>
+<a id="__codelineno-0-361" name="__codelineno-0-361"></a>
+<a id="__codelineno-0-362" name="__codelineno-0-362"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">_rpc_call</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">method</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">params</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+<a id="__codelineno-0-363" name="__codelineno-0-363"></a><span class="w">        </span><span class="sd">&quot;&quot;&quot;Issue a JSON-RPC 2.0 request and return its `result` object.</span>
+<a id="__codelineno-0-364" name="__codelineno-0-364"></a>
+<a id="__codelineno-0-365" name="__codelineno-0-365"></a><span class="sd">        A2A&#39;s JSON-RPC binding returns HTTP 200 for protocol-level errors</span>
+<a id="__codelineno-0-366" name="__codelineno-0-366"></a><span class="sd">        too, with the failure in the response body&#39;s `error` field - only a</span>
+<a id="__codelineno-0-367" name="__codelineno-0-367"></a><span class="sd">        transport/HTTP failure surfaces as a non-2xx status. Both are</span>
+<a id="__codelineno-0-368" name="__codelineno-0-368"></a><span class="sd">        surfaced to the caller, as httpx.HTTPError and A2ARpcError</span>
+<a id="__codelineno-0-369" name="__codelineno-0-369"></a><span class="sd">        respectively, so probes can tell &quot;rejected&quot; from &quot;unreachable&quot;.</span>
 <a id="__codelineno-0-370" name="__codelineno-0-370"></a><span class="sd">        &quot;&quot;&quot;</span>
-<a id="__codelineno-0-371" name="__codelineno-0-371"></a>        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_card_raw</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-<a id="__codelineno-0-372" name="__codelineno-0-372"></a>            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">base_url</span>
-<a id="__codelineno-0-373" name="__codelineno-0-373"></a>        <span class="k">return</span> <span class="n">_resolve_jsonrpc_endpoint</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_card_raw</span><span class="p">)</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">base_url</span>
-<a id="__codelineno-0-374" name="__codelineno-0-374"></a>
-<a id="__codelineno-0-375" name="__codelineno-0-375"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">_protocol_version</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-<a id="__codelineno-0-376" name="__codelineno-0-376"></a><span class="w">        </span><span class="sd">&quot;&quot;&quot;Resolve which A2A generation to speak, from the discovered card.&quot;&quot;&quot;</span>
-<a id="__codelineno-0-377" name="__codelineno-0-377"></a>        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_card_raw</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-<a id="__codelineno-0-378" name="__codelineno-0-378"></a>            <span class="k">return</span> <span class="n">PROTOCOL_VERSION_0_3</span>
-<a id="__codelineno-0-379" name="__codelineno-0-379"></a>        <span class="k">return</span> <span class="n">_resolve_protocol_version</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_card_raw</span><span class="p">)</span>
-<a id="__codelineno-0-380" name="__codelineno-0-380"></a>
-<a id="__codelineno-0-381" name="__codelineno-0-381"></a>    <span class="nd">@staticmethod</span>
-<a id="__codelineno-0-382" name="__codelineno-0-382"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">_parse_task</span><span class="p">(</span><span class="n">data</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">TaskResult</span><span class="p">:</span>
-<a id="__codelineno-0-383" name="__codelineno-0-383"></a>        <span class="n">raw_state</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;status&quot;</span><span class="p">,</span> <span class="p">{})</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;state&quot;</span><span class="p">,</span> <span class="s2">&quot;unknown&quot;</span><span class="p">)</span>
-<a id="__codelineno-0-384" name="__codelineno-0-384"></a>        <span class="n">state</span> <span class="o">=</span> <span class="n">_normalize_task_state</span><span class="p">(</span><span class="n">raw_state</span><span class="p">)</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">raw_state</span><span class="p">,</span> <span class="nb">str</span><span class="p">)</span> <span class="k">else</span> <span class="n">TaskState</span><span class="o">.</span><span class="n">UNKNOWN</span>
-<a id="__codelineno-0-385" name="__codelineno-0-385"></a>        <span class="k">return</span> <span class="n">TaskResult</span><span class="p">(</span>
-<a id="__codelineno-0-386" name="__codelineno-0-386"></a>            <span class="n">task_id</span><span class="o">=</span><span class="n">data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;id&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">),</span>
-<a id="__codelineno-0-387" name="__codelineno-0-387"></a>            <span class="n">state</span><span class="o">=</span><span class="n">state</span><span class="p">,</span>
-<a id="__codelineno-0-388" name="__codelineno-0-388"></a>            <span class="n">artifacts</span><span class="o">=</span><span class="n">data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;artifacts&quot;</span><span class="p">,</span> <span class="p">[]),</span>
-<a id="__codelineno-0-389" name="__codelineno-0-389"></a>            <span class="n">raw</span><span class="o">=</span><span class="n">data</span><span class="p">,</span>
-<a id="__codelineno-0-390" name="__codelineno-0-390"></a>        <span class="p">)</span>
+<a id="__codelineno-0-371" name="__codelineno-0-371"></a>        <span class="n">url</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_rpc_endpoint</span><span class="p">()</span>
+<a id="__codelineno-0-372" name="__codelineno-0-372"></a>        <span class="n">req_id</span> <span class="o">=</span> <span class="n">secrets</span><span class="o">.</span><span class="n">token_hex</span><span class="p">(</span><span class="mi">8</span><span class="p">)</span>
+<a id="__codelineno-0-373" name="__codelineno-0-373"></a>        <span class="n">body</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;jsonrpc&quot;</span><span class="p">:</span> <span class="s2">&quot;2.0&quot;</span><span class="p">,</span> <span class="s2">&quot;id&quot;</span><span class="p">:</span> <span class="n">req_id</span><span class="p">,</span> <span class="s2">&quot;method&quot;</span><span class="p">:</span> <span class="n">method</span><span class="p">,</span> <span class="s2">&quot;params&quot;</span><span class="p">:</span> <span class="n">params</span><span class="p">}</span>
+<a id="__codelineno-0-374" name="__codelineno-0-374"></a>        <span class="n">headers</span> <span class="o">=</span> <span class="p">{}</span>
+<a id="__codelineno-0-375" name="__codelineno-0-375"></a>        <span class="n">version</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_protocol_version</span><span class="p">()</span>
+<a id="__codelineno-0-376" name="__codelineno-0-376"></a>        <span class="k">if</span> <span class="n">version</span> <span class="o">==</span> <span class="n">PROTOCOL_VERSION_1_0</span><span class="p">:</span>
+<a id="__codelineno-0-377" name="__codelineno-0-377"></a>            <span class="n">headers</span><span class="p">[</span><span class="n">VERSION_HEADER</span><span class="p">]</span> <span class="o">=</span> <span class="n">version</span>
+<a id="__codelineno-0-378" name="__codelineno-0-378"></a>        <span class="n">r</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_client</span><span class="o">.</span><span class="n">post</span><span class="p">(</span><span class="n">url</span><span class="p">,</span> <span class="n">json</span><span class="o">=</span><span class="n">body</span><span class="p">,</span> <span class="n">headers</span><span class="o">=</span><span class="n">headers</span><span class="p">)</span>
+<a id="__codelineno-0-379" name="__codelineno-0-379"></a>        <span class="n">r</span><span class="o">.</span><span class="n">raise_for_status</span><span class="p">()</span>
+<a id="__codelineno-0-380" name="__codelineno-0-380"></a>        <span class="n">data</span> <span class="o">=</span> <span class="n">r</span><span class="o">.</span><span class="n">json</span><span class="p">()</span>
+<a id="__codelineno-0-381" name="__codelineno-0-381"></a>        <span class="k">if</span> <span class="s2">&quot;error&quot;</span> <span class="ow">in</span> <span class="n">data</span><span class="p">:</span>
+<a id="__codelineno-0-382" name="__codelineno-0-382"></a>            <span class="n">err</span> <span class="o">=</span> <span class="n">data</span><span class="p">[</span><span class="s2">&quot;error&quot;</span><span class="p">]</span> <span class="ow">or</span> <span class="p">{}</span>
+<a id="__codelineno-0-383" name="__codelineno-0-383"></a>            <span class="k">raise</span> <span class="n">A2ARpcError</span><span class="p">(</span>
+<a id="__codelineno-0-384" name="__codelineno-0-384"></a>                <span class="n">code</span><span class="o">=</span><span class="n">err</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;code&quot;</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span>
+<a id="__codelineno-0-385" name="__codelineno-0-385"></a>                <span class="n">message</span><span class="o">=</span><span class="n">err</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;message&quot;</span><span class="p">,</span> <span class="s2">&quot;unknown JSON-RPC error&quot;</span><span class="p">),</span>
+<a id="__codelineno-0-386" name="__codelineno-0-386"></a>                <span class="n">data</span><span class="o">=</span><span class="n">err</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;data&quot;</span><span class="p">),</span>
+<a id="__codelineno-0-387" name="__codelineno-0-387"></a>            <span class="p">)</span>
+<a id="__codelineno-0-388" name="__codelineno-0-388"></a>        <span class="n">result</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;result&quot;</span><span class="p">)</span>
+<a id="__codelineno-0-389" name="__codelineno-0-389"></a>        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">result</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
+<a id="__codelineno-0-390" name="__codelineno-0-390"></a>            <span class="k">raise</span> <span class="n">httpx</span><span class="o">.</span><span class="n">DecodingError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;JSON-RPC result must be an object, got </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">result</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<a id="__codelineno-0-391" name="__codelineno-0-391"></a>        <span class="k">return</span> <span class="n">result</span>
+<a id="__codelineno-0-392" name="__codelineno-0-392"></a>
+<a id="__codelineno-0-393" name="__codelineno-0-393"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">_rpc_endpoint</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<a id="__codelineno-0-394" name="__codelineno-0-394"></a><span class="w">        </span><span class="sd">&quot;&quot;&quot;Resolve where to send JSON-RPC calls.</span>
+<a id="__codelineno-0-395" name="__codelineno-0-395"></a>
+<a id="__codelineno-0-396" name="__codelineno-0-396"></a><span class="sd">        Uses the card&#39;s declared interface if one was discovered, else</span>
+<a id="__codelineno-0-397" name="__codelineno-0-397"></a><span class="sd">        `base_url` (no discovery run yet, e.g. a caller driving send/get/</span>
+<a id="__codelineno-0-398" name="__codelineno-0-398"></a><span class="sd">        cancel directly - existing behavior, preserved as the fallback).</span>
+<a id="__codelineno-0-399" name="__codelineno-0-399"></a><span class="sd">        &quot;&quot;&quot;</span>
+<a id="__codelineno-0-400" name="__codelineno-0-400"></a>        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_card_raw</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+<a id="__codelineno-0-401" name="__codelineno-0-401"></a>            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">base_url</span>
+<a id="__codelineno-0-402" name="__codelineno-0-402"></a>        <span class="k">return</span> <span class="n">_resolve_jsonrpc_endpoint</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_card_raw</span><span class="p">)</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">base_url</span>
+<a id="__codelineno-0-403" name="__codelineno-0-403"></a>
+<a id="__codelineno-0-404" name="__codelineno-0-404"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">_protocol_version</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<a id="__codelineno-0-405" name="__codelineno-0-405"></a><span class="w">        </span><span class="sd">&quot;&quot;&quot;Resolve which A2A generation to speak, from the discovered card.&quot;&quot;&quot;</span>
+<a id="__codelineno-0-406" name="__codelineno-0-406"></a>        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_card_raw</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+<a id="__codelineno-0-407" name="__codelineno-0-407"></a>            <span class="k">return</span> <span class="n">PROTOCOL_VERSION_0_3</span>
+<a id="__codelineno-0-408" name="__codelineno-0-408"></a>        <span class="k">return</span> <span class="n">_resolve_protocol_version</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_card_raw</span><span class="p">)</span>
+<a id="__codelineno-0-409" name="__codelineno-0-409"></a>
+<a id="__codelineno-0-410" name="__codelineno-0-410"></a>    <span class="nd">@staticmethod</span>
+<a id="__codelineno-0-411" name="__codelineno-0-411"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">_parse_task</span><span class="p">(</span><span class="n">data</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">TaskResult</span><span class="p">:</span>
+<a id="__codelineno-0-412" name="__codelineno-0-412"></a>        <span class="n">raw_state</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;status&quot;</span><span class="p">,</span> <span class="p">{})</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;state&quot;</span><span class="p">,</span> <span class="s2">&quot;unknown&quot;</span><span class="p">)</span>
+<a id="__codelineno-0-413" name="__codelineno-0-413"></a>        <span class="n">state</span> <span class="o">=</span> <span class="n">_normalize_task_state</span><span class="p">(</span><span class="n">raw_state</span><span class="p">)</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">raw_state</span><span class="p">,</span> <span class="nb">str</span><span class="p">)</span> <span class="k">else</span> <span class="n">TaskState</span><span class="o">.</span><span class="n">UNKNOWN</span>
+<a id="__codelineno-0-414" name="__codelineno-0-414"></a>        <span class="k">return</span> <span class="n">TaskResult</span><span class="p">(</span>
+<a id="__codelineno-0-415" name="__codelineno-0-415"></a>            <span class="n">task_id</span><span class="o">=</span><span class="n">data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;id&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">),</span>
+<a id="__codelineno-0-416" name="__codelineno-0-416"></a>            <span class="n">state</span><span class="o">=</span><span class="n">state</span><span class="p">,</span>
+<a id="__codelineno-0-417" name="__codelineno-0-417"></a>            <span class="n">artifacts</span><span class="o">=</span><span class="n">data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;artifacts&quot;</span><span class="p">,</span> <span class="p">[]),</span>
+<a id="__codelineno-0-418" name="__codelineno-0-418"></a>            <span class="n">raw</span><span class="o">=</span><span class="n">data</span><span class="p">,</span>
+<a id="__codelineno-0-419" name="__codelineno-0-419"></a>        <span class="p">)</span>
 </code></pre></div></td></tr></table></div>
               </details>
 
@@ -3064,47 +3074,57 @@ should read the id back off the returned TaskResult.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>mas_sentry/protocols/a2a/client.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-303">303</a></span>
-<span class="normal"><a href="#__codelineno-0-304">304</a></span>
-<span class="normal"><a href="#__codelineno-0-305">305</a></span>
-<span class="normal"><a href="#__codelineno-0-306">306</a></span>
-<span class="normal"><a href="#__codelineno-0-307">307</a></span>
-<span class="normal"><a href="#__codelineno-0-308">308</a></span>
-<span class="normal"><a href="#__codelineno-0-309">309</a></span>
-<span class="normal"><a href="#__codelineno-0-310">310</a></span>
-<span class="normal"><a href="#__codelineno-0-311">311</a></span>
-<span class="normal"><a href="#__codelineno-0-312">312</a></span>
-<span class="normal"><a href="#__codelineno-0-313">313</a></span>
-<span class="normal"><a href="#__codelineno-0-314">314</a></span>
-<span class="normal"><a href="#__codelineno-0-315">315</a></span>
-<span class="normal"><a href="#__codelineno-0-316">316</a></span>
-<span class="normal"><a href="#__codelineno-0-317">317</a></span>
-<span class="normal"><a href="#__codelineno-0-318">318</a></span>
-<span class="normal"><a href="#__codelineno-0-319">319</a></span>
-<span class="normal"><a href="#__codelineno-0-320">320</a></span>
-<span class="normal"><a href="#__codelineno-0-321">321</a></span>
-<span class="normal"><a href="#__codelineno-0-322">322</a></span>
-<span class="normal"><a href="#__codelineno-0-323">323</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-303" name="__codelineno-0-303"></a><span class="k">def</span><span class="w"> </span><span class="nf">send_task</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">message</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">task_id</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">TaskResult</span><span class="p">:</span>
-<a id="__codelineno-0-304" name="__codelineno-0-304"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Submit a message and return the resulting Task.</span>
-<a id="__codelineno-0-305" name="__codelineno-0-305"></a>
-<a id="__codelineno-0-306" name="__codelineno-0-306"></a><span class="sd">    `task_id` labels the outgoing message, not the task. A2A has no field</span>
-<a id="__codelineno-0-307" name="__codelineno-0-307"></a><span class="sd">    that lets a client choose the id of a task it is creating in either</span>
-<a id="__codelineno-0-308" name="__codelineno-0-308"></a><span class="sd">    generation - Message.taskId references an already existing task, and a</span>
-<a id="__codelineno-0-309" name="__codelineno-0-309"></a><span class="sd">    spec-compliant server answers -32001 for one it has never issued. Task</span>
-<a id="__codelineno-0-310" name="__codelineno-0-310"></a><span class="sd">    ids are server-assigned, so callers that need to correlate submissions</span>
-<a id="__codelineno-0-311" name="__codelineno-0-311"></a><span class="sd">    should read the id back off the returned TaskResult.</span>
-<a id="__codelineno-0-312" name="__codelineno-0-312"></a><span class="sd">    &quot;&quot;&quot;</span>
-<a id="__codelineno-0-313" name="__codelineno-0-313"></a>    <span class="n">mid</span> <span class="o">=</span> <span class="n">task_id</span> <span class="ow">or</span> <span class="n">secrets</span><span class="o">.</span><span class="n">token_hex</span><span class="p">(</span><span class="mi">8</span><span class="p">)</span>
-<a id="__codelineno-0-314" name="__codelineno-0-314"></a>    <span class="n">version</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_protocol_version</span><span class="p">()</span>
-<a id="__codelineno-0-315" name="__codelineno-0-315"></a>    <span class="n">params</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
-<a id="__codelineno-0-316" name="__codelineno-0-316"></a>        <span class="s2">&quot;message&quot;</span><span class="p">:</span> <span class="p">{</span>
-<a id="__codelineno-0-317" name="__codelineno-0-317"></a>            <span class="s2">&quot;messageId&quot;</span><span class="p">:</span> <span class="n">mid</span><span class="p">,</span>
-<a id="__codelineno-0-318" name="__codelineno-0-318"></a>            <span class="s2">&quot;role&quot;</span><span class="p">:</span> <span class="n">_USER_ROLE</span><span class="p">[</span><span class="n">version</span><span class="p">],</span>
-<a id="__codelineno-0-319" name="__codelineno-0-319"></a>            <span class="s2">&quot;parts&quot;</span><span class="p">:</span> <span class="p">[{</span><span class="s2">&quot;text&quot;</span><span class="p">:</span> <span class="n">message</span><span class="p">}],</span>
-<a id="__codelineno-0-320" name="__codelineno-0-320"></a>        <span class="p">},</span>
-<a id="__codelineno-0-321" name="__codelineno-0-321"></a>    <span class="p">}</span>
-<a id="__codelineno-0-322" name="__codelineno-0-322"></a>    <span class="n">result</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_rpc_call</span><span class="p">(</span><span class="n">_METHODS</span><span class="p">[</span><span class="n">version</span><span class="p">][</span><span class="s2">&quot;send&quot;</span><span class="p">],</span> <span class="n">params</span><span class="p">)</span>
-<a id="__codelineno-0-323" name="__codelineno-0-323"></a>    <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_parse_task</span><span class="p">(</span><span class="n">_unwrap_send_result</span><span class="p">(</span><span class="n">result</span><span class="p">,</span> <span class="n">version</span><span class="p">))</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-327">327</a></span>
+<span class="normal"><a href="#__codelineno-0-328">328</a></span>
+<span class="normal"><a href="#__codelineno-0-329">329</a></span>
+<span class="normal"><a href="#__codelineno-0-330">330</a></span>
+<span class="normal"><a href="#__codelineno-0-331">331</a></span>
+<span class="normal"><a href="#__codelineno-0-332">332</a></span>
+<span class="normal"><a href="#__codelineno-0-333">333</a></span>
+<span class="normal"><a href="#__codelineno-0-334">334</a></span>
+<span class="normal"><a href="#__codelineno-0-335">335</a></span>
+<span class="normal"><a href="#__codelineno-0-336">336</a></span>
+<span class="normal"><a href="#__codelineno-0-337">337</a></span>
+<span class="normal"><a href="#__codelineno-0-338">338</a></span>
+<span class="normal"><a href="#__codelineno-0-339">339</a></span>
+<span class="normal"><a href="#__codelineno-0-340">340</a></span>
+<span class="normal"><a href="#__codelineno-0-341">341</a></span>
+<span class="normal"><a href="#__codelineno-0-342">342</a></span>
+<span class="normal"><a href="#__codelineno-0-343">343</a></span>
+<span class="normal"><a href="#__codelineno-0-344">344</a></span>
+<span class="normal"><a href="#__codelineno-0-345">345</a></span>
+<span class="normal"><a href="#__codelineno-0-346">346</a></span>
+<span class="normal"><a href="#__codelineno-0-347">347</a></span>
+<span class="normal"><a href="#__codelineno-0-348">348</a></span>
+<span class="normal"><a href="#__codelineno-0-349">349</a></span>
+<span class="normal"><a href="#__codelineno-0-350">350</a></span>
+<span class="normal"><a href="#__codelineno-0-351">351</a></span>
+<span class="normal"><a href="#__codelineno-0-352">352</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-327" name="__codelineno-0-327"></a><span class="k">def</span><span class="w"> </span><span class="nf">send_task</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">message</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">task_id</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">TaskResult</span><span class="p">:</span>
+<a id="__codelineno-0-328" name="__codelineno-0-328"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Submit a message and return the resulting Task.</span>
+<a id="__codelineno-0-329" name="__codelineno-0-329"></a>
+<a id="__codelineno-0-330" name="__codelineno-0-330"></a><span class="sd">    `task_id` labels the outgoing message, not the task. A2A has no field</span>
+<a id="__codelineno-0-331" name="__codelineno-0-331"></a><span class="sd">    that lets a client choose the id of a task it is creating in either</span>
+<a id="__codelineno-0-332" name="__codelineno-0-332"></a><span class="sd">    generation - Message.taskId references an already existing task, and a</span>
+<a id="__codelineno-0-333" name="__codelineno-0-333"></a><span class="sd">    spec-compliant server answers -32001 for one it has never issued. Task</span>
+<a id="__codelineno-0-334" name="__codelineno-0-334"></a><span class="sd">    ids are server-assigned, so callers that need to correlate submissions</span>
+<a id="__codelineno-0-335" name="__codelineno-0-335"></a><span class="sd">    should read the id back off the returned TaskResult.</span>
+<a id="__codelineno-0-336" name="__codelineno-0-336"></a><span class="sd">    &quot;&quot;&quot;</span>
+<a id="__codelineno-0-337" name="__codelineno-0-337"></a>    <span class="n">mid</span> <span class="o">=</span> <span class="n">task_id</span> <span class="ow">or</span> <span class="n">secrets</span><span class="o">.</span><span class="n">token_hex</span><span class="p">(</span><span class="mi">8</span><span class="p">)</span>
+<a id="__codelineno-0-338" name="__codelineno-0-338"></a>    <span class="n">version</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_protocol_version</span><span class="p">()</span>
+<a id="__codelineno-0-339" name="__codelineno-0-339"></a>    <span class="n">params</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
+<a id="__codelineno-0-340" name="__codelineno-0-340"></a>        <span class="s2">&quot;message&quot;</span><span class="p">:</span> <span class="p">{</span>
+<a id="__codelineno-0-341" name="__codelineno-0-341"></a>            <span class="s2">&quot;messageId&quot;</span><span class="p">:</span> <span class="n">mid</span><span class="p">,</span>
+<a id="__codelineno-0-342" name="__codelineno-0-342"></a>            <span class="s2">&quot;role&quot;</span><span class="p">:</span> <span class="n">_USER_ROLE</span><span class="p">[</span><span class="n">version</span><span class="p">],</span>
+<a id="__codelineno-0-343" name="__codelineno-0-343"></a>            <span class="s2">&quot;parts&quot;</span><span class="p">:</span> <span class="p">[{</span><span class="s2">&quot;text&quot;</span><span class="p">:</span> <span class="n">message</span><span class="p">}],</span>
+<a id="__codelineno-0-344" name="__codelineno-0-344"></a>        <span class="p">},</span>
+<a id="__codelineno-0-345" name="__codelineno-0-345"></a>    <span class="p">}</span>
+<a id="__codelineno-0-346" name="__codelineno-0-346"></a>    <span class="n">result</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_rpc_call</span><span class="p">(</span><span class="n">_METHODS</span><span class="p">[</span><span class="n">version</span><span class="p">][</span><span class="s2">&quot;send&quot;</span><span class="p">],</span> <span class="n">params</span><span class="p">)</span>
+<a id="__codelineno-0-347" name="__codelineno-0-347"></a>    <span class="n">inline</span> <span class="o">=</span> <span class="n">_extract_inline_message</span><span class="p">(</span><span class="n">result</span><span class="p">,</span> <span class="n">version</span><span class="p">)</span>
+<a id="__codelineno-0-348" name="__codelineno-0-348"></a>    <span class="k">if</span> <span class="n">inline</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+<a id="__codelineno-0-349" name="__codelineno-0-349"></a>        <span class="c1"># An inline reply is the end of the exchange; marking it terminal</span>
+<a id="__codelineno-0-350" name="__codelineno-0-350"></a>        <span class="c1"># keeps callers from polling a task id that was never issued.</span>
+<a id="__codelineno-0-351" name="__codelineno-0-351"></a>        <span class="k">return</span> <span class="n">TaskResult</span><span class="p">(</span><span class="n">task_id</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">,</span> <span class="n">state</span><span class="o">=</span><span class="n">TaskState</span><span class="o">.</span><span class="n">COMPLETED</span><span class="p">,</span> <span class="n">messages</span><span class="o">=</span><span class="p">[</span><span class="n">inline</span><span class="p">],</span> <span class="n">raw</span><span class="o">=</span><span class="n">result</span><span class="p">)</span>
+<a id="__codelineno-0-352" name="__codelineno-0-352"></a>    <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_parse_task</span><span class="p">(</span><span class="n">_unwrap_send_result</span><span class="p">(</span><span class="n">result</span><span class="p">,</span> <span class="n">version</span><span class="p">))</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>
