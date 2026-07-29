@@ -66,6 +66,12 @@ _SCHEME_MEMBER_KEYS = {
     "openIdConnectSecurityScheme": "openIdConnect",
     "mtlsSecurityScheme": "mtls",
 }
+# A card declares which schemes are actually mandatory under a different key
+# per generation: v1.0 named it securityRequirements (a2a.proto field 9),
+# v0.3.x named it security. Both are checked, because reading only the v1.0
+# spelling reports a fully secured legacy card as having no auth at all.
+_REQUIREMENT_KEYS = ("securityRequirements", "security")
+
 _SCHEME_TYPE_ALIASES = {"mutualtls": "mtls", "mutualTLS": "mtls", "mtls": "mtls"}
 
 
@@ -152,27 +158,31 @@ def _check_signature_absence(card: AgentCard) -> list[CardFinding]:
 def _check_no_auth(card: AgentCard) -> list[CardFinding]:
     """Flag an AgentCard that enforces no authentication requirement.
 
-    Checks both card shapes MST may see in a mixed real-world fleet (same
-    rationale as the discovery fallback in client.py): A2A v1.0's
-    securitySchemes/securityRequirements pair (a2a.proto fields 8/9), and the
-    legacy v0.3.x authentication.schemes list. A card is treated as v1.0-shaped
-    if either v1.0 key is present in the raw payload; only then is the legacy
-    check skipped, so a real v1.0 card with auth configured is not
-    double-flagged by a shape it no longer emits (v1.0 has no "authentication"
-    field at all - see the discovery fallback docstring). If neither key is
-    present the card is checked the legacy way, which still resolves correctly
-    for a genuinely auth-less card.
+    Checks every card shape MST may see in a mixed real-world fleet (same
+    rationale as the discovery fallback in client.py). Both current
+    generations publish securitySchemes and then name the mandatory subset
+    separately - securityRequirements in v1.0, security in v0.3.x - so both
+    requirement keys are honoured. Reading only the v1.0 spelling reported a
+    fully secured v0.3.x card as enforcing no authentication at all, a HIGH
+    false positive on exactly the agents that got it right.
+
+    A card carrying any of those keys is treated as current-shaped and the
+    pre-0.3 fallback is skipped, so an agent is not double-flagged by a shape
+    it no longer emits. Only when none of them is present does the fallback
+    run, reading the authentication.schemes list that A2A used before 0.3
+    moved to securitySchemes; that still resolves correctly for a genuinely
+    auth-less card.
     """
-    if "securitySchemes" in card.raw or "securityRequirements" in card.raw:
-        if not card.raw.get("securityRequirements"):
+    if "securitySchemes" in card.raw or any(key in card.raw for key in _REQUIREMENT_KEYS):
+        if not any(card.raw.get(key) for key in _REQUIREMENT_KEYS):
             return [
                 CardFinding(
                     severity="HIGH",
                     title="AgentCard enforces no authentication requirement",
                     detail=(
-                        "securityRequirements[] is empty or absent, so no securitySchemes entry "
-                        "is actually required to submit tasks - anyone can act as a client "
-                        "(A2A v1.0 AgentCard.securityRequirements)"
+                        "No security requirement is declared (securityRequirements[] in v1.0, "
+                        "security[] in v0.3.x), so no securitySchemes entry is actually required "
+                        "to submit tasks - anyone can act as a client"
                     ),
                     tags=_MISSING_AUTH_TAGS,
                 )

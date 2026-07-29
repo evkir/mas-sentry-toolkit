@@ -1077,3 +1077,44 @@ def test_inconclusive_probe_maps_to_an_info_finding_that_claims_nothing() -> Non
     assert "could not run" in finding.title
     assert "safely" not in finding.title
     assert "-32601" in finding.detail
+
+
+# --- Security requirement across generations --------------------------------
+
+_SECURED_V03_RAW = {
+    "name": "legacy",
+    "description": "",
+    "url": "https://agent.example",
+    "protocolVersion": "0.3.0",
+    "preferredTransport": "JSONRPC",
+    "securitySchemes": {"oauth2": {"type": "oauth2"}},
+    # v0.3.x names the mandatory subset "security", not "securityRequirements".
+    "security": [{"oauth2": ["read"]}],
+}
+
+
+def test_v03_security_key_counts_as_an_enforced_requirement() -> None:
+    """A secured legacy card must not be reported as enforcing no auth."""
+    card = AgentCard(name="legacy", description="", url="https://agent.example", raw=_SECURED_V03_RAW)
+    findings = audit_agent_card(card)
+    assert not any("no authentication" in f.title.lower() for f in findings)
+
+
+def test_v03_card_without_any_requirement_is_still_flagged() -> None:
+    raw = dict(_SECURED_V03_RAW)
+    raw.pop("security")
+    card = AgentCard(name="legacy", description="", url="https://agent.example", raw=raw)
+    findings = audit_agent_card(card)
+    assert any("enforces no authentication requirement" in f.title.lower() for f in findings)
+
+
+def test_v03_empty_security_list_is_flagged() -> None:
+    """An empty list declares nothing mandatory, same as an absent key."""
+    card = AgentCard(
+        name="legacy",
+        description="",
+        url="https://agent.example",
+        raw=dict(_SECURED_V03_RAW, security=[]),
+    )
+    findings = audit_agent_card(card)
+    assert any("enforces no authentication requirement" in f.title.lower() for f in findings)
