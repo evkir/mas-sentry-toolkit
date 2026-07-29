@@ -8,9 +8,11 @@ from .abfp_cmd import app as abfp_app
 from .agentic_cmd import app as agentic_app
 from .doctor_cmd import app as doctor_app
 from .mcp_cmd import app as mcp_app
+from .mqtt_cmd import app as mqtt_app
 from .report_cmd import app as report_app
 
 app = typer.Typer(help="MAS-Sentry: unified MAS security toolkit", no_args_is_help=True)
+app.add_typer(mqtt_app, name="mqtt", help="MQTT broker auditing")
 app.add_typer(abfp_app, name="abfp", help="Agent Behavioral Fingerprinting (Phases 1-5)")
 app.add_typer(mcp_app, name="mcp", help="Model Context Protocol auditing")
 app.add_typer(a2a_app, name="a2a", help="Agent-to-Agent (A2A) protocol scanning")
