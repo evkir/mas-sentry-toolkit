@@ -36,8 +36,8 @@ the pre-pivot single-protocol `SentryEngine` design.
                                          |
                          +---------------v---------------+
                          |   reporting/                  |
-                         |   report_model -> HTML / MD / |
-                         |   JSON / SARIF / JUnit         |
+                         |   Finding -> HTML / MD /      |
+                         |   JSON / SARIF / JUnit        |
                          +-------------------------------+
 ```
 
@@ -71,19 +71,30 @@ the engine decoupled from any individual protocol or detector.
 - `protocols/` (mqtt/amqp analyzers) and `exploits/` -- transport-level MQTT/AMQP
   tooling retained from the toolkit's IoT-messaging origins.
 
-## Threat modeling (threat_modeling/)
+## Threat modeling (core/threat_engine.py)
 
-STRIDE mapping, CVSS v3.1 scoring, attack trees, and a `threat_aggregator` that
-rolls per-threat CVSS into a single `ThreatScore` (`risk_level`,
-`weighted_score`, `top_threats`).
+`UnifiedThreatEngine` composes audit modules, deduplicates findings across them
+and isolates per-module failures into `run.errors`, so one failing module cannot
+abort a scan. It reports `max_severity`; it does not compute a weighted risk
+score, and CVSS is not implemented.
+
+ASI/CWE/STRIDE/ATLAS tags are assigned by the check that emits each finding
+rather than by a separate mapper, because only the detection site knows enough
+to classify what it found. See `docs/methodology/threat-modeling.md`.
 
 ## Reporting (reporting/)
 
-`report_model` is the single normalized model rendered to HTML, Markdown, JSON,
-SARIF, and JUnit. Module-specific renderers (`mcp_html`, `unified_html`) build on
-the same model.
+`core.finding.Finding` is the single normalized model every renderer consumes:
+`unified_html`, `markdown`, `structured` (JSON and JUnit) and `sarif`.
+`report convert` reads a scan JSON, routes each row to the adapter that
+understands its shape, and renders. A finding that does not reach this path is
+invisible in every output format, so new scan surfaces emit `Finding` directly.
 
 ## Lab (lab/)
 
-Vulnerable MCP lab plus a scenario runner used for dogfooding and end-to-end
-verification of the audit pack.
+Intentionally vulnerable rigs built on the reference SDKs - `lab/mcp/server.py`
+on `mcp`, `lab/a2a/agent.py` on `a2a-sdk` - plus a Mosquitto broker with sample
+agents and a scenario runner. Building the victims on the reference
+implementations is deliberate: a hand-written victim only reflects the scanner
+own assumptions about the wire, so it cannot expose a divergence between what
+MAS-Sentry emits and what a real server accepts.

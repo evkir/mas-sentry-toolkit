@@ -49,37 +49,34 @@ critical = get_critical(findings)
 high = filter_findings(findings, "HIGH")
 ```
 
-## Threat modeling
+## Taxonomy tags
 
-### `mas_sentry.threat_modeling.stride_mapper.STRIDEMapper`
+There is no threat-modeling package. Tags are assigned by the check that emits
+the finding and travel in `Finding.tags` - see
+[Threat Modeling](../methodology/threat-modeling.md) for why, and for the rules
+governing when a tag is left off.
 
 ```python
-from mas_sentry.threat_modeling.stride_mapper import STRIDEMapper
+from mas_sentry.core.finding import Finding, Severity
 
-mapper = STRIDEMapper()
-threats = mapper.map_from_fingerprints(fingerprints)
-threats += mapper.map_from_protocol_findings(findings)
-print(mapper.to_json())
+f = Finding(
+    module="mqtt.anonymous_access",
+    title="Broker accepts anonymous connections",
+    detail="A CONNECT with no credentials was accepted.",
+    severity=Severity.CRITICAL,
+    target="127.0.0.1:1883",
+    tags=["mqtt", "ASI03_Identity_Abuse", "CWE-306", "STRIDE_Spoofing"],
+)
+print(f.to_dict()["tags"])
 ```
 
-### `mas_sentry.threat_modeling.cvss_calculator`
+Helpers for working with a finding list live in `mas_sentry.core.finding`:
 
 ```python
-from mas_sentry.threat_modeling.cvss_calculator import CVSSVector, calculate_cvss
+from mas_sentry.core.finding import max_severity, rank
 
-vector = CVSSVector(attack_vector="N", confidentiality="H", integrity="H", availability="H")
-score = calculate_cvss(vector)  # 9.8
-```
-
-### `mas_sentry.threat_modeling.threat_aggregator`
-
-```python
-from mas_sentry.threat_modeling.threat_aggregator import aggregate_threats
-
-score = aggregate_threats(threats)
-print(score.risk_level)  # CRITICAL / HIGH / MEDIUM / LOW
-print(score.weighted_score)  # float
-print(score.top_threats)  # top 3 by CVSS
+print(max_severity(findings))       # highest severity present; INFO for an empty list
+print(sorted(findings, key=lambda f: rank(f.severity), reverse=True))
 ```
 
 ## ABFP engine
