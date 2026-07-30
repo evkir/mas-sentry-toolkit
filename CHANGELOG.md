@@ -2,6 +2,99 @@
 
 ## [Unreleased]
 
+### Added
+- MQTT broker auditing as a command (`mas-sentry mqtt scan`). The MQTT probes
+  predate the pivot and had never been reachable from the product: nothing in
+  `cli/`, `agents/` or `agentic/` imported `MQTTAuthChecker`, `MQTTTopicWalker`
+  or `MQTTBrokerFingerprinter`, and no adapter existed to turn what they return
+  - a dict of booleans, a list of strings, a dict of $SYS values - into anything
+  the reporting pipeline could carry. They had unit coverage and no reachable
+  output, which is the same defect class as the MCP finding adapter that was
+  fully tested and never called. Meanwhile the README advertised a
+  `mas-sentry mqtt scan` that did not exist, so the first command a new user ran
+  failed. The orchestrator (`protocols/mqtt_runtime.py`) emits the unified
+  `Finding` directly rather than inventing a fourth raw row format plus an
+  adapter to translate it, so MQTT findings reach `report convert` through the
+  path A2A already uses: SARIF now carries `MAS-SENTRY-MQTT.ANONYMOUS_ACCESS`
+  instead of an unknown ruleId. Checks: `auth`, `fingerprint`, `topics`,
+  `retained`, selectable individually.
+- Retained-payload auditing (`--checks retained`). The topic walk reported which
+  topics existed and never opened one, and retained state is the wrong content
+  to skip: the broker stores one retained message per topic and replays it to
+  every client the moment it subscribes. No agent asks for it and none can
+  decline it. That makes a poisoned retained message the MQTT twin of a poisoned
+  MCP resource, with two differences that favour the attacker - it persists with
+  the attacker gone, because the broker holds it until someone overwrites it,
+  and it is delivered on subscribe rather than on request, so it reaches every
+  agent that reconnects long after the attacker left. Content goes through the
+  same two core primitives the MCP resource audit uses: `injection_scan` for
+  directives arriving inside the data, `output_exfil` for auto-fetch beacons
+  embedded in it. Collection costs nothing extra - retained messages arrive on
+  the wildcard subscription the topic walk already holds, so both checks share
+  one connection.
+
+### Fixed
+- An unreachable MQTT broker is no longer indistinguishable from an empty one.
+  The three probes each reported a failed connection differently: the auth
+  checker swallowed `BrokerUnreachable` and returned its partial mapping, the
+  topic walker let a raw `ConnectionRefusedError` escape, and the fingerprinter
+  returned a dict with `broker_type` "unreachable". None of them read the CONNACK
+  reason code, so a broker enforcing authentication accepted the socket, rejected
+  the CONNECT, subscribed the walker to nothing and produced an empty topic list
+  - the same value an idle broker produces. A shared `protocols/mqtt_connect.py`
+  gives all three the same two outcomes, and a probe that could not run now
+  appears in the report as an `mqtt.enumeration_gap` finding: INFO when the
+  broker refused us (authentication is enforced, but the surface behind it went
+  unaudited), MEDIUM when it was unreachable. Verified against live Mosquitto in
+  both postures.
+- Two MQTT false positives caught on the live rig before they shipped. A broker
+  allowing anonymous access accepts *any* credential pair, so the `guest:guest`
+  and `admin:admin` probes both succeed against it; reporting them separately
+  produced two HIGH false positives on every open broker, and they are now one
+  INFO note explaining why they are not separately assessable. And an accepted
+  wildcard subscription is not evidence of read access: Mosquitto answers a `#`
+  SUBSCRIBE with "Granted QoS 0" while its ACL withholds the topics - in the rig
+  the SUBACK was granted and only the one ACL-permitted topic was delivered - so
+  the exposure finding is keyed on messages that actually arrived.
+- `paho` v2 hands `on_connect` a `ReasonCode` object, not an int: it compares
+  equal to 0 but `int()` on it raises `TypeError`, which an exception swallowed
+  inside a paho callback would have turned into a silent failure. The reason
+  helpers read `.value`.
+
+### Documentation
+- The README was the Day 15 planning text, frozen before the code existed. It
+  described a module tree that was never built (`threat_modeling/`,
+  `agentic/asi01-10`) and exporters that were never written (PDF, a HackerOne
+  preset), pointed twice at `lab/docker-compose.yml` when the compose file is in
+  the repository root, and led its positioning with MQTT while the frontier this
+  tool follows is MCP and A2A. Every command in it is now verified by running
+  it. AMQP was removed from the capability table for the same reason MQTT was
+  broken: `amqp_analyzer.py` has no CLI entry point and no import outside its
+  tests. It returns when it is wired up. A "Reading a report" section was added
+  covering what each severity establishes and why `enumeration_gap` and
+  `inconclusive` describe the limits of a scan rather than the health of a
+  target.
+- `docs/usage/mqtt-scanning.md` and `docs/usage/attack-scenarios.md` documented a
+  CLI that has never existed in this repository - `mas-sentry scan --protocol
+  mqtt` with `--port` / `--timeout` / `--output`, `abfp --save-baseline`,
+  `report --session <id>`. Rewritten around commands that exist, verified by
+  execution. Doing so corrected the mesh manifest shape: edges are pairs,
+  `[["from", "to"]]`, not `{from, to}` objects.
+- `docs/api/README.md`, `docs/methodology/threat-modeling.md` and
+  `docs/ARCHITECTURE.md` documented seven modules under
+  `mas_sentry.threat_modeling` plus `reporting.report_model`. All eight raise
+  `ModuleNotFoundError` - that subsystem was deleted in 0.5.0 as orphaned, and
+  the documentation of it survived the removal. Both pages are in the mkdocs
+  nav, so this was a published API reference where every example failed on
+  import. Rewritten around what exists, including the rule for when a taxonomy
+  tag is deliberately left off, and two admissions recorded rather than papered
+  over: CVSS is not implemented and not planned, and STRIDE Repudiation has no
+  protocol detector.
+- `lab/README.md` carried no false claims but omitted the reference-SDK MCP rig
+  and the `mcp_ref` / `agent_a2a` compose services, so the lab documentation was
+  silent about the thing that makes the lab worth having.
+
+
 ## [0.8.0] - 2026-07-29 - Reference-SDK rigs for A2A and MCP; eleven wire-level defects
 
 ### Added
