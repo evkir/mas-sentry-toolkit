@@ -551,10 +551,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#threat-modeling-threat_modeling" class="md-nav__link">
+  <a href="#threat-modeling-corethreat_enginepy" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Threat modeling (threat_modeling/)
+        Threat modeling (core/threat_engine.py)
       
     </span>
   </a>
@@ -1733,10 +1733,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#threat-modeling-threat_modeling" class="md-nav__link">
+  <a href="#threat-modeling-corethreat_enginepy" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Threat modeling (threat_modeling/)
+        Threat modeling (core/threat_engine.py)
       
     </span>
   </a>
@@ -1819,8 +1819,8 @@ the pre-pivot single-protocol <code>SentryEngine</code> design.</p>
 <a id="__codelineno-0-26" name="__codelineno-0-26" href="#__codelineno-0-26"></a>                                         |
 <a id="__codelineno-0-27" name="__codelineno-0-27" href="#__codelineno-0-27"></a>                         +---------------v---------------+
 <a id="__codelineno-0-28" name="__codelineno-0-28" href="#__codelineno-0-28"></a>                         |   reporting/                  |
-<a id="__codelineno-0-29" name="__codelineno-0-29" href="#__codelineno-0-29"></a>                         |   report_model -&gt; HTML / MD / |
-<a id="__codelineno-0-30" name="__codelineno-0-30" href="#__codelineno-0-30"></a>                         |   JSON / SARIF / JUnit         |
+<a id="__codelineno-0-29" name="__codelineno-0-29" href="#__codelineno-0-29"></a>                         |   Finding -&gt; HTML / MD /      |
+<a id="__codelineno-0-30" name="__codelineno-0-30" href="#__codelineno-0-30"></a>                         |   JSON / SARIF / JUnit        |
 <a id="__codelineno-0-31" name="__codelineno-0-31" href="#__codelineno-0-31"></a>                         +-------------------------------+
 </code></pre></div>
 <h2 id="core-core">Core (core/)</h2>
@@ -1876,17 +1876,27 @@ the engine decoupled from any individual protocol or detector.</p>
 <li><code>protocols/</code> (mqtt/amqp analyzers) and <code>exploits/</code> -- transport-level MQTT/AMQP
   tooling retained from the toolkit's IoT-messaging origins.</li>
 </ul>
-<h2 id="threat-modeling-threat_modeling">Threat modeling (threat_modeling/)</h2>
-<p>STRIDE mapping, CVSS v3.1 scoring, attack trees, and a <code>threat_aggregator</code> that
-rolls per-threat CVSS into a single <code>ThreatScore</code> (<code>risk_level</code>,
-<code>weighted_score</code>, <code>top_threats</code>).</p>
+<h2 id="threat-modeling-corethreat_enginepy">Threat modeling (core/threat_engine.py)</h2>
+<p><code>UnifiedThreatEngine</code> composes audit modules, deduplicates findings across them
+and isolates per-module failures into <code>run.errors</code>, so one failing module cannot
+abort a scan. It reports <code>max_severity</code>; it does not compute a weighted risk
+score, and CVSS is not implemented.</p>
+<p>ASI/CWE/STRIDE/ATLAS tags are assigned by the check that emits each finding
+rather than by a separate mapper, because only the detection site knows enough
+to classify what it found. See <code>docs/methodology/threat-modeling.md</code>.</p>
 <h2 id="reporting-reporting">Reporting (reporting/)</h2>
-<p><code>report_model</code> is the single normalized model rendered to HTML, Markdown, JSON,
-SARIF, and JUnit. Module-specific renderers (<code>mcp_html</code>, <code>unified_html</code>) build on
-the same model.</p>
+<p><code>core.finding.Finding</code> is the single normalized model every renderer consumes:
+<code>unified_html</code>, <code>markdown</code>, <code>structured</code> (JSON and JUnit) and <code>sarif</code>.
+<code>report convert</code> reads a scan JSON, routes each row to the adapter that
+understands its shape, and renders. A finding that does not reach this path is
+invisible in every output format, so new scan surfaces emit <code>Finding</code> directly.</p>
 <h2 id="lab-lab">Lab (lab/)</h2>
-<p>Vulnerable MCP lab plus a scenario runner used for dogfooding and end-to-end
-verification of the audit pack.</p>
+<p>Intentionally vulnerable rigs built on the reference SDKs - <code>lab/mcp/server.py</code>
+on <code>mcp</code>, <code>lab/a2a/agent.py</code> on <code>a2a-sdk</code> - plus a Mosquitto broker with sample
+agents and a scenario runner. Building the victims on the reference
+implementations is deliberate: a hand-written victim only reflects the scanner
+own assumptions about the wire, so it cannot expose a divergence between what
+MAS-Sentry emits and what a real server accepts.</p>
 
 
 

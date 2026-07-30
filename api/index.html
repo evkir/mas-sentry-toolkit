@@ -1608,52 +1608,13 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#threat-modeling" class="md-nav__link">
+  <a href="#taxonomy-tags" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Threat modeling
+        Taxonomy tags
       
     </span>
   </a>
-  
-    <nav class="md-nav" aria-label="Threat modeling">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#mas_sentrythreat_modelingstride_mapperstridemapper" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        mas_sentry.threat_modeling.stride_mapper.STRIDEMapper
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#mas_sentrythreat_modelingcvss_calculator" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        mas_sentry.threat_modeling.cvss_calculator
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#mas_sentrythreat_modelingthreat_aggregator" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        mas_sentry.threat_modeling.threat_aggregator
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
   
 </li>
       
@@ -1795,52 +1756,13 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#threat-modeling" class="md-nav__link">
+  <a href="#taxonomy-tags" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Threat modeling
+        Taxonomy tags
       
     </span>
   </a>
-  
-    <nav class="md-nav" aria-label="Threat modeling">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#mas_sentrythreat_modelingstride_mapperstridemapper" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        mas_sentry.threat_modeling.stride_mapper.STRIDEMapper
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#mas_sentrythreat_modelingcvss_calculator" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        mas_sentry.threat_modeling.cvss_calculator
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#mas_sentrythreat_modelingthreat_aggregator" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        mas_sentry.threat_modeling.threat_aggregator
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
   
 </li>
       
@@ -1932,35 +1854,35 @@ context dict and yielding <code>Finding</code> objects.</p>
 <a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="n">critical</span> <span class="o">=</span> <span class="n">get_critical</span><span class="p">(</span><span class="n">findings</span><span class="p">)</span>
 <a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="n">high</span> <span class="o">=</span> <span class="n">filter_findings</span><span class="p">(</span><span class="n">findings</span><span class="p">,</span> <span class="s2">&quot;HIGH&quot;</span><span class="p">)</span>
 </code></pre></div>
-<h2 id="threat-modeling">Threat modeling</h2>
-<h3 id="mas_sentrythreat_modelingstride_mapperstridemapper"><code>mas_sentry.threat_modeling.stride_mapper.STRIDEMapper</code></h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">mas_sentry.threat_modeling.stride_mapper</span><span class="w"> </span><span class="kn">import</span> <span class="n">STRIDEMapper</span>
+<h2 id="taxonomy-tags">Taxonomy tags</h2>
+<p>There is no threat-modeling package. Tags are assigned by the check that emits
+the finding and travel in <code>Finding.tags</code> - see
+<a href="../methodology/threat-modeling/">Threat Modeling</a> for why, and for the rules
+governing when a tag is left off.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">mas_sentry.core.finding</span><span class="w"> </span><span class="kn">import</span> <span class="n">Finding</span><span class="p">,</span> <span class="n">Severity</span>
 <a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>
-<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="n">mapper</span> <span class="o">=</span> <span class="n">STRIDEMapper</span><span class="p">()</span>
-<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="n">threats</span> <span class="o">=</span> <span class="n">mapper</span><span class="o">.</span><span class="n">map_from_fingerprints</span><span class="p">(</span><span class="n">fingerprints</span><span class="p">)</span>
-<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="n">threats</span> <span class="o">+=</span> <span class="n">mapper</span><span class="o">.</span><span class="n">map_from_protocol_findings</span><span class="p">(</span><span class="n">findings</span><span class="p">)</span>
-<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="nb">print</span><span class="p">(</span><span class="n">mapper</span><span class="o">.</span><span class="n">to_json</span><span class="p">())</span>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="n">f</span> <span class="o">=</span> <span class="n">Finding</span><span class="p">(</span>
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>    <span class="n">module</span><span class="o">=</span><span class="s2">&quot;mqtt.anonymous_access&quot;</span><span class="p">,</span>
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>    <span class="n">title</span><span class="o">=</span><span class="s2">&quot;Broker accepts anonymous connections&quot;</span><span class="p">,</span>
+<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>    <span class="n">detail</span><span class="o">=</span><span class="s2">&quot;A CONNECT with no credentials was accepted.&quot;</span><span class="p">,</span>
+<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a>    <span class="n">severity</span><span class="o">=</span><span class="n">Severity</span><span class="o">.</span><span class="n">CRITICAL</span><span class="p">,</span>
+<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>    <span class="n">target</span><span class="o">=</span><span class="s2">&quot;127.0.0.1:1883&quot;</span><span class="p">,</span>
+<a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a>    <span class="n">tags</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;mqtt&quot;</span><span class="p">,</span> <span class="s2">&quot;ASI03_Identity_Abuse&quot;</span><span class="p">,</span> <span class="s2">&quot;CWE-306&quot;</span><span class="p">,</span> <span class="s2">&quot;STRIDE_Spoofing&quot;</span><span class="p">],</span>
+<a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a><span class="p">)</span>
+<a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a><span class="nb">print</span><span class="p">(</span><span class="n">f</span><span class="o">.</span><span class="n">to_dict</span><span class="p">()[</span><span class="s2">&quot;tags&quot;</span><span class="p">])</span>
 </code></pre></div>
-<h3 id="mas_sentrythreat_modelingcvss_calculator"><code>mas_sentry.threat_modeling.cvss_calculator</code></h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">mas_sentry.threat_modeling.cvss_calculator</span><span class="w"> </span><span class="kn">import</span> <span class="n">CVSSVector</span><span class="p">,</span> <span class="n">calculate_cvss</span>
+<p>Helpers for working with a finding list live in <code>mas_sentry.core.finding</code>:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">mas_sentry.core.finding</span><span class="w"> </span><span class="kn">import</span> <span class="n">max_severity</span><span class="p">,</span> <span class="n">rank</span>
 <a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>
-<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="n">vector</span> <span class="o">=</span> <span class="n">CVSSVector</span><span class="p">(</span><span class="n">attack_vector</span><span class="o">=</span><span class="s2">&quot;N&quot;</span><span class="p">,</span> <span class="n">confidentiality</span><span class="o">=</span><span class="s2">&quot;H&quot;</span><span class="p">,</span> <span class="n">integrity</span><span class="o">=</span><span class="s2">&quot;H&quot;</span><span class="p">,</span> <span class="n">availability</span><span class="o">=</span><span class="s2">&quot;H&quot;</span><span class="p">)</span>
-<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="n">score</span> <span class="o">=</span> <span class="n">calculate_cvss</span><span class="p">(</span><span class="n">vector</span><span class="p">)</span>  <span class="c1"># 9.8</span>
-</code></pre></div>
-<h3 id="mas_sentrythreat_modelingthreat_aggregator"><code>mas_sentry.threat_modeling.threat_aggregator</code></h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">mas_sentry.threat_modeling.threat_aggregator</span><span class="w"> </span><span class="kn">import</span> <span class="n">aggregate_threats</span>
-<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>
-<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="n">score</span> <span class="o">=</span> <span class="n">aggregate_threats</span><span class="p">(</span><span class="n">threats</span><span class="p">)</span>
-<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="nb">print</span><span class="p">(</span><span class="n">score</span><span class="o">.</span><span class="n">risk_level</span><span class="p">)</span>  <span class="c1"># CRITICAL / HIGH / MEDIUM / LOW</span>
-<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="nb">print</span><span class="p">(</span><span class="n">score</span><span class="o">.</span><span class="n">weighted_score</span><span class="p">)</span>  <span class="c1"># float</span>
-<a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="nb">print</span><span class="p">(</span><span class="n">score</span><span class="o">.</span><span class="n">top_threats</span><span class="p">)</span>  <span class="c1"># top 3 by CVSS</span>
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="nb">print</span><span class="p">(</span><span class="n">max_severity</span><span class="p">(</span><span class="n">findings</span><span class="p">))</span>       <span class="c1"># highest severity present; INFO for an empty list</span>
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="nb">print</span><span class="p">(</span><span class="nb">sorted</span><span class="p">(</span><span class="n">findings</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">f</span><span class="p">:</span> <span class="n">rank</span><span class="p">(</span><span class="n">f</span><span class="o">.</span><span class="n">severity</span><span class="p">),</span> <span class="n">reverse</span><span class="o">=</span><span class="kc">True</span><span class="p">))</span>
 </code></pre></div>
 <h2 id="abfp-engine">ABFP engine</h2>
 <h3 id="mas_sentryagentsfingerprinterabfpfingerprinter"><code>mas_sentry.agents.fingerprinter.ABFPFingerprinter</code></h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">mas_sentry.agents.fingerprinter</span><span class="w"> </span><span class="kn">import</span> <span class="n">ABFPFingerprinter</span>
-<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>
-<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="n">fp</span> <span class="o">=</span> <span class="n">ABFPFingerprinter</span><span class="p">(</span><span class="n">host</span><span class="o">=</span><span class="s2">&quot;127.0.0.1&quot;</span><span class="p">,</span> <span class="n">port</span><span class="o">=</span><span class="mi">1883</span><span class="p">)</span>
-<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="n">fingerprints</span> <span class="o">=</span> <span class="n">fp</span><span class="o">.</span><span class="n">collect</span><span class="p">(</span><span class="n">duration</span><span class="o">=</span><span class="mi">60</span><span class="p">)</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">mas_sentry.agents.fingerprinter</span><span class="w"> </span><span class="kn">import</span> <span class="n">ABFPFingerprinter</span>
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>
+<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="n">fp</span> <span class="o">=</span> <span class="n">ABFPFingerprinter</span><span class="p">(</span><span class="n">host</span><span class="o">=</span><span class="s2">&quot;127.0.0.1&quot;</span><span class="p">,</span> <span class="n">port</span><span class="o">=</span><span class="mi">1883</span><span class="p">)</span>
+<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="n">fingerprints</span> <span class="o">=</span> <span class="n">fp</span><span class="o">.</span><span class="n">collect</span><span class="p">(</span><span class="n">duration</span><span class="o">=</span><span class="mi">60</span><span class="p">)</span>
 </code></pre></div>
 
 

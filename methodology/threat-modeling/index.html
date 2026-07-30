@@ -80,7 +80,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#threat-modeling-guide-mas-sentry-toolkit" class="md-skip">
+        <a href="#threat-modeling" class="md-skip">
           Skip to content
         </a>
       
@@ -826,10 +826,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#overview" class="md-nav__link">
+  <a href="#where-tags-come-from" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Overview
+        Where tags come from
       
     </span>
   </a>
@@ -837,10 +837,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#stride-categories-in-mas-context" class="md-nav__link">
+  <a href="#the-four-vocabularies" class="md-nav__link">
     <span class="md-ellipsis">
       
-        STRIDE Categories in MAS Context
+        The four vocabularies
       
     </span>
   </a>
@@ -848,10 +848,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#usage" class="md-nav__link">
+  <a href="#when-a-tag-is-left-off" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Usage
+        When a tag is left off
       
     </span>
   </a>
@@ -859,10 +859,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#abfp-stride-automatic-mapping" class="md-nav__link">
+  <a href="#stride-in-a-multi-agent-context" class="md-nav__link">
     <span class="md-ellipsis">
       
-        ABFP → STRIDE Automatic Mapping
+        STRIDE in a multi-agent context
       
     </span>
   </a>
@@ -870,10 +870,21 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#threat-catalog" class="md-nav__link">
+  <a href="#cvss" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Threat Catalog
+        CVSS
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#reading-severity" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Reading severity
       
     </span>
   </a>
@@ -1694,10 +1705,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#overview" class="md-nav__link">
+  <a href="#where-tags-come-from" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Overview
+        Where tags come from
       
     </span>
   </a>
@@ -1705,10 +1716,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#stride-categories-in-mas-context" class="md-nav__link">
+  <a href="#the-four-vocabularies" class="md-nav__link">
     <span class="md-ellipsis">
       
-        STRIDE Categories in MAS Context
+        The four vocabularies
       
     </span>
   </a>
@@ -1716,10 +1727,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#usage" class="md-nav__link">
+  <a href="#when-a-tag-is-left-off" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Usage
+        When a tag is left off
       
     </span>
   </a>
@@ -1727,10 +1738,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#abfp-stride-automatic-mapping" class="md-nav__link">
+  <a href="#stride-in-a-multi-agent-context" class="md-nav__link">
     <span class="md-ellipsis">
       
-        ABFP → STRIDE Automatic Mapping
+        STRIDE in a multi-agent context
       
     </span>
   </a>
@@ -1738,10 +1749,21 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#threat-catalog" class="md-nav__link">
+  <a href="#cvss" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Threat Catalog
+        CVSS
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#reading-severity" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Reading severity
       
     </span>
   </a>
@@ -1768,68 +1790,128 @@
   
 
 
-<h1 id="threat-modeling-guide-mas-sentry-toolkit">Threat Modeling Guide — MAS-Sentry-Toolkit</h1>
-<h2 id="overview">Overview</h2>
-<p>MAS-Sentry uses STRIDE to systematically identify threats in
-Multi-Agent System deployments over MQTT and AMQP.</p>
-<h2 id="stride-categories-in-mas-context">STRIDE Categories in MAS Context</h2>
+<h1 id="threat-modeling">Threat Modeling</h1>
+<p>MAS-Sentry tags every finding with the vocabularies a reader needs to route it:
+what agentic risk class it belongs to, what weakness it is, what security
+property it breaks, and - where one fits cleanly - what adversary technique it
+corresponds to.</p>
+<h2 id="where-tags-come-from">Where tags come from</h2>
+<p>There is no threat-modeling package and no mapper that walks finished findings
+through a lookup table. <strong>Tags are attached by the check that produced the
+finding</strong>, at the point where the context justifying them is still in hand.</p>
+<p>A detector knows things a later pass cannot recover. It knows whether a probe
+confirmed the unsafe behaviour or merely observed a symptom, whether the target
+refused or answered, and which specific field carried the payload. A mapper
+running over a finished list sees a title and a module name and has to guess.
+The guessing is where false taxonomy comes from, so it does not exist here.</p>
+<p>Tags travel on <code>Finding.tags</code> into Markdown, HTML and SARIF without further
+processing.</p>
+<h2 id="the-four-vocabularies">The four vocabularies</h2>
+<table>
+<thead>
+<tr>
+<th>Prefix</th>
+<th>Vocabulary</th>
+<th>Example</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>ASI##_</code></td>
+<td>OWASP Agentic Top 10 (2026)</td>
+<td><code>ASI01_Goal_Hijack</code></td>
+</tr>
+<tr>
+<td><code>CWE-</code></td>
+<td>MITRE CWE</td>
+<td><code>CWE-1427</code></td>
+</tr>
+<tr>
+<td><code>STRIDE_</code></td>
+<td>STRIDE</td>
+<td><code>STRIDE_Tampering</code></td>
+</tr>
+<tr>
+<td><code>AML.T</code></td>
+<td>MITRE ATLAS</td>
+<td><code>AML.T0051</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="when-a-tag-is-left-off">When a tag is left off</h2>
+<p><strong>A tag is attached only where the match is clean.</strong> An absent tag is a
+statement, not an oversight:</p>
+<ul>
+<li>Argument injection into a tool call carries CWE-77 and <code>STRIDE_Tampering</code> but
+  no ATLAS technique, because no published technique describes it without
+  stretching the definition.</li>
+<li>An unauthorized-cancel probe carries CWE-862 and <code>STRIDE_Elevation_Of_Privilege</code>
+  but no ASI code, because none of the ten categories covers missing
+  authorization on a task operation.</li>
+<li>A probe that ran and held is recorded without any vulnerability class at all.
+  Tags attach when a probe <strong>fails</strong>, not when it merely executes.</li>
+</ul>
+<p>Only four ATLAS techniques are used across the whole codebase - <code>AML.T0051</code>,
+<code>AML.T0080</code>, <code>AML.T0048</code>, <code>AML.T0110</code> - because those are the four with
+unambiguous matches. Inventing a fifth would make the reports look more rigorous
+and be less true.</p>
+<h2 id="stride-in-a-multi-agent-context">STRIDE in a multi-agent context</h2>
 <table>
 <thead>
 <tr>
 <th>Category</th>
-<th>MAS Example</th>
-<th>Severity</th>
+<th>Example in a MAS deployment</th>
+<th>Detected by</th>
 </tr>
 </thead>
 <tbody>
 <tr>
 <td><strong>Spoofing</strong></td>
-<td>Client ID impersonation</td>
-<td>CRITICAL</td>
+<td>Anonymous broker access, client-id impersonation, agent-card identity claims</td>
+<td><code>mqtt.anonymous_access</code>, ABFP impersonation scoring, A2A card audit</td>
 </tr>
 <tr>
 <td><strong>Tampering</strong></td>
-<td>Retained message poisoning</td>
-<td>HIGH</td>
+<td>Retained-message poisoning, tool-descriptor rug-pull, poisoned resource content</td>
+<td><code>mqtt.retained_injection</code>, <code>mcp.tool_rug_pull</code>, <code>mcp.resource_content</code></td>
 </tr>
 <tr>
 <td><strong>Repudiation</strong></td>
-<td>No message signing</td>
-<td>MEDIUM</td>
+<td>Actions taken by an agent with no attributable record</td>
+<td>Not detected - see below</td>
 </tr>
 <tr>
-<td><strong>Info Disclosure</strong></td>
-<td>Wildcard topic enumeration</td>
-<td>HIGH</td>
+<td><strong>Information disclosure</strong></td>
+<td><code>$SYS</code> telemetry to anonymous readers, wildcard traffic exposure, exfiltration beacons</td>
+<td><code>mqtt.sys_exposure</code>, <code>mqtt.topic_exposure</code>, <code>mqtt.retained_exfil</code></td>
 </tr>
 <tr>
-<td><strong>Denial of Service</strong></td>
-<td>Message flood</td>
-<td>HIGH</td>
+<td><strong>Denial of service</strong></td>
+<td>Message floods, unbounded tool output, resource exhaustion</td>
+<td>ABFP burst scoring, <code>agentic/resource_exhaustion.py</code></td>
 </tr>
 <tr>
-<td><strong>Elevation of Privilege</strong></td>
-<td>Topic ACL bypass</td>
-<td>CRITICAL</td>
+<td><strong>Elevation of privilege</strong></td>
+<td>Topic ACL bypass, delegation-mesh escalation, unauthorized task cancel</td>
+<td>A2A mesh audit, A2A probes</td>
 </tr>
 </tbody>
 </table>
-<h2 id="usage">Usage</h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">mas_sentry.threat_modeling.stride</span><span class="w"> </span><span class="kn">import</span> <span class="n">MAS_MQTT_THREATS</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">mas_sentry.threat_modeling.stride_reporter</span><span class="w"> </span><span class="kn">import</span> <span class="n">format_threat_report</span>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="n">report</span> <span class="o">=</span> <span class="n">format_threat_report</span><span class="p">(</span><span class="n">MAS_MQTT_THREATS</span><span class="p">)</span>
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="nb">print</span><span class="p">(</span><span class="n">report</span><span class="p">)</span>
-</code></pre></div>
-<h2 id="abfp-stride-automatic-mapping">ABFP → STRIDE Automatic Mapping</h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">mas_sentry.threat_modeling.abfp_stride_mapper</span><span class="w"> </span><span class="kn">import</span> <span class="n">map_session_findings</span>
-<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>
-<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="c1"># session.findings populated by ABFP engine</span>
-<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="n">threats</span> <span class="o">=</span> <span class="n">map_session_findings</span><span class="p">(</span><span class="n">session</span><span class="o">.</span><span class="n">findings</span><span class="p">)</span>
-</code></pre></div>
-<h2 id="threat-catalog">Threat Catalog</h2>
-<p>Current catalog covers 6 STRIDE categories with MAS-specific
-attack scenarios validated against real MQTT broker deployments.</p>
+<p><strong>Repudiation has no detector.</strong> ASI06 (Untraceable Actions) is covered
+statically in <code>agentic/action_audit.py</code>, but no protocol scan currently
+establishes whether an agent actions are attributable on the wire. The row is
+kept in this table because the category is real; claiming coverage for it would
+not be.</p>
+<h2 id="cvss">CVSS</h2>
+<p>Not implemented, deliberately. Severity here reports what a check established -
+confirmed exploitation, confirmed weakness, signal needing judgement, or an
+unassessed surface - and that ordering is what an operator triages on. A CVSS
+vector expresses something else and would have to be invented per finding to
+produce a number, which is precision without accuracy.</p>
+<h2 id="reading-severity">Reading severity</h2>
+<p>See the "Reading a report" section of the project README for what each level
+means, and for the gap findings that mark the limits of a scan rather than the
+health of a target.</p>
 
 
 

@@ -80,7 +80,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#mqtt-scanning-guide" class="md-skip">
+        <a href="#mqtt-scanning" class="md-skip">
           Skip to content
         </a>
       
@@ -1056,17 +1056,6 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#quick-start" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Quick Start
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
   <a href="#options" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1078,10 +1067,65 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#what-it-detects" class="md-nav__link">
+  <a href="#what-it-checks" class="md-nav__link">
     <span class="md-ellipsis">
       
-        What it detects
+        What it checks
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#findings-it-produces" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Findings it produces
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#two-results-that-look-alike-and-are-not" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Two results that look alike and are not
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#reading-the-gaps" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Reading the gaps
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#against-the-lab" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Against the lab
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#scope" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Scope
       
     </span>
   </a>
@@ -1672,17 +1716,6 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#quick-start" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Quick Start
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
   <a href="#options" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1694,10 +1727,65 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#what-it-detects" class="md-nav__link">
+  <a href="#what-it-checks" class="md-nav__link">
     <span class="md-ellipsis">
       
-        What it detects
+        What it checks
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#findings-it-produces" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Findings it produces
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#two-results-that-look-alike-and-are-not" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Two results that look alike and are not
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#reading-the-gaps" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Reading the gaps
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#against-the-lab" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Against the lab
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#scope" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Scope
       
     </span>
   </a>
@@ -1724,23 +1812,140 @@
   
 
 
-<h1 id="mqtt-scanning-guide">MQTT Scanning Guide</h1>
-<h2 id="quick-start">Quick Start</h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>mas-sentry<span class="w"> </span>scan<span class="w"> </span>--target<span class="w"> </span><span class="m">192</span>.168.1.100<span class="w"> </span>--protocol<span class="w"> </span>mqtt
+<h1 id="mqtt-scanning">MQTT Scanning</h1>
+<p><code>mas-sentry mqtt scan</code> audits an MQTT broker that agents use as their message
+bus. It reads only: it subscribes, it tries credential pairs, and it never
+publishes.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>mas-sentry<span class="w"> </span>mqtt<span class="w"> </span>scan<span class="w"> </span>--target<span class="w"> </span>mqtt://localhost:1883<span class="w"> </span>--duration<span class="w"> </span><span class="m">20</span>
 </code></pre></div>
 <h2 id="options">Options</h2>
+<table>
+<thead>
+<tr>
+<th>Flag</th>
+<th>Default</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--target</code> / <code>-t</code></td>
+<td>required</td>
+<td><code>mqtt://host[:port]</code>, <code>host[:port]</code>, or a bare host (port 1883)</td>
+</tr>
+<tr>
+<td><code>--checks</code></td>
+<td><code>all</code></td>
+<td>Comma-separated subset of <code>auth</code>, <code>fingerprint</code>, <code>topics</code>, <code>retained</code></td>
+</tr>
+<tr>
+<td><code>--duration</code> / <code>-d</code></td>
+<td><code>20</code></td>
+<td>Seconds spent collecting topics and retained messages</td>
+</tr>
+<tr>
+<td><code>--out</code> / <code>-o</code></td>
+<td><code>reports/mqtt.json</code></td>
+<td>Where the unified findings are written</td>
+</tr>
+<tr>
+<td><code>--confirm-scope</code></td>
+<td>off</td>
+<td>Required for anything outside <code>localhost</code> / <code>.lab</code> / <code>.test</code> / <code>.local</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="what-it-checks">What it checks</h2>
+<p><strong><code>auth</code></strong> - connects with no credentials, then with <code>guest:guest</code> and
+<code>admin:admin</code>.</p>
+<p><strong><code>fingerprint</code></strong> - reads the <code>$SYS</code> tree to identify the broker product and
+version.</p>
+<p><strong><code>topics</code></strong> - subscribes with wildcards and records what is delivered.</p>
+<p><strong><code>retained</code></strong> - reads the retained payload on every topic and scans the content
+for injection directives and auto-fetch beacons. The topic walk and the retained
+read share one subscription, so <code>topics,retained</code> costs one connection, not two.</p>
+<h2 id="findings-it-produces">Findings it produces</h2>
+<table>
+<thead>
+<tr>
+<th>Module</th>
+<th>Severity</th>
+<th>Fires when</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>mqtt.anonymous_access</code></td>
+<td>CRITICAL</td>
+<td>A CONNECT with no credentials was accepted</td>
+</tr>
+<tr>
+<td><code>mqtt.default_credentials</code></td>
+<td>HIGH</td>
+<td>Authentication is enforced but a well-known pair works</td>
+</tr>
+<tr>
+<td><code>mqtt.topic_exposure</code></td>
+<td>HIGH</td>
+<td>Live traffic was delivered to an unauthenticated subscriber</td>
+</tr>
+<tr>
+<td><code>mqtt.retained_injection</code></td>
+<td>HIGH / MEDIUM</td>
+<td>A retained payload carries injection directives</td>
+</tr>
+<tr>
+<td><code>mqtt.retained_exfil</code></td>
+<td>HIGH</td>
+<td>A retained payload embeds an auto-fetch beacon</td>
+</tr>
+<tr>
+<td><code>mqtt.sys_exposure</code></td>
+<td>MEDIUM</td>
+<td>The <code>$SYS</code> tree was readable without credentials</td>
+</tr>
+<tr>
+<td><code>mqtt.fingerprint</code>, <code>mqtt.topic_inventory</code>, <code>mqtt.retained_state</code>, <code>mqtt.auth</code></td>
+<td>INFO</td>
+<td>Inventory and posture</td>
+</tr>
+<tr>
+<td><code>mqtt.enumeration_gap</code></td>
+<td>INFO / MEDIUM</td>
+<td>A probe did not run - see below</td>
+</tr>
+</tbody>
+</table>
+<h2 id="two-results-that-look-alike-and-are-not">Two results that look alike and are not</h2>
+<p><strong>An empty topic inventory is not a quiet broker.</strong> A broker enforcing
+authentication refuses the subscription, and a broker with a topic ACL grants
+the subscription and then withholds the messages - Mosquitto answers a <code>#</code>
+SUBSCRIBE with <code>Granted QoS 0</code> and delivers nothing. All three cases used to end
+as an empty list. Now a refused connection produces an <code>mqtt.enumeration_gap</code>
+finding instead, and <code>mqtt.topic_exposure</code> is raised only on traffic that
+actually arrived, never on a subscription merely being accepted.</p>
+<p><strong>Default credentials on an open broker mean nothing.</strong> A broker allowing
+anonymous access accepts every username and password it is handed, so
+<code>guest:guest</code> and <code>admin:admin</code> both "work" against it. That is one weakness -
+<code>mqtt.anonymous_access</code> - not three. The credential result is recorded as INFO
+explaining why it could not be assessed separately.</p>
+<h2 id="reading-the-gaps">Reading the gaps</h2>
+<p><code>mqtt.enumeration_gap</code> marks a surface that was <strong>not</strong> examined:</p>
 <ul>
-<li><code>--port</code> — broker port (default: 1883)</li>
-<li><code>--timeout</code> — connection timeout seconds</li>
-<li><code>--output</code> — report format: json/html/markdown</li>
+<li><strong>INFO</strong> - the broker answered and refused us. Authentication is enforced,
+  which is the desired posture, but whatever sits behind it went unaudited.</li>
+<li><strong>MEDIUM</strong> - the broker was unreachable. Nothing was assessed at all.</li>
 </ul>
-<h2 id="what-it-detects">What it detects</h2>
-<ul>
-<li>Anonymous authentication</li>
-<li>Wildcard topic enumeration</li>
-<li>Retained message poisoning</li>
-<li>Agent impersonation via client_id</li>
-</ul>
+<p>A scan of a hardened broker is mostly gaps, and that is the correct output. It
+must not be read as a clean bill of health.</p>
+<h2 id="against-the-lab">Against the lab</h2>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>docker<span class="w"> </span>compose<span class="w"> </span>up<span class="w"> </span>-d
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>mas-sentry<span class="w"> </span>mqtt<span class="w"> </span>scan<span class="w"> </span>--target<span class="w"> </span>mqtt://localhost:1883<span class="w"> </span>--duration<span class="w"> </span><span class="m">10</span>
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>mas-sentry<span class="w"> </span>report<span class="w"> </span>convert<span class="w"> </span>reports/mqtt.json<span class="w"> </span>--format<span class="w"> </span>html<span class="w"> </span>--out<span class="w"> </span>reports/mqtt.html
+</code></pre></div>
+<h2 id="scope">Scope</h2>
+<p>Non-lab targets require <code>--confirm-scope</code> or <code>MAS_SENTRY_SCOPE_CONFIRMED=1</code>, and
+every run appends to <code>~/.mas-sentry/audit.jsonl</code>.</p>
 
 
 
