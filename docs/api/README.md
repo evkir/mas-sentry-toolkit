@@ -75,7 +75,7 @@ Helpers for working with a finding list live in `mas_sentry.core.finding`:
 ```python
 from mas_sentry.core.finding import max_severity, rank
 
-print(max_severity(findings))       # highest severity present; INFO for an empty list
+print(max_severity(findings))  # highest severity present; INFO for an empty list
 print(sorted(findings, key=lambda f: rank(f.severity), reverse=True))
 ```
 
