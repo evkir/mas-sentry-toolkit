@@ -16,6 +16,7 @@ from .audit.path_traversal import probe_arg_injection, probe_path_traversal
 from .audit.resource_content import audit_resource_content, audit_resource_templates
 from .audit.ssrf import probe_ssrf
 from .audit.tool_drift import detect_tool_drift
+from .audit.tool_mutation import detect_tool_mutation, notification_mark, snapshot_tools
 from .audit.tool_poisoning import detect_tool_poisoning
 from .client import McpClient
 from .fingerprint import fingerprint, known_cves_for
@@ -119,6 +120,13 @@ def _run_all_checks(
         for cve in known_cves_for(impl):
             out.append({"check": "known_cve", "severity": "HIGH", "detail": f"{impl}: {cve}"})
 
+    # Taken before any probe runs, because the probes call tools and a call is
+    # what a rug-pull server keys the swap on. A snapshot taken afterwards would
+    # be a photograph of the crime scene after the swap.
+    mutation_watch = checks in ("all", "mutation")
+    tools_before = snapshot_tools(client) if mutation_watch else {}
+    inbound_mark = notification_mark(client) if mutation_watch else 0
+
     if checks in ("all", "poisoning"):
         for pf in detect_tool_poisoning(client):
             out.append(
@@ -186,6 +194,10 @@ def _run_all_checks(
     if checks in ("all", "drift"):
         for df in detect_tool_drift(client, tool_baseline):
             out.append({"check": df.kind, "severity": df.severity, "detail": df.detail})
+
+    if mutation_watch:
+        for mf in detect_tool_mutation(client, tools_before, inbound_mark):
+            out.append({"check": mf.kind, "severity": mf.severity, "detail": mf.detail})
 
     # A call the server suspended is not a call that came back clean. Every
     # probe above reads its verdict off a response body, and a suspended call

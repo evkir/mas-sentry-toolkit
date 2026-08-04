@@ -53,6 +53,10 @@ def from_agentic(af: AgenticFinding) -> Finding:
 _MCP_CHECK_TAGS = {
     "tool_rug_pull": ["ASI08_Supply_Chain", "CWE-494", "STRIDE_Tampering", "AML.T0110"],
     "tool_shadowing": ["ASI02_Tool_Misuse", "CWE-290", "STRIDE_Spoofing", "AML.T0110"],
+    # Same class as tool_rug_pull, caught inside one session instead of across
+    # runs: the descriptor moved after the inventory was read.
+    "tool_mutation": ["ASI08_Supply_Chain", "CWE-494", "STRIDE_Tampering", "AML.T0110"],
+    "tool_appeared": ["ASI08_Supply_Chain", "CWE-494", "STRIDE_Tampering", "AML.T0110"],
     # Tool-poisoning carries IPI directives in the descriptor fields the LLM ingests.
     "tool_poisoning": ["ASI01_Goal_Hijack", "CWE-1427", "STRIDE_Tampering", "AML.T0051"],
     # Argument injection into tool calls is classic command injection - no clean

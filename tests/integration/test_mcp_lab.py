@@ -50,7 +50,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 STARTUP_TIMEOUT_S = 30.0
 POLL_INTERVAL_S = 0.25
 
-LAB_TOOLS = {"echo", "search_notes", "read_file", "fetch_url"}
+LAB_TOOLS = {"echo", "search_notes", "read_file", "fetch_url", "read_config"}
 LAB_PROMPTS = {"summarize"}
 LAB_STATIC_RESOURCE = "file://lab/policy"
 LAB_TEMPLATED_RESOURCE = "file://lab/notes/{name}"
@@ -347,7 +347,7 @@ def test_the_reference_server_rejects_every_header_body_desync(http_url: str) ->
 
 
 def test_a_paginated_inventory_is_walked_to_the_end(paged_stdio_config) -> None:
-    """Four tools served two at a time are still four tools.
+    """An inventory served two at a time is still the whole inventory.
 
     The reference server pages through the SDK result model, so the cursor
     shape is the real one rather than our own idea of it. A client reading only
