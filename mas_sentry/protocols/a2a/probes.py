@@ -56,6 +56,16 @@ def inconclusive_result(name: str, exc: Exception) -> ProbeResult:
     """
     if isinstance(exc, A2ARpcError):
         detail = f"Probe did not run: JSON-RPC {exc.code} {exc.message}"
+        if exc.http_status is not None and exc.http_status != 200:
+            detail += f" (HTTP {exc.http_status})"
+        # The numeric code alone does not say what the server objected to;
+        # ErrorInfo names it (reason/domain) and is otherwise dropped.
+        info = exc.error_info
+        if info is not None:
+            reason = info.get("reason")
+            domain = info.get("domain")
+            if reason:
+                detail += f" [{reason}@{domain}]" if domain else f" [{reason}]"
     else:
         detail = f"Probe did not run: {type(exc).__name__}"
     return ProbeResult(name=name, passed=False, detail=detail, conclusive=False)
@@ -83,14 +93,24 @@ def probe_unauthorized_cancel(client: A2AClient, foreign_task_id: str = "not-min
     """Try cancelling a task we did not submit. Safe server rejects.
 
     A2A's JSON-RPC binding signals a proper rejection (TaskNotFoundError,
-    TaskNotCancelableError) via a JSON-RPC error in a 200 OK body, not an
-    HTTP error status - httpx.HTTPError alone would miss it and fall through
-    to _parse_task on a body with no id/status, silently misreading a
-    correct rejection as an empty UNKNOWN-state task.
+    TaskNotCancelableError) via a JSON-RPC error in the response body rather
+    than an HTTP error status - httpx.HTTPError alone would miss it and fall
+    through to _parse_task on a body with no id/status, silently misreading a
+    correct rejection as an empty UNKNOWN-state task. The body is read
+    regardless of status, so an authority decision fronted by 401/403 is read
+    off the status while the code inside is still available for the detail.
     """
     try:
         result = client.cancel_task(foreign_task_id)
     except A2ARpcError as e:
+        # A fronting gateway may answer 401/403 with a JSON-RPC error body;
+        # the status is the authority decision regardless of the code inside.
+        if e.http_status in _AUTH_REJECTION_STATUSES:
+            return ProbeResult(
+                name="unauthorized-cancel",
+                passed=True,
+                detail=f"Rejected with HTTP {e.http_status}",
+            )
         if e.code in TASK_REJECTION_CODES:
             return ProbeResult(
                 name="unauthorized-cancel",

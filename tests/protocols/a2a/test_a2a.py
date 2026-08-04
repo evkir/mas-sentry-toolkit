@@ -21,6 +21,7 @@ from mas_sentry.protocols.a2a.client import (
     VERSION_HEADER,
     _resolve_jsonrpc_endpoint,
     _resolve_protocol_version,
+    error_info_of,
 )
 from mas_sentry.protocols.a2a.probes import (
     ProbeResult,
@@ -1165,3 +1166,87 @@ def test_injection_probe_sees_a_canary_echoed_in_an_inline_message() -> None:
     assert result.conclusive
     assert not result.passed
     assert "present" in result.detail
+
+
+# --------------- error body on a non-2xx status ---------------
+
+# Shape verified against @a2a-js/sdk 1.0.1: a version mismatch is answered
+# with HTTP 500 carrying a well-formed JSON-RPC error, while -32601/-32603
+# from the same server arrive with HTTP 200.
+_VERSION_ERROR = {
+    "code": -32009,
+    "message": "The requested A2A protocol version '1.0' is not supported.",
+    "data": [
+        {
+            "@type": "type.googleapis.com/google.rpc.ErrorInfo",
+            "reason": "VERSION_NOT_SUPPORTED",
+            "domain": "a2a-protocol.org",
+        }
+    ],
+}
+
+
+def test_client_reads_json_rpc_error_carried_on_a_non_2xx_status() -> None:
+    """A diagnosable rejection must not be downgraded to an opaque transport failure."""
+
+    def handler(req: httpx.Request) -> httpx.Response:
+        body = json.loads(req.content)
+        return httpx.Response(500, json={"jsonrpc": "2.0", "id": body["id"], "error": _VERSION_ERROR})
+
+    with (
+        A2AClient("http://lab", transport=httpx.MockTransport(handler)) as client,
+        pytest.raises(A2ARpcError) as excinfo,
+    ):
+        client.get_task("x")
+    assert excinfo.value.code == -32009
+    assert excinfo.value.http_status == 500
+    assert excinfo.value.error_info == _VERSION_ERROR["data"][0]
+
+
+def test_client_non_2xx_without_an_error_envelope_still_raises_http_status() -> None:
+    """A gateway error page is not a JSON-RPC rejection and must stay a transport failure."""
+
+    def handler(_req: httpx.Request) -> httpx.Response:
+        return httpx.Response(502, text="<html>bad gateway</html>")
+
+    with (
+        A2AClient("http://lab", transport=httpx.MockTransport(handler)) as client,
+        pytest.raises(httpx.HTTPStatusError),
+    ):
+        client.get_task("x")
+
+
+def test_error_info_of_ignores_shapes_that_carry_no_typed_detail() -> None:
+    assert error_info_of(_VERSION_ERROR["data"]) == _VERSION_ERROR["data"][0]
+    assert error_info_of([{"taskId": "x"}]) is None
+    assert error_info_of({"taskId": "x"}) is None
+    assert error_info_of(None) is None
+
+
+def test_inconclusive_result_names_the_reason_the_server_gave() -> None:
+    result = inconclusive_result(
+        "unauthorized-cancel",
+        A2ARpcError(-32009, "unsupported", data=_VERSION_ERROR["data"], http_status=500),
+    )
+    assert not result.conclusive
+    assert "-32009" in result.detail
+    assert "HTTP 500" in result.detail
+    assert "VERSION_NOT_SUPPORTED@a2a-protocol.org" in result.detail
+
+
+def test_unauthorized_cancel_reads_a_401_carrying_a_json_rpc_body_as_a_rejection() -> None:
+    """The status is the authority decision even when a JSON-RPC error rides along."""
+
+    def rpc(req: httpx.Request) -> httpx.Response:
+        body = json.loads(req.content)
+        return httpx.Response(
+            401,
+            json={"jsonrpc": "2.0", "id": body["id"], "error": {"code": -32603, "message": "unauthenticated"}},
+        )
+
+    with A2AClient("http://lab", transport=_card_route(_V1_CARD, rpc)) as client:
+        client.discover()
+        result = probe_unauthorized_cancel(client)
+    assert result.conclusive
+    assert result.passed
+    assert "HTTP 401" in result.detail

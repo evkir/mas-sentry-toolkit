@@ -91,20 +91,30 @@ def _normalize_task_state(raw: str) -> TaskState:
 
 
 class A2ARpcError(RuntimeError):
-    """A JSON-RPC-level error returned by the agent (HTTP 200, error in body).
+    """A JSON-RPC-level error returned by the agent, in the response body.
 
     A2A's JSON-RPC binding signals protocol-level rejections (task not
-    found, not cancelable, etc.) this way, not via HTTP status - a bare
-    raise_for_status() never sees them. Callers that need to distinguish
-    "the agent properly rejected this" from "the transport failed" should
-    catch this alongside httpx.HTTPError.
+    found, not cancelable, etc.) in the body rather than through the HTTP
+    status, so a bare raise_for_status() never sees them. The HTTP status
+    it arrived with is NOT fixed at 200: the reference JS implementation
+    answers -32009 VERSION_NOT_SUPPORTED with HTTP 500 while answering
+    -32601 and -32603 with HTTP 200, so `http_status` is recorded and left
+    for callers to interpret. Callers that need to distinguish "the agent
+    properly rejected this" from "the transport failed" should catch this
+    alongside httpx.HTTPError.
     """
 
-    def __init__(self, code: int, message: str, data: Any = None) -> None:
+    def __init__(self, code: int, message: str, data: Any = None, http_status: int | None = None) -> None:
         self.code = code
         self.message = message
         self.data = data
+        self.http_status = http_status
         super().__init__(f"JSON-RPC error {code}: {message}")
+
+    @property
+    def error_info(self) -> dict[str, Any] | None:
+        """The google.rpc.ErrorInfo detail carried alongside this error, if any."""
+        return error_info_of(self.data)
 
 
 class A2AUnsupportedBindingError(RuntimeError):
@@ -237,6 +247,28 @@ class AgentCard:
     raw: dict[str, Any] = field(default_factory=dict)
 
 
+# v1.0 carries structured error details as a google.rpc.Status-style list on
+# the JSON-RPC error's `data`, each entry tagged with an `@type` URL. The
+# ErrorInfo entry is the machine-readable one (reason + domain); without it a
+# report shows only the numeric code, which does not say what was rejected.
+_ERROR_INFO_TYPE = "google.rpc.ErrorInfo"
+
+
+def error_info_of(data: Any) -> dict[str, Any] | None:
+    """Return the google.rpc.ErrorInfo detail out of a JSON-RPC error's `data`.
+
+    v1.0 sends `data` as a list of typed details; v0.3.x sent a free-form
+    object, which carries no `@type` and yields None here. Returns the first
+    ErrorInfo entry, or None when the shape does not carry one.
+    """
+    if not isinstance(data, list):
+        return None
+    for entry in data:
+        if isinstance(entry, dict) and str(entry.get("@type", "")).endswith(_ERROR_INFO_TYPE):
+            return entry
+    return None
+
+
 @dataclass(slots=True)
 class TaskResult:
     task_id: str
@@ -249,6 +281,25 @@ class TaskResult:
     # would make any output scan trivially self-matching.
     messages: list[dict[str, Any]] = field(default_factory=list)
     raw: dict[str, Any] = field(default_factory=dict)
+
+
+def _rpc_error_body(response: httpx.Response) -> dict[str, Any] | None:
+    """Return the `error` member of a JSON-RPC envelope, or None if absent.
+
+    Tolerates a non-JSON or non-object body (a gateway error page, say) by
+    reporting None, which leaves the caller to raise on the HTTP status.
+    A present-but-null `error` yields an empty mapping rather than None, so
+    a malformed envelope is still surfaced as a rejection rather than being
+    parsed as a successful result.
+    """
+    try:
+        body = response.json()
+    except ValueError:
+        return None
+    if not isinstance(body, dict) or "error" not in body:
+        return None
+    err = body["error"]
+    return err if isinstance(err, dict) else {}
 
 
 class A2AClient:
@@ -362,11 +413,15 @@ class A2AClient:
     def _rpc_call(self, method: str, params: dict[str, Any]) -> dict[str, Any]:
         """Issue a JSON-RPC 2.0 request and return its `result` object.
 
-        A2A's JSON-RPC binding returns HTTP 200 for protocol-level errors
-        too, with the failure in the response body's `error` field - only a
-        transport/HTTP failure surfaces as a non-2xx status. Both are
-        surfaced to the caller, as httpx.HTTPError and A2ARpcError
-        respectively, so probes can tell "rejected" from "unreachable".
+        A2A's JSON-RPC binding puts protocol-level failures in the response
+        body's `error` field, and the HTTP status carrying them is not
+        guaranteed to be 200: verified against the reference JS server, a
+        version mismatch arrives as HTTP 500 with a well-formed JSON-RPC
+        error body while other codes arrive as 200. raise_for_status() runs
+        only after the body has been inspected, so a diagnosable rejection
+        is never downgraded to an opaque transport failure. A body that is
+        not a JSON-RPC error envelope still raises httpx.HTTPStatusError,
+        so probes can tell "rejected" from "unreachable".
         """
         url = self._rpc_endpoint()
         req_id = secrets.token_hex(8)
@@ -376,15 +431,16 @@ class A2AClient:
         if version == PROTOCOL_VERSION_1_0:
             headers[VERSION_HEADER] = version
         r = self._client.post(url, json=body, headers=headers)
-        r.raise_for_status()
-        data = r.json()
-        if "error" in data:
-            err = data["error"] or {}
+        err = _rpc_error_body(r)
+        if err is not None:
             raise A2ARpcError(
                 code=err.get("code", 0),
                 message=err.get("message", "unknown JSON-RPC error"),
                 data=err.get("data"),
+                http_status=r.status_code,
             )
+        r.raise_for_status()
+        data = r.json()
         result = data.get("result")
         if not isinstance(result, dict):
             raise httpx.DecodingError(f"JSON-RPC result must be an object, got {type(result).__name__}")
