@@ -31,6 +31,11 @@ from typing import Any
 from .jsonrpc import JsonRpcRequest, JsonRpcResponse
 
 READ_CHUNK = 65536
+# A server may legitimately interleave notifications with responses, and a
+# hostile one may emit them without end. Reading is bounded by the same
+# deadline as before plus a message count, so a chatty target costs one
+# request rather than the scan.
+MAX_MESSAGES_PER_SEND = 100
 STDERR_TAIL_CHARS = 400
 # select() on a pipe is POSIX-only. Elsewhere we fall back to a blocking read,
 # which is the old behaviour: worse, but honest about being unbounded.
@@ -56,6 +61,13 @@ class StdioTransport:
         # because the client reads it back.
         self.emit_routing_headers = False
         self.protocol_version: str | None = None
+        # Server-initiated traffic that is not an answer to anything we asked.
+        # Kept rather than discarded: a mid-session tools/list_changed is the
+        # rug-pull signal, and it only exists here.
+        self.notifications: list[dict[str, Any]] = []
+        # Responses that arrived before the request that asked for them was
+        # the one waiting. JSON-RPC does not promise ordering.
+        self._pending: dict[Any, JsonRpcResponse] = {}
 
     # STDIO frames requests without headers, so the header/body desync audit
     # has nothing to measure here and skips this transport rather than
@@ -94,6 +106,7 @@ class StdioTransport:
                 self._proc.kill()
         self._proc = None
         self._buf = bytearray()
+        self._pending = {}
 
     def send(self, req: JsonRpcRequest) -> JsonRpcResponse:
         if not self._proc or not self._proc.stdin or not self._proc.stdout:
@@ -109,16 +122,63 @@ class StdioTransport:
             return JsonRpcResponse(id=req.id, error={"message": self._exit_reason(req.method)})
         if req.id is None:  # notification
             return JsonRpcResponse(id=None, result=None)
-        try:
-            raw = self._read_line(self.config.timeout)
-        except TimeoutError:
-            return JsonRpcResponse(
-                id=req.id,
-                error={"message": f"no response to {req.method} within {self.config.timeout}s"},
-            )
-        except EOFError:
-            return JsonRpcResponse(id=req.id, error={"message": self._exit_reason(req.method)})
-        return JsonRpcResponse.decode(raw)
+        held = self._pending.pop(req.id, None)
+        if held is not None:
+            return held
+        return self._await_answer(req)
+
+    def _await_answer(self, req: JsonRpcRequest) -> JsonRpcResponse:
+        """Read until the answer to `req` arrives, filing everything else.
+
+        The previous version returned the first line that came back. That is
+        correct only for a server that answers one request at a time and says
+        nothing else, and the reference `everything` server breaks it on the
+        first exchange: it emits `notifications/tools/list_changed` before the
+        response to `initialize`, so every later answer was off by one and
+        `tools/list` came back holding nothing while `prompts/list` came back
+        holding the tools. Nothing errored - the scan simply reported an empty
+        inventory for a server with thirteen tools, and attributed results to
+        methods that never produced them.
+
+        A message carrying `method` is inbound traffic (a notification, or a
+        request the server is making of us) and can never be our answer. A
+        response bearing someone else's id is held: JSON-RPC allows answers out
+        of order, and discarding one would turn a later read into another
+        mismatch.
+        """
+        deadline = time.monotonic() + self.config.timeout
+        for _ in range(MAX_MESSAGES_PER_SEND):
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                return JsonRpcResponse(
+                    id=req.id,
+                    error={"message": f"no response to {req.method} within {self.config.timeout}s"},
+                )
+            try:
+                raw = self._read_line(remaining)
+            except TimeoutError:
+                return JsonRpcResponse(
+                    id=req.id,
+                    error={"message": f"no response to {req.method} within {self.config.timeout}s"},
+                )
+            except EOFError:
+                return JsonRpcResponse(id=req.id, error={"message": self._exit_reason(req.method)})
+            resp = JsonRpcResponse.decode(raw)
+            if "method" in resp.raw:
+                self.notifications.append(resp.raw)
+                continue
+            if resp.id == req.id:
+                return resp
+            if resp.id is not None:
+                self._pending[resp.id] = resp
+                continue
+            # No id and no method: an unframeable body, including the decoder's
+            # own parse error. Surfacing it beats looping on garbage.
+            return resp
+        return JsonRpcResponse(
+            id=req.id,
+            error={"message": f"server sent {MAX_MESSAGES_PER_SEND} messages without answering {req.method}"},
+        )
 
     def _read_line(self, timeout: float) -> bytes:
         """Read one framed line, or give up.

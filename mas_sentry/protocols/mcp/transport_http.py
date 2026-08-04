@@ -41,6 +41,7 @@ from __future__ import annotations
 from collections.abc import Iterator
 from contextlib import contextmanager, suppress
 from dataclasses import dataclass
+from typing import Any
 
 import httpx
 
@@ -96,7 +97,7 @@ def _error_response(req: JsonRpcRequest, r: httpx.Response) -> JsonRpcResponse:
     without it. Replacing that with the HTTP status - which is what this used to
     do - discards the one piece of information the response was carrying.
     """
-    decoded = _decode_body(r)
+    decoded, _ = _decode_body(r, req.id)
     # A JSON-RPC error the server actually sent is worth more than the status.
     # A parse failure is not one of those: the decoder reports -32700 for any
     # body it could not read, including plain-text proxy pages, and passing that
@@ -107,23 +108,53 @@ def _error_response(req: JsonRpcRequest, r: httpx.Response) -> JsonRpcResponse:
     return JsonRpcResponse(id=req.id, error={"code": r.status_code, "message": r.reason_phrase})
 
 
-def _decode_body(r: httpx.Response) -> JsonRpcResponse:
-    """Decode a body the server may have framed as SSE, JSON, or neither."""
+def _decode_body(r: httpx.Response, req_id: Any = None) -> tuple[JsonRpcResponse, list[dict[str, Any]]]:
+    """Decode a body the server may have framed as SSE, JSON, or neither.
+
+    Returns the answer to `req_id` together with any inbound traffic that came
+    down the same body. A stream is not obliged to carry one message.
+    """
     if "text/event-stream" in r.headers.get("content-type", ""):
-        return _parse_sse(r.text)
+        return _select_answer(_parse_sse(r.text), req_id)
     # Trust nothing: a server may send SSE without the header, or junk.
     try:
-        return JsonRpcResponse.from_dict(r.json())
+        return _select_answer([JsonRpcResponse.from_dict(r.json())], req_id)
     except (ValueError, TypeError):
-        return _parse_sse(r.text)
+        return _select_answer(_parse_sse(r.text), req_id)
 
 
-def _parse_sse(text: str) -> JsonRpcResponse:
-    """Extract the first `data:` line from an SSE body; fall back to raw."""
-    for line in text.splitlines():
-        if line.startswith("data:"):
-            return JsonRpcResponse.decode(line[5:].strip())
-    return JsonRpcResponse.decode(text)
+def _parse_sse(text: str) -> list[JsonRpcResponse]:
+    """Decode every `data:` frame in an SSE body; fall back to the raw text.
+
+    Reading only the first frame was the HTTP half of the STDIO defect: a server
+    that streams a notification ahead of the response hands back the
+    notification, and the answer is silently dropped.
+    """
+    messages = [JsonRpcResponse.decode(line[5:].strip()) for line in text.splitlines() if line.startswith("data:")]
+    return messages or [JsonRpcResponse.decode(text)]
+
+
+def _select_answer(messages: list[JsonRpcResponse], req_id: Any) -> tuple[JsonRpcResponse, list[dict[str, Any]]]:
+    """Split a decoded stream into our answer and everything else.
+
+    A message carrying `method` is inbound - a notification, or a request the
+    server is making of us - and is never an answer. Among the rest, the one
+    bearing our id wins; with no id to match on, the first response does.
+    """
+    inbound: list[dict[str, Any]] = []
+    answer: JsonRpcResponse | None = None
+    for message in messages:
+        if "method" in message.raw:
+            inbound.append(message.raw)
+            continue
+        if answer is None and (req_id is None or message.id == req_id or message.id is None):
+            answer = message
+    if answer is None:
+        answer = JsonRpcResponse(
+            id=req_id,
+            error={"message": f"server streamed {len(inbound)} message(s) but none answered the request"},
+        )
+    return answer, inbound
 
 
 class HttpSseTransport:
@@ -134,6 +165,10 @@ class HttpSseTransport:
         self._client: httpx.Client | None = None
         self.session_id: str | None = None
         self.protocol_version: str | None = None
+        # Server-initiated traffic seen on the response stream. Kept for the
+        # same reason STDIO keeps it: a mid-session tools/list_changed exists
+        # nowhere else.
+        self.notifications: list[dict[str, Any]] = []
         # Set by the client once it knows the target speaks a stateless
         # revision. Emitting routing headers at a legacy server is harmless but
         # pointless, and emitting them without the matching _meta envelope is a
@@ -216,7 +251,8 @@ class HttpSseTransport:
         )
         if r.status_code >= 400:
             return _error_response(req, r)
-        resp = _parse_sse(r.text)
+        resp, inbound = _decode_body(r, req.id)
+        self.notifications.extend(inbound)
         self._capture_protocol_state(req, r.headers, resp)
         return resp
 
@@ -242,7 +278,9 @@ class HttpSseTransport:
         r = self._client.post(self.config.url, json=req.to_dict(), headers=headers)
         if r.status_code >= 400:
             return _error_response(req, r)
-        return _decode_body(r)
+        resp, inbound = _decode_body(r, req.id)
+        self.notifications.extend(inbound)
+        return resp
 
 
 class StreamableHttpTransport(HttpSseTransport):
@@ -258,7 +296,8 @@ class StreamableHttpTransport(HttpSseTransport):
         )
         if r.status_code >= 400:
             return _error_response(req, r)
-        resp = _decode_body(r)
+        resp, inbound = _decode_body(r, req.id)
+        self.notifications.extend(inbound)
         self._capture_protocol_state(req, r.headers, resp)
         return resp
 
