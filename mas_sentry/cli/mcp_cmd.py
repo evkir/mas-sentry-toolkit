@@ -38,7 +38,7 @@ def mcp_scan(
         help="stdio://<cmd args...> | http(s)://host:port/mcp",
     ),
     checks: str = typer.Option(
-        "all", "--checks", help="all|fingerprint|poisoning|ssrf|traversal|rebind|drift|resources"
+        "all", "--checks", help="all|fingerprint|poisoning|ssrf|traversal|rebind|drift|resources|desync"
     ),
     out: Path = typer.Option(Path("reports/mcp.json"), "--out", "-o"),
     tool_baseline: Path | None = typer.Option(

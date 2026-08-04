@@ -26,6 +26,7 @@ import time
 from collections.abc import Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass
+from typing import Any
 
 from .jsonrpc import JsonRpcRequest, JsonRpcResponse
 
@@ -55,6 +56,15 @@ class StdioTransport:
         # because the client reads it back.
         self.emit_routing_headers = False
         self.protocol_version: str | None = None
+
+    # STDIO frames requests without headers, so the header/body desync audit
+    # has nothing to measure here and skips this transport rather than
+    # reporting its inapplicability as a pass.
+    supports_headers = False
+
+    def send_with_extra_headers(self, req: Any, overrides: dict[str, str]) -> JsonRpcResponse:
+        """Not expressible on STDIO: there are no headers to set."""
+        raise NotImplementedError("STDIO frames requests without headers")
 
     def open(self) -> None:
         cmd = self.config.command if isinstance(self.config.command, list) else shlex.split(self.config.command)

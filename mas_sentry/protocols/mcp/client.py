@@ -34,6 +34,13 @@ class Transport(Protocol):
     # accepts the flag and ignores it.
     emit_routing_headers: bool
     protocol_version: str | None
+    # False on STDIO, where a request has no headers to disagree with its body.
+    # The header/body desync audit reads this instead of assuming a transport.
+    supports_headers: bool
+
+    def send_with_extra_headers(self, req: Any, overrides: dict[str, str]) -> JsonRpcResponse:
+        """Send with caller-controlled routing headers. HTTP only; STDIO raises."""
+        ...
 
 
 # The revision we ask for on the stateless route, and the one we ask for when
@@ -231,7 +238,7 @@ class McpClient:
         """Public counter shared with auditors/probes that need request IDs."""
         return self._id()
 
-    def _envelope(self, params: dict[str, Any] | None) -> dict[str, Any]:
+    def envelope(self, params: dict[str, Any] | None) -> dict[str, Any]:
         """Add the stateless protocol envelope to a request's params.
 
         On the modern route every request restates the version, the client
@@ -249,7 +256,7 @@ class McpClient:
     def send(self, method: str, params: dict[str, Any] | None = None) -> JsonRpcResponse:
         """Send one request on whichever route this client negotiated."""
         if self.is_modern:
-            params = self._envelope(params)
+            params = self.envelope(params)
         return self.transport.send(JsonRpcCodec.request(method, params, req_id=self._id()))
 
     def connect(self) -> ServerInfo:

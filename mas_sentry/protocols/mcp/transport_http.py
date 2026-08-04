@@ -220,6 +220,30 @@ class HttpSseTransport:
         self._capture_protocol_state(req, r.headers, resp)
         return resp
 
+    supports_headers = True
+
+    def send_with_extra_headers(self, req: JsonRpcRequest, overrides: dict[str, str]) -> JsonRpcResponse:
+        """Send a request with routing headers set by the caller, not derived from the body.
+
+        Exists for one audit: proving whether a server enforces agreement between
+        its routing headers and the body requires sending a request where they
+        disagree, which every other path in this module is built to prevent. An
+        empty override value drops the header entirely, so the absent-header case
+        is expressible too.
+        """
+        if not self._client:
+            raise RuntimeError("Transport not open")
+        headers = self._request_headers("application/json, text/event-stream", req)
+        for key, value in overrides.items():
+            if value:
+                headers[key] = value
+            else:
+                headers.pop(key, None)
+        r = self._client.post(self.config.url, json=req.to_dict(), headers=headers)
+        if r.status_code >= 400:
+            return _error_response(req, r)
+        return _decode_body(r)
+
 
 class StreamableHttpTransport(HttpSseTransport):
     """Modern transport: single bidi POST/JSON, server may answer JSON or SSE."""

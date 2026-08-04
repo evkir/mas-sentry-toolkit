@@ -11,6 +11,7 @@ from mas_sentry.core.audit_log import write as audit_write
 from mas_sentry.core.scope import assert_in_scope
 
 from .audit.dns_rebind import test_dns_rebinding
+from .audit.header_desync import probe_header_desync
 from .audit.path_traversal import probe_arg_injection, probe_path_traversal
 from .audit.resource_content import audit_resource_content, audit_resource_templates
 from .audit.ssrf import probe_ssrf
@@ -64,6 +65,44 @@ def run_mcp_scan(
     return findings
 
 
+def _desync_rows(client: McpClient) -> list[dict[str, Any]]:
+    """Header/body agreement, reported per probe.
+
+    A server that accepts an inconsistent request is the finding: a gateway in
+    front of it authorizes the header while the server executes the body. Probe
+    targets come from the inventory already enumerated, so nothing is sent
+    against an invented tool name whose "method not found" would prove nothing.
+    """
+    tools = client.list_tools()
+    resources = client.list_resources()
+    findings = probe_header_desync(
+        client,
+        tool_name=tools[0].name if tools else "",
+        resource_uri=resources[0].uri if resources else "",
+    )
+    rows: list[dict[str, Any]] = []
+    for f in findings:
+        if f.status == "accepted":
+            rows.append({"check": "header_body_desync", "severity": "HIGH", "detail": f"{f.probe}: {f.detail}"})
+        elif f.status == "inconclusive":
+            rows.append(
+                {
+                    "check": "header_body_desync",
+                    "severity": "INFO",
+                    "detail": f"{f.probe}: inconclusive - the server refused for an unrelated reason",
+                }
+            )
+    if findings and not rows:
+        rows.append(
+            {
+                "check": "header_body_desync",
+                "severity": "INFO",
+                "detail": f"header/body agreement enforced on all {len(findings)} probes",
+            }
+        )
+    return rows
+
+
 def _run_all_checks(
     client: McpClient, transport: str, checks: str, tool_baseline: Path | None = None
 ) -> list[dict[str, Any]]:
@@ -109,6 +148,9 @@ def _run_all_checks(
                     "detail": f"{rt.uri}: {'; '.join(signals)}",
                 }
             )
+
+    if checks in ("all", "desync"):
+        out.extend(_desync_rows(client))
 
     if checks in ("all", "ssrf"):
         for sf in probe_ssrf(client):
