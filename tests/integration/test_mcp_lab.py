@@ -301,6 +301,51 @@ def test_http_transport_adopts_the_session_and_revision(http_url: str) -> None:
         assert transport.protocol_version == info.protocol_version
 
 
+def test_http_negotiates_the_stateless_route(http_url: str) -> None:
+    """connect() reaches the modern rig without a handshake and reads its identity.
+
+    The identity check matters on its own: discover returns serverInfo nested in
+    result._meta, where the handshake returned it at the top level, so a client
+    reading the old place gets a nameless server and every known-implementation
+    CVE match silently stops working.
+    """
+    from mas_sentry.protocols.mcp.client import MODERN_PROTOCOL_VERSION, McpClient
+    from mas_sentry.protocols.mcp.transport_http import HttpConfig, open_http
+
+    with open_http(HttpConfig(url=http_url)) as transport:
+        client = McpClient(transport)
+        info = client.connect()
+        assert client.is_modern
+        assert client.protocol_version == MODERN_PROTOCOL_VERSION
+        assert info.name, "server identity was not read from the discover result"
+
+
+def test_the_reference_server_rejects_every_header_body_desync(http_url: str) -> None:
+    """The negative control for the desync audit.
+
+    A one-sided detector is one that may never fire. The permissive half is
+    covered by unit tests; this asserts that a conforming server refuses all
+    four probes, so a HIGH from this check means the target really differs from
+    the reference implementation rather than from our idea of it.
+    """
+    from mas_sentry.protocols.mcp.audit.header_desync import probe_header_desync
+    from mas_sentry.protocols.mcp.client import McpClient
+    from mas_sentry.protocols.mcp.transport_http import HttpConfig, open_http
+
+    with open_http(HttpConfig(url=http_url)) as transport:
+        client = McpClient(transport)
+        client.connect()
+        tools = client.list_tools()
+        resources = client.list_resources()
+        findings = probe_header_desync(
+            client,
+            tool_name=tools[0].name,
+            resource_uri=resources[0].uri if resources else "",
+        )
+    assert len(findings) == 4
+    assert {f.status for f in findings} == {"rejected"}
+
+
 def test_a_paginated_inventory_is_walked_to_the_end(paged_stdio_config) -> None:
     """Four tools served two at a time are still four tools.
 

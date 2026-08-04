@@ -3,6 +3,33 @@
 ## [Unreleased]
 
 ### Added
+- MCP now speaks the stateless 2026-07-28 route, falling back to the handshake.
+  The revision removes both the `initialize` handshake and `Mcp-Session-Id`:
+  every request carries the protocol version, client info and capabilities in
+  `params._meta`, routes on the `Mcp-Method` and `Mcp-Name` headers, and a client
+  wanting capabilities up front calls `server/discover`. MST spoke only the 2025
+  line, so a modern server would have answered -32602 to every request and the
+  scan would have reported an empty target - the same shape as the session
+  defect the reference rig exposed in 0.8.0. `connect()` tries discover first and
+  falls back, because that direction stays correct as the ecosystem moves. Only
+  -32601 (method unknown) and -32022 (revision rejected, with the supported list
+  attached) are read as "not this generation"; any other error falls through to
+  the handshake without being recorded as a protocol fact, so a merely broken
+  server is not reported as a 2025 server.
+- New check `header_body_desync` (`--checks desync`), a conformance test with a
+  direct security consequence. The new revision makes the routing headers
+  mandatory so a gateway can authorize a call without parsing the body, which
+  means two parties now read the same request and only one reads the body. The
+  spec therefore requires the server to reject any request whose headers
+  disagree with its body; a server that does not hands an attacker a request the
+  policy layer authorizes as one operation and the server executes as another -
+  `Mcp-Method: tools/list` past a gateway permitting only enumeration while the
+  body says `tools/call`, or a matching method where only `Mcp-Name` differs so
+  an allow-list sees the approved tool and the server runs another. Four probes,
+  verified in both directions against live servers: the reference SDK rejects all
+  four with -32020, a deliberately permissive server is reported HIGH on all four.
+
+### Fixed
 - MQTT broker auditing as a command (`mas-sentry mqtt scan`). The MQTT probes
   predate the pivot and had never been reachable from the product: nothing in
   `cli/`, `agents/` or `agentic/` imported `MQTTAuthChecker`, `MQTTTopicWalker`
@@ -34,6 +61,27 @@
   one connection.
 
 ### Fixed
+- Four MCP audits sent their requests straight to the transport, bypassing the
+  client. `ssrf`, both `path_traversal` probes and `resource_content` called
+  `client.transport.send()` directly, so their requests carried no `params._meta`
+  envelope. Against a modern server every one of them would have been rejected
+  and SSRF, traversal and poisoned resource content would all have been reported
+  as not confirmed. They had integration coverage the whole time - against a
+  server that did not require the envelope. They now go through `client.send()`,
+  which is the single place the envelope is added.
+- A 4xx response no longer discards the JSON-RPC error it carried. The transport
+  replaced the body with the HTTP status, which threw away the only place a
+  rejection states its reason: -32022 names the revisions the server supports,
+  and without that payload a version-aware client cannot fall back at all. A body
+  that is not JSON still reports the status rather than inventing a -32700.
+- The lab-rig test module skipped on an mcp 1.x SDK instead of failing against
+  it. `pytest.importorskip("mcp")` checks only that the package imports, and the
+  rig needs `mcp.server.mcpserver`, which exists only in the 2.x line - so an
+  interpreter holding an mcp 1.x (a sibling project pinning `mcp<2` into the same
+  system Python will produce exactly that) passed the guard and then failed every
+  case with `initialize failed`, an error shaped like a protocol defect and caused
+  by a missing module. pytest `minversion` is unusable here because the mcp
+  package exposes no `__version__`; the check reads the distribution metadata.
 - An unreachable MQTT broker is no longer indistinguishable from an empty one.
   The three probes each reported a failed connection differently: the auth
   checker swallowed `BrokerUnreachable` and returned its partial mapping, the
