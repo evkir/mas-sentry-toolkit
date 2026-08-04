@@ -27,11 +27,24 @@ import subprocess
 import sys
 import time
 from collections.abc import Iterator
+from importlib import metadata
 from pathlib import Path
 
 import pytest
 
-pytest.importorskip("mcp", reason="mcp SDK not installed - pip install -e .[lab]")
+pytest.importorskip("mcp", reason="mcp SDK not installed - pip install -e '.[lab]'")
+
+# Presence is not enough. The rig imports mcp.server.mcpserver, which exists only
+# in the 2.x line, so an environment holding an mcp 1.x - a sibling project
+# pinning mcp<2 into the same interpreter will do it - passes the import check
+# and then fails every case here with a protocol-shaped error that has nothing
+# to do with the protocol. Skipping on the version says what is actually wrong.
+_MCP_DIST_VERSION = metadata.version("mcp")
+if int(_MCP_DIST_VERSION.split(".")[0]) < 2:
+    pytest.skip(
+        f"lab rig needs the mcp 2.x SDK, found {_MCP_DIST_VERSION} - pip install -e '.[lab]'",
+        allow_module_level=True,
+    )
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 STARTUP_TIMEOUT_S = 30.0
