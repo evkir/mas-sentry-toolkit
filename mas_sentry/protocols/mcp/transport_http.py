@@ -23,6 +23,17 @@ about a generation the server is not actually speaking.
 
 Both are captured from whatever the server returns rather than assumed, since a
 stateless deployment mints no session at all and must not be handed one.
+
+The 2026-07-28 revision removes both. A modern server carries the protocol
+envelope in `params._meta` and routes on the `Mcp-Method` and `Mcp-Name`
+headers, so those are emitted per request when a modern revision is in force.
+The headers are not decoration: a server MUST reject a request whose headers
+disagree with its body, and getting them wrong turns every call into -32020.
+
+A rejection arrives as HTTP 400 with a JSON-RPC error in the body, and that body
+is the only place the reason is stated - -32022 names the revisions the server
+does support, which is what a version-aware client falls back on. Reporting the
+HTTP status alone would discard it.
 """
 
 from __future__ import annotations
@@ -37,7 +48,20 @@ from .jsonrpc import JsonRpcRequest, JsonRpcResponse
 
 SESSION_HEADER = "Mcp-Session-Id"
 PROTOCOL_VERSION_HEADER = "MCP-Protocol-Version"
+METHOD_HEADER = "Mcp-Method"
+_PARSE_ERROR = -32700
+NAME_HEADER = "Mcp-Name"
 _INITIALIZE_METHOD = "initialize"
+
+# Methods whose body carries a name the routing header must mirror. The key
+# differs per method: resources/read routes on `uri`, not `name` - a detail that
+# only shows up in the reference SDK, and getting it wrong is a -32020 on every
+# resource read.
+NAME_BEARING_METHODS = {
+    "tools/call": "name",
+    "prompts/get": "name",
+    "resources/read": "uri",
+}
 
 
 @dataclass(slots=True)
@@ -46,6 +70,52 @@ class HttpConfig:
     headers: dict[str, str] | None = None
     timeout: float = 15.0
     verify_tls: bool = True
+
+
+def routing_headers(req: JsonRpcRequest) -> dict[str, str]:
+    """Mcp-Method / Mcp-Name for a request, mirroring what the body says.
+
+    A gateway routes and authorizes on these without parsing the body, which is
+    the whole point of them - and also why a server must reject a request whose
+    header and body disagree.
+    """
+    headers = {METHOD_HEADER: req.method}
+    name_key = NAME_BEARING_METHODS.get(req.method)
+    if name_key and isinstance(req.params, dict):
+        value = req.params.get(name_key)
+        if isinstance(value, str) and value:
+            headers[NAME_HEADER] = value
+    return headers
+
+
+def _error_response(req: JsonRpcRequest, r: httpx.Response) -> JsonRpcResponse:
+    """Decode a 4xx/5xx body, preserving the JSON-RPC error the server sent.
+
+    A rejection states its reason only in the body: -32022 carries the list of
+    revisions the server supports, and a version-aware client cannot fall back
+    without it. Replacing that with the HTTP status - which is what this used to
+    do - discards the one piece of information the response was carrying.
+    """
+    decoded = _decode_body(r)
+    # A JSON-RPC error the server actually sent is worth more than the status.
+    # A parse failure is not one of those: the decoder reports -32700 for any
+    # body it could not read, including plain-text proxy pages, and passing that
+    # on would invent a protocol error where there was only an HTTP one.
+    error = decoded.error or {}
+    if decoded.result is not None or (decoded.is_error and error.get("code") != _PARSE_ERROR):
+        return decoded
+    return JsonRpcResponse(id=req.id, error={"code": r.status_code, "message": r.reason_phrase})
+
+
+def _decode_body(r: httpx.Response) -> JsonRpcResponse:
+    """Decode a body the server may have framed as SSE, JSON, or neither."""
+    if "text/event-stream" in r.headers.get("content-type", ""):
+        return _parse_sse(r.text)
+    # Trust nothing: a server may send SSE without the header, or junk.
+    try:
+        return JsonRpcResponse.from_dict(r.json())
+    except (ValueError, TypeError):
+        return _parse_sse(r.text)
 
 
 def _parse_sse(text: str) -> JsonRpcResponse:
@@ -64,14 +134,21 @@ class HttpSseTransport:
         self._client: httpx.Client | None = None
         self.session_id: str | None = None
         self.protocol_version: str | None = None
+        # Set by the client once it knows the target speaks a stateless
+        # revision. Emitting routing headers at a legacy server is harmless but
+        # pointless, and emitting them without the matching _meta envelope is a
+        # guaranteed -32020, so the client owns the switch.
+        self.emit_routing_headers = False
 
-    def _request_headers(self, accept: str) -> dict[str, str]:
+    def _request_headers(self, accept: str, req: JsonRpcRequest | None = None) -> dict[str, str]:
         """Per-request headers, carrying whatever protocol state the server set."""
         headers = {"content-type": "application/json", "accept": accept}
         if self.session_id:
             headers[SESSION_HEADER] = self.session_id
         if self.protocol_version:
             headers[PROTOCOL_VERSION_HEADER] = self.protocol_version
+        if req is not None and self.emit_routing_headers:
+            headers.update(routing_headers(req))
         return headers
 
     def _capture_protocol_state(
@@ -135,10 +212,10 @@ class HttpSseTransport:
         r = self._client.post(
             self.config.url,
             content=body,
-            headers=self._request_headers("text/event-stream"),
+            headers=self._request_headers("text/event-stream", req),
         )
         if r.status_code >= 400:
-            return JsonRpcResponse(id=req.id, error={"code": r.status_code, "message": r.reason_phrase})
+            return _error_response(req, r)
         resp = _parse_sse(r.text)
         self._capture_protocol_state(req, r.headers, resp)
         return resp
@@ -153,24 +230,13 @@ class StreamableHttpTransport(HttpSseTransport):
         r = self._client.post(
             self.config.url,
             json=req.to_dict(),
-            headers=self._request_headers("application/json, text/event-stream"),
+            headers=self._request_headers("application/json, text/event-stream", req),
         )
         if r.status_code >= 400:
-            return JsonRpcResponse(id=req.id, error={"code": r.status_code, "message": r.reason_phrase})
-        resp = self._decode(r)
+            return _error_response(req, r)
+        resp = _decode_body(r)
         self._capture_protocol_state(req, r.headers, resp)
         return resp
-
-    @staticmethod
-    def _decode(r: httpx.Response) -> JsonRpcResponse:
-        """Decode a body the server may have framed as SSE, JSON, or neither."""
-        if "text/event-stream" in r.headers.get("content-type", ""):
-            return _parse_sse(r.text)
-        # Trust nothing: a server may send SSE without the header, or junk.
-        try:
-            return JsonRpcResponse.from_dict(r.json())
-        except (ValueError, TypeError):
-            return _parse_sse(r.text)
 
 
 @contextmanager

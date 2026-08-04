@@ -1,5 +1,23 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
-"""High-level MCP client: initialize handshake + typed enumerations."""
+"""High-level MCP client: version-aware session setup + typed enumerations.
+
+Two protocol generations are live at once and they disagree about how a session
+begins. The 2025 line opens with an `initialize` handshake, and a streamable-HTTP
+server may mint an `Mcp-Session-Id` that every later request must carry. The
+2026-07-28 revision removes both: there is no handshake and no session, every
+request carries the protocol version, client info and capabilities in
+`params._meta`, and a client that wants the capability list up front calls
+`server/discover` instead.
+
+The client tries the modern route first and falls back, rather than the reverse,
+because the fallback direction is the one that stays correct as the ecosystem
+moves. Two answers mean "not this generation": -32022, where the server names
+the revisions it does support and we take one, and -32601, where `server/discover`
+is simply unknown and the target is a 2025-line server. Anything else is a real
+error and is reported as one - a scanner that treats every failure as "try the
+old way" will happily downgrade itself against a server that was merely
+misconfigured, and then report on a generation nobody is speaking.
+"""
 
 from __future__ import annotations
 
@@ -12,11 +30,36 @@ from .jsonrpc import JsonRpcCodec, JsonRpcResponse
 class Transport(Protocol):
     def send(self, req: Any) -> JsonRpcResponse: ...
 
+    # Set by the client once the route is known. Stdio has no headers, so it
+    # accepts the flag and ignores it.
+    emit_routing_headers: bool
+    protocol_version: str | None
 
-PROTOCOL_VERSION = "2025-06-18"  # spec rev — bump as needed
+
+# The revision we ask for on the stateless route, and the one we ask for when
+# falling back to the handshake.
+MODERN_PROTOCOL_VERSION = "2026-07-28"
+LEGACY_PROTOCOL_VERSION = "2025-06-18"
+PROTOCOL_VERSION = LEGACY_PROTOCOL_VERSION
 CLIENT_NAME = "mas-sentry"
 CLIENT_VERSION = "0.2.0"
 METHOD_NOT_FOUND = -32601
+# The server rejected our revision and named the ones it accepts. A negotiation
+# outcome, not a failure: the payload tells us what to retry with.
+UNSUPPORTED_PROTOCOL_VERSION = -32022
+# Headers disagreed with the body. We never provoke this by accident; a server
+# that does NOT return it when provoked is itself the finding.
+HEADER_MISMATCH = -32020
+DISCOVER_METHOD = "server/discover"
+
+# Envelope keys the stateless route carries in params._meta. Namespaced and
+# camelCase - read off the reference SDK, not transcribed from prose.
+META_PROTOCOL_VERSION = "io.modelcontextprotocol/protocolVersion"
+META_CLIENT_INFO = "io.modelcontextprotocol/clientInfo"
+META_CLIENT_CAPABILITIES = "io.modelcontextprotocol/clientCapabilities"
+# The discover result returns the server identity the same way: inside the
+# result's own _meta, not at the top level where the initialize result put it.
+META_SERVER_INFO = "io.modelcontextprotocol/serverInfo"
 # A hostile server can hand back cursors forever. Every listing is bounded, and
 # hitting the bound is reported rather than silently accepted as a full result.
 MAX_LIST_PAGES = 50
@@ -121,6 +164,10 @@ class McpClient:
         self._next_id = 0
         self.server: ServerInfo | None = None
         self.enumeration_issues: list[EnumerationIssue] = []
+        # Route state. Set by connect(); until then we assume nothing.
+        self.is_modern = False
+        self.protocol_version = LEGACY_PROTOCOL_VERSION
+        self.discover_result: dict[str, Any] = {}
 
     def _record_issue(self, method: str, error: dict[str, Any] | None) -> None:
         """Remember a listing that failed, once per method."""
@@ -157,7 +204,7 @@ class McpClient:
         seen: set[str] = set()
         for _ in range(MAX_LIST_PAGES):
             params: dict[str, Any] = {} if cursor is None else {"cursor": cursor}
-            resp = self.transport.send(JsonRpcCodec.request(method, params, req_id=self._id()))
+            resp = self.send(method, params)
             if resp.is_error:
                 self._record_issue(method, resp.error)
                 return items
@@ -184,11 +231,111 @@ class McpClient:
         """Public counter shared with auditors/probes that need request IDs."""
         return self._id()
 
+    def _envelope(self, params: dict[str, Any] | None) -> dict[str, Any]:
+        """Add the stateless protocol envelope to a request's params.
+
+        On the modern route every request restates the version, the client
+        identity and the client capabilities; there is no handshake that could
+        have established them once. The keys are namespaced and camelCase.
+        """
+        out = dict(params or {})
+        meta = dict(out.get("_meta") or {})
+        meta.setdefault(META_PROTOCOL_VERSION, self.protocol_version)
+        meta.setdefault(META_CLIENT_INFO, {"name": CLIENT_NAME, "version": CLIENT_VERSION})
+        meta.setdefault(META_CLIENT_CAPABILITIES, {})
+        out["_meta"] = meta
+        return out
+
+    def send(self, method: str, params: dict[str, Any] | None = None) -> JsonRpcResponse:
+        """Send one request on whichever route this client negotiated."""
+        if self.is_modern:
+            params = self._envelope(params)
+        return self.transport.send(JsonRpcCodec.request(method, params, req_id=self._id()))
+
+    def connect(self) -> ServerInfo:
+        """Establish a session, trying the stateless route before the handshake.
+
+        Returns the same ServerInfo either way, so callers do not branch on the
+        generation. `discover_result` keeps the raw modern payload for the
+        caching metadata the handshake has no equivalent for.
+        """
+        info = self._try_discover()
+        if info is not None:
+            return info
+        return self.initialize()
+
+    def _try_discover(self) -> ServerInfo | None:
+        """Attempt the stateless route. None means "this server is not modern"."""
+        self.is_modern = True
+        self.protocol_version = MODERN_PROTOCOL_VERSION
+        self.transport.emit_routing_headers = True
+        self.transport.protocol_version = self.protocol_version
+
+        resp = self.send(DISCOVER_METHOD)
+        if not resp.is_error:
+            return self._adopt_discover(resp)
+
+        error = resp.error or {}
+        code = error.get("code")
+        if code == UNSUPPORTED_PROTOCOL_VERSION:
+            # The server named what it accepts. Retry once on the newest
+            # revision it offers; if it offers the very version it just
+            # rejected, retrying would loop, so treat it as a legacy target.
+            offered = self._offered_versions(error)
+            if offered and MODERN_PROTOCOL_VERSION not in offered:
+                self.protocol_version = max(offered)
+                self.transport.protocol_version = self.protocol_version
+                retry = self.send(DISCOVER_METHOD)
+                if not retry.is_error:
+                    return self._adopt_discover(retry)
+        # -32601 means the method is unknown, so this is a 2025-line server.
+        # Anything else is a real fault: falling back still gives the handshake
+        # a chance to speak, but we do not pretend we learned a protocol fact.
+        return None
+
+    @staticmethod
+    def _offered_versions(error: dict[str, Any]) -> list[str]:
+        data = error.get("data")
+        if not isinstance(data, dict):
+            return []
+        supported = data.get("supported")
+        if not isinstance(supported, list):
+            return []
+        return [v for v in supported if isinstance(v, str) and v]
+
+    def _adopt_discover(self, resp: JsonRpcResponse) -> ServerInfo:
+        result = resp.result if isinstance(resp.result, dict) else {}
+        self.discover_result = result
+        # Verified against the reference SDK: discover returns the server
+        # identity nested in result._meta under a namespaced key, where the
+        # handshake returned a top-level serverInfo. Reading the old place
+        # yields a server with no name and no version, and a fingerprint that
+        # matches no known implementation.
+        meta = result.get("_meta")
+        nested = meta.get(META_SERVER_INFO) if isinstance(meta, dict) else None
+        top_level = result.get("serverInfo")
+        info: dict[str, Any] = {}
+        if isinstance(nested, dict):
+            info = nested
+        elif isinstance(top_level, dict):
+            info = top_level
+        self.server = ServerInfo(
+            name=str(info.get("name", "")),
+            version=str(info.get("version", "")),
+            protocol_version=str(result.get("protocolVersion") or self.protocol_version),
+            capabilities=result.get("capabilities") or {},
+            instructions=str(result.get("instructions", "")),
+        )
+        return self.server
+
     def initialize(self) -> ServerInfo:
+        self.is_modern = False
+        self.protocol_version = LEGACY_PROTOCOL_VERSION
+        self.transport.emit_routing_headers = False
         req = JsonRpcCodec.request(
             "initialize",
             {
-                "protocolVersion": PROTOCOL_VERSION,
+                "protocolVersion": LEGACY_PROTOCOL_VERSION,
                 "capabilities": {},
                 "clientInfo": {"name": CLIENT_NAME, "version": CLIENT_VERSION},
             },

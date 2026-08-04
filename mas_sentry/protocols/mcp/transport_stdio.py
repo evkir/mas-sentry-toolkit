@@ -49,6 +49,12 @@ class StdioTransport:
         self.config = config
         self._proc: subprocess.Popen[bytes] | None = None
         self._buf = bytearray()
+        # Route state the client sets on every transport. Stdio frames requests
+        # without headers, so the routing headers have nowhere to go and the
+        # flag is accepted and ignored; the negotiated version is still tracked
+        # because the client reads it back.
+        self.emit_routing_headers = False
+        self.protocol_version: str | None = None
 
     def open(self) -> None:
         cmd = self.config.command if isinstance(self.config.command, list) else shlex.split(self.config.command)

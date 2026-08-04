@@ -16,7 +16,6 @@ from typing import Any
 
 from ..client import McpClient
 from ..content import is_tool_error, tool_result_text
-from ..jsonrpc import JsonRpcCodec
 
 _PATH_PAYLOADS = [
     "../../../../etc/passwd",
@@ -49,12 +48,7 @@ def probe_path_traversal(client: McpClient) -> list[TraversalFinding]:
         if not param_name:
             continue
         for payload in _PATH_PAYLOADS:
-            req = JsonRpcCodec.request(
-                "tools/call",
-                {"name": tool.name, "arguments": {param_name: payload}},
-                req_id=client.next_id(),
-            )
-            resp = client.transport.send(req)
+            resp = client.send("tools/call", {"name": tool.name, "arguments": {param_name: payload}})
             if resp.is_error:
                 out.append(
                     TraversalFinding(
@@ -100,12 +94,7 @@ def probe_arg_injection(client: McpClient) -> list[TraversalFinding]:
         if not param_name:
             continue
         for payload in _ARG_INJECTION_PAYLOADS:
-            req = JsonRpcCodec.request(
-                "tools/call",
-                {"name": tool.name, "arguments": {param_name: payload}},
-                req_id=client.next_id(),
-            )
-            resp = client.transport.send(req)
+            resp = client.send("tools/call", {"name": tool.name, "arguments": {param_name: payload}})
             confirmed = _ARG_INJ_CANARY.exists()
             if confirmed:
                 _ARG_INJ_CANARY.unlink(missing_ok=True)

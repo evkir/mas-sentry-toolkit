@@ -11,7 +11,7 @@ from mas_sentry.protocols.mcp.audit.resource_content import (
     audit_resource_templates,
 )
 from mas_sentry.protocols.mcp.client import ResourceDef, ResourceTemplateDef
-from mas_sentry.protocols.mcp.jsonrpc import JsonRpcResponse
+from mas_sentry.protocols.mcp.jsonrpc import JsonRpcCodec, JsonRpcResponse
 
 
 class _StubTransport:
@@ -41,6 +41,15 @@ class _StubClient:
     def next_id(self) -> int:
         self._n += 1
         return self._n
+
+    def send(self, method: str, params: dict[str, Any] | None = None) -> JsonRpcResponse:
+        """Mirror the real client: build the request, hand it to the transport.
+
+        The audits call client.send() rather than client.transport.send() so the
+        stateless protocol envelope is added in one place. These stubs keep the
+        transport visible because the tests assert on what reached the wire.
+        """
+        return self.transport.send(JsonRpcCodec.request(method, params, req_id=self.next_id()))
 
 
 def _contents(text: str) -> dict[str, Any]:

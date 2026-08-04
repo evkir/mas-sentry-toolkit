@@ -34,7 +34,10 @@ _KNOWN_VULN_IMPLS = {
 
 
 def fingerprint(client: McpClient, transport_name: str) -> McpFingerprint:
-    info = client.initialize()
+    # connect(), not initialize(): the stateless 2026-07-28 route has no
+    # handshake, and a client that opens with one is answered -32602 on every
+    # request and reports an empty server.
+    info = client.connect()
     enum = client.enumerate_all()
 
     tools_repr = "|".join(sorted(t.name for t in enum.tools))

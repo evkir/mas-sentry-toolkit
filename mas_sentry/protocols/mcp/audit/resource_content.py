@@ -30,7 +30,6 @@ from mas_sentry.core.output_exfil import scan_exfiltration_channels
 
 from ..client import McpClient, ResourceTemplateDef
 from ..content import extract_block_text, is_tool_error
-from ..jsonrpc import JsonRpcCodec
 
 # Resource bodies can be whole documents; cap the scan so one oversized payload
 # cannot stall a sweep. Directives and beacons are inline constructs, so a
@@ -63,8 +62,7 @@ class ResourceFinding:
 
 def _read_resource_text(client: McpClient, uri: str) -> str:
     """Fetch one resource and return its decoded text, or empty on refusal."""
-    req = JsonRpcCodec.request("resources/read", {"uri": uri}, req_id=client.next_id())
-    resp = client.transport.send(req)
+    resp = client.send("resources/read", {"uri": uri})
     if resp.is_error or is_tool_error(resp.result):
         return ""
     result = resp.result

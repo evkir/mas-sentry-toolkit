@@ -7,7 +7,6 @@ from dataclasses import dataclass
 
 from ..client import McpClient
 from ..content import is_tool_error, tool_result_text
-from ..jsonrpc import JsonRpcCodec
 
 _SENSITIVE_URLS = [
     "http://169.254.169.254/latest/meta-data/",  # AWS IMDS
@@ -34,12 +33,7 @@ def probe_ssrf(client: McpClient) -> list[SsrfFinding]:
     out: list[SsrfFinding] = []
     for tool in targets:
         for url in _SENSITIVE_URLS:
-            req = JsonRpcCodec.request(
-                "tools/call",
-                {"name": tool.name, "arguments": {"url": url}},
-                req_id=client.next_id(),
-            )
-            resp = client.transport.send(req)
+            resp = client.send("tools/call", {"name": tool.name, "arguments": {"url": url}})
             if resp.is_error:
                 # Explicit denial is a meaningful signal: the parameter exists
                 # and is being checked. Worth recording.
