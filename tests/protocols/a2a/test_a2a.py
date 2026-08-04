@@ -19,6 +19,7 @@ from mas_sentry.protocols.a2a.client import (
     PROTOCOL_VERSION_0_3,
     PROTOCOL_VERSION_1_0,
     VERSION_HEADER,
+    _agent_messages,
     _resolve_jsonrpc_endpoint,
     _resolve_protocol_version,
     error_info_of,
@@ -1250,3 +1251,89 @@ def test_unauthorized_cancel_reads_a_401_carrying_a_json_rpc_body_as_a_rejection
     assert result.conclusive
     assert result.passed
     assert "HTTP 401" in result.detail
+
+
+# --------------- agent output carried by the Task itself ---------------
+
+
+# Shape verified against @a2a-js/sdk 1.0.1: a task-producing agent leaves
+# artifacts empty and answers in status.message, which is repeated in history
+# alongside the caller's own turn.
+def _echoing_task(canary: str) -> dict:
+    agent_msg = {
+        "messageId": "a1",
+        "role": "ROLE_AGENT",
+        "parts": [{"text": f"echo: {canary}"}],
+    }
+    return {
+        "id": "t1",
+        "status": {"state": "TASK_STATE_COMPLETED", "message": agent_msg},
+        "history": [
+            {"messageId": "u1", "role": "ROLE_USER", "parts": [{"text": canary}]},
+            agent_msg,
+        ],
+        "artifacts": [],
+    }
+
+
+def test_agent_messages_reads_status_and_history_without_the_callers_turn() -> None:
+    messages = _agent_messages(_echoing_task("CANARY"))
+    assert [m["messageId"] for m in messages] == ["a1"]
+
+
+def test_agent_messages_skips_a_role_the_server_did_not_attribute() -> None:
+    task = {"status": {"message": {"messageId": "a1", "role": "UNRECOGNIZED", "parts": [{"text": "x"}]}}}
+    assert _agent_messages(task) == []
+
+
+def test_agent_messages_reads_the_v03_lowercase_role() -> None:
+    task = {"history": [{"messageId": "a1", "role": "agent", "parts": [{"text": "x"}]}]}
+    assert [m["messageId"] for m in _agent_messages(task)] == ["a1"]
+
+
+def test_parse_task_carries_agent_messages_when_artifacts_are_empty() -> None:
+    result = A2AClient._parse_task(_echoing_task("CANARY"))
+    assert result.artifacts == []
+    assert [m["messageId"] for m in result.messages] == ["a1"]
+
+
+def test_indirect_injection_sees_a_canary_echoed_in_the_task_status_message() -> None:
+    """The reply carrier the reference server uses must not read as silence."""
+    canary = "canary-status-42"
+
+    def rpc(req: httpx.Request) -> httpx.Response:
+        body = json.loads(req.content)
+        sent = body["params"]["message"]["parts"][0]["text"]
+        return httpx.Response(200, json={"jsonrpc": "2.0", "id": body["id"], "result": {"task": _echoing_task(sent)}})
+
+    with A2AClient("http://lab", transport=_card_route(_V1_CARD, rpc)) as client:
+        client.discover()
+        result = probe_indirect_injection(client, f"please echo {canary}", canary)
+
+    assert result.conclusive
+    assert not result.passed
+    assert "present" in result.detail
+
+
+def test_indirect_injection_does_not_match_its_own_payload_in_history() -> None:
+    """A silent agent must stay a pass: history holds the payload we submitted."""
+    canary = "canary-quiet-42"
+
+    def rpc(req: httpx.Request) -> httpx.Response:
+        body = json.loads(req.content)
+        sent = body["params"]["message"]["parts"][0]["text"]
+        task = {
+            "id": "t1",
+            "status": {"state": "TASK_STATE_COMPLETED"},
+            "history": [{"messageId": "u1", "role": "ROLE_USER", "parts": [{"text": sent}]}],
+            "artifacts": [],
+        }
+        return httpx.Response(200, json={"jsonrpc": "2.0", "id": body["id"], "result": {"task": task}})
+
+    with A2AClient("http://lab", transport=_card_route(_V1_CARD, rpc)) as client:
+        client.discover()
+        result = probe_indirect_injection(client, f"please echo {canary}", canary)
+
+    assert result.conclusive
+    assert result.passed
+    assert "absent" in result.detail

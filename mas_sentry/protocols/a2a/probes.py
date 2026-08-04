@@ -145,15 +145,24 @@ def probe_indirect_injection(
     max_wait_s: float = DEFAULT_POLL_DEADLINE_S,
     poll_interval_s: float = DEFAULT_POLL_INTERVAL_S,
 ) -> ProbeResult:
-    """Send a prompt-injection payload, poll until terminal, check artifacts."""
+    """Send a prompt-injection payload, poll until terminal, check agent output.
+
+    Agent output is not confined to artifacts. A one-turn agent answers with
+    an inline Message, and a task-producing one puts its reply in the task's
+    status message and history - the shape the reference JS server emits by
+    default, with artifacts left empty. TaskResult.messages carries the
+    agent-attributed Messages from whichever carrier was used, so the canary
+    is looked for where the agent actually spoke.
+    """
     r = client.send_task(payload)
     deadline = time.monotonic() + max_wait_s
     while time.monotonic() < deadline and r.state not in _TERMINAL_STATES:
         time.sleep(poll_interval_s)
         r = client.get_task(r.task_id)
-    # Artifacts and inline Messages are both Part carriers, and an agent that
-    # answers in one turn puts its whole reply in the latter, so scanning only
-    # artifacts would miss the echo entirely on a spec-legal response.
+    # Artifacts and Messages are both Part carriers, and an agent may use
+    # either, so scanning only artifacts would miss the echo entirely on a
+    # spec-legal response. Only agent-attributed Messages are in `messages`,
+    # so this cannot match the payload we submitted a moment ago.
     blob = artifact_text([*r.artifacts, *r.messages])
     channels = scan_exfiltration_channels(blob)
     canary_echoed = canary in blob

@@ -269,16 +269,58 @@ def error_info_of(data: Any) -> dict[str, Any] | None:
     return None
 
 
+# Message.role is required in both generations: v1.0 spells the agent side as
+# the proto enum ROLE_AGENT, v0.3.x spelled it "agent". Anything else - the
+# caller's own turn, or a role the server failed to map - is not agent output.
+_AGENT_ROLES = frozenset({"ROLE_AGENT", "agent"})
+
+
+def _agent_messages(task: dict[str, Any]) -> list[dict[str, Any]]:
+    """Agent-authored Messages carried by a Task, deduplicated by messageId.
+
+    A Task holds agent text in two places besides artifacts: TaskStatus.message
+    (the message accompanying the current state) and history. Verified against
+    the reference JS server, an agent that answers in one turn puts its whole
+    reply there and leaves artifacts empty, so a scan reading artifacts alone
+    sees nothing and reports the agent as having said nothing at all.
+
+    Filtering by role is what keeps that scan honest: history also holds the
+    caller's own turns, so a probe reading them unfiltered would match the
+    payload it just sent and report contamination that never happened. The
+    status message repeats in history, hence the messageId dedup.
+    """
+    collected: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    carriers: list[Any] = []
+    status = task.get("status")
+    if isinstance(status, dict):
+        carriers.append(status.get("message"))
+    history = task.get("history")
+    if isinstance(history, list):
+        carriers.extend(history)
+    for msg in carriers:
+        if not isinstance(msg, dict) or msg.get("role") not in _AGENT_ROLES:
+            continue
+        mid = msg.get("messageId")
+        if isinstance(mid, str) and mid:
+            if mid in seen:
+                continue
+            seen.add(mid)
+        collected.append(msg)
+    return collected
+
+
 @dataclass(slots=True)
 class TaskResult:
     task_id: str
     state: TaskState
     artifacts: list[dict[str, Any]] = field(default_factory=list)
-    # Agent Messages returned instead of a Task. Kept apart from artifacts
-    # because they are a different carrier, but both hold Parts, so a caller
-    # scanning agent output must read both. Only the agent's own reply lands
-    # here - never task history, which contains the caller's own input and
-    # would make any output scan trivially self-matching.
+    # Agent Messages, whether returned instead of a Task or carried inside
+    # one. Kept apart from artifacts because they are a different carrier,
+    # but both hold Parts, so a caller scanning agent output must read both.
+    # Only messages the server attributed to the agent land here - the
+    # caller's own turns sit in the same history and would make any output
+    # scan trivially self-matching.
     messages: list[dict[str, Any]] = field(default_factory=list)
     raw: dict[str, Any] = field(default_factory=dict)
 
@@ -471,5 +513,6 @@ class A2AClient:
             task_id=data.get("id", ""),
             state=state,
             artifacts=data.get("artifacts", []),
+            messages=_agent_messages(data),
             raw=data,
         )
