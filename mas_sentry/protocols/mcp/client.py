@@ -59,6 +59,20 @@ UNSUPPORTED_PROTOCOL_VERSION = -32022
 HEADER_MISMATCH = -32020
 DISCOVER_METHOD = "server/discover"
 
+# SEP-2322. On the 2026-07-28 route a server may answer tools/call, prompts/get
+# or resources/read with a result that is not the result: `resultType` reads
+# "input_required", `inputRequests` names what the server wants from the client
+# (sampling, roots or an elicitation), and `requestState` is an opaque token the
+# client echoes back when it retries. It arrives on the success path, so every
+# reader that branches on `is_error` sees a completed call whose body happens to
+# carry no content - which is indistinguishable from a tool that ran and found
+# nothing. Recognising it is what keeps a suspended probe from being reported as
+# a clean one.
+RESULT_TYPE_KEY = "resultType"
+INPUT_REQUIRED_RESULT_TYPE = "input_required"
+INPUT_REQUESTS_KEY = "inputRequests"
+REQUEST_STATE_KEY = "requestState"
+
 # Envelope keys the stateless route carries in params._meta. Namespaced and
 # camelCase - read off the reference SDK, not transcribed from prose.
 META_PROTOCOL_VERSION = "io.modelcontextprotocol/protocolVersion"
@@ -136,6 +150,37 @@ class EnumerationIssue:
 
 
 @dataclass(frozen=True, slots=True)
+class InputRequired:
+    """One call the server suspended pending input from the client.
+
+    Recorded, never answered. Fulfilling an input request would mean the scanner
+    sampling a model, exposing filesystem roots, or answering an elicitation on
+    an operator's behalf, and each of those is an action rather than an
+    observation. What the report needs is the fact itself: a probe that stopped
+    here established nothing about the method it was aimed at, and a scan that
+    omits that reads as coverage it never had.
+    """
+
+    method: str
+    kinds: tuple[str, ...]
+    has_request_state: bool
+
+    @property
+    def severity(self) -> str:
+        """Not a vulnerability - a hole in what this scan can claim to have tested."""
+        return "MEDIUM"
+
+    @property
+    def detail(self) -> str:
+        kinds = ", ".join(self.kinds) if self.kinds else "no input request named"
+        state = "with" if self.has_request_state else "without"
+        return (
+            f"{self.method} was suspended pending client input ({kinds}), "
+            f"{state} a requestState to echo. Probes against this method reached no result."
+        )
+
+
+@dataclass(frozen=True, slots=True)
 class ResourceTemplateDef:
     """A parameterised resource URI the server will expand on request.
 
@@ -175,6 +220,8 @@ class McpClient:
         self.is_modern = False
         self.protocol_version = LEGACY_PROTOCOL_VERSION
         self.discover_result: dict[str, Any] = {}
+        # Calls the server suspended instead of answering. See InputRequired.
+        self.input_required: list[InputRequired] = []
 
     def _record_issue(self, method: str, error: dict[str, Any] | None) -> None:
         """Remember a listing that failed, once per method."""
@@ -253,11 +300,50 @@ class McpClient:
         out["_meta"] = meta
         return out
 
+    @staticmethod
+    def input_required_of(resp: JsonRpcResponse) -> dict[str, Any] | None:
+        """Return the suspended-call payload, or None when this is a real result.
+
+        Callers that need to know whether they were answered ask here rather
+        than inspecting `result` for emptiness: an empty body is a legitimate
+        answer from plenty of tools, and conflating the two is the defect.
+        """
+        result = resp.result
+        if not isinstance(result, dict):
+            return None
+        if result.get(RESULT_TYPE_KEY) != INPUT_REQUIRED_RESULT_TYPE:
+            return None
+        return result
+
+    def _note_input_required(self, method: str, resp: JsonRpcResponse) -> None:
+        """Record a suspended call once per distinct (method, requested inputs)."""
+        result = self.input_required_of(resp)
+        if result is None:
+            return
+        requests = result.get(INPUT_REQUESTS_KEY)
+        kinds: list[str] = []
+        if isinstance(requests, dict):
+            for entry in requests.values():
+                if not isinstance(entry, dict):
+                    continue
+                name = entry.get("method")
+                if isinstance(name, str) and name and name not in kinds:
+                    kinds.append(name)
+        record = InputRequired(
+            method=method,
+            kinds=tuple(sorted(kinds)),
+            has_request_state=isinstance(result.get(REQUEST_STATE_KEY), str),
+        )
+        if record not in self.input_required:
+            self.input_required.append(record)
+
     def send(self, method: str, params: dict[str, Any] | None = None) -> JsonRpcResponse:
         """Send one request on whichever route this client negotiated."""
         if self.is_modern:
             params = self.envelope(params)
-        return self.transport.send(JsonRpcCodec.request(method, params, req_id=self._id()))
+        resp = self.transport.send(JsonRpcCodec.request(method, params, req_id=self._id()))
+        self._note_input_required(method, resp)
+        return resp
 
     def connect(self) -> ServerInfo:
         """Establish a session, trying the stateless route before the handshake.

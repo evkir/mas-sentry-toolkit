@@ -187,6 +187,13 @@ def _run_all_checks(
         for df in detect_tool_drift(client, tool_baseline):
             out.append({"check": df.kind, "severity": df.severity, "detail": df.detail})
 
+    # A call the server suspended is not a call that came back clean. Every
+    # probe above reads its verdict off a response body, and a suspended call
+    # carries none, so without this row the report shows a tool that was never
+    # exercised as one that was exercised and held.
+    for suspended in client.input_required:
+        out.append({"check": "input_required", "severity": suspended.severity, "detail": suspended.detail})
+
     # Reported last, after every auditor has had its chance to list something.
     # A surface that refused to enumerate produced no findings for a reason
     # that is not "it was clean", and that distinction has to survive into the
