@@ -13,8 +13,14 @@ push notifications enabled, no signature, and skill metadata carrying both
 an injection directive and a selection-steering directive. Each of those is
 a finding the passive card audit is expected to raise.
 
-The agent echoes inbound task text straight back as an artifact, which is
-what makes it vulnerable to the indirect-injection canary probe.
+The agent echoes inbound task text straight back, unsanitized, which is what
+makes it vulnerable to the indirect-injection canary probe. Which carrier
+the echo rides on is selected by A2A_LAB_REPLY:
+  unset/artifact - a Task carrying the echo as an Artifact.
+  message        - a bare Message and no Task at all (SendMessageResponse
+                   is a oneof, so this is spec-legal).
+  status         - a Task with no artifacts, the echo on status.message.
+                   This is the reference JS server's default shape.
 
 Protocol mode is selected by A2A_LAB_COMPAT:
   unset/0 - strict v1.0 only (SendMessage/GetTask/CancelTask, A2A-Version
@@ -98,36 +104,53 @@ def build_card(base_url: str) -> t.AgentCard:
     return card
 
 
-class EchoExecutor(AgentExecutor):
-    """Echo the inbound message back as a task artifact, unsanitized."""
+REPLY_ARTIFACT = "artifact"
+REPLY_MESSAGE = "message"
+REPLY_STATUS = "status"
 
-    def __init__(self, reply_with_message: bool = False) -> None:
-        self.reply_with_message = reply_with_message
+
+class EchoExecutor(AgentExecutor):
+    """Echo the inbound message back, unsanitized, in a selectable carrier.
+
+    A2A gives an agent three spec-legal places to put its reply, and a
+    scanner that reads only one of them reports the other two as silence.
+    The carrier is selected by `reply` so each can be pinned by a test.
+    """
+
+    def __init__(self, reply: str = REPLY_ARTIFACT) -> None:
+        self.reply = reply
 
     async def execute(self, context: RequestContext, event_queue: EventQueue) -> None:
         echoed = "".join(p.text for p in context.message.parts if p.HasField("text"))
-        if self.reply_with_message:
+        answer = f"You said: {echoed}"
+        if self.reply == REPLY_MESSAGE:
             await event_queue.enqueue_event(
                 t.Message(
                     message_id="echo-msg-0",
                     context_id=context.context_id,
                     role=t.Role.ROLE_AGENT,
-                    parts=[t.Part(text=f"You said: {echoed}")],
+                    parts=[t.Part(text=answer)],
                 )
             )
             return
-        task = t.Task(
-            id=context.task_id,
-            context_id=context.context_id,
-            status=t.TaskStatus(state=t.TaskState.TASK_STATE_COMPLETED),
-        )
-        task.artifacts.append(
-            t.Artifact(
-                artifact_id="echo-0",
-                name="echo",
-                parts=[t.Part(text=f"You said: {echoed}")],
+        status = t.TaskStatus(state=t.TaskState.TASK_STATE_COMPLETED)
+        task = t.Task(id=context.task_id, context_id=context.context_id, status=status)
+        if self.reply == REPLY_STATUS:
+            # No artifacts at all: the whole reply rides on the status
+            # message. This is what the reference JS server emits by
+            # default, and it is the shape an artifact-only scan misreads
+            # as an agent that answered nothing.
+            task.status.message.CopyFrom(
+                t.Message(
+                    message_id="echo-msg-0",
+                    context_id=context.context_id,
+                    task_id=context.task_id,
+                    role=t.Role.ROLE_AGENT,
+                    parts=[t.Part(text=answer)],
+                )
             )
-        )
+        else:
+            task.artifacts.append(t.Artifact(artifact_id="echo-0", name="echo", parts=[t.Part(text=answer)]))
         await event_queue.enqueue_event(task)
 
     async def cancel(self, context: RequestContext, event_queue: EventQueue) -> None:
@@ -139,11 +162,11 @@ class EchoExecutor(AgentExecutor):
         await event_queue.enqueue_event(task)
 
 
-def build_app(base_url: str, compat: bool = False, reply_with_message: bool = False) -> Starlette:
+def build_app(base_url: str, compat: bool = False, reply: str = REPLY_ARTIFACT) -> Starlette:
     """Assemble the Starlette app serving the card and the JSON-RPC binding."""
     card = build_card(base_url)
     handler = DefaultRequestHandler(
-        agent_executor=EchoExecutor(reply_with_message=reply_with_message),
+        agent_executor=EchoExecutor(reply=reply),
         task_store=InMemoryTaskStore(),
         agent_card=card,
     )
@@ -158,8 +181,8 @@ def main() -> None:
     host = os.environ.get("A2A_LAB_HOST", DEFAULT_HOST)
     port = int(os.environ.get("A2A_LAB_PORT", str(DEFAULT_PORT)))
     compat = os.environ.get("A2A_LAB_COMPAT", "") == "1"
-    inline = os.environ.get("A2A_LAB_REPLY", "") == "message"
-    app = build_app(f"http://{host}:{port}", compat=compat, reply_with_message=inline)
+    reply = os.environ.get("A2A_LAB_REPLY", "") or REPLY_ARTIFACT
+    app = build_app(f"http://{host}:{port}", compat=compat, reply=reply)
     uvicorn.run(app, host=host, port=port, log_level="warning")
 
 

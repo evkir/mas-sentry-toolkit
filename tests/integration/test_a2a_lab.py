@@ -85,6 +85,17 @@ def lab_agent() -> Iterator[str]:
 
 
 @pytest.fixture(scope="module")
+def status_reply_agent() -> Iterator[str]:
+    """An agent whose whole reply rides on the task's status message.
+
+    Artifacts stay empty. This is the reference JS server's default shape
+    and the one an artifact-only scan silently reports as an agent that
+    said nothing at all.
+    """
+    yield from _spawn_agent({"A2A_LAB_REPLY": "status"})
+
+
+@pytest.fixture(scope="module")
 def inline_reply_agent() -> Iterator[str]:
     """An agent answering in one turn with a Message and no Task.
 
@@ -203,6 +214,15 @@ def test_cancel_probe_records_the_rpc_error_code(lab_agent: str, tmp_path: Path)
 def test_canary_is_found_when_the_agent_replies_with_a_message(inline_reply_agent: str, tmp_path: Path) -> None:
     """An agent that never creates a Task must still be caught echoing."""
     findings = _active_findings(inline_reply_agent, tmp_path / "a2a.json")
+    injection = [f for f in findings if f.module == "a2a.probe.indirect-injection"]
+    assert injection, "indirect-injection probe produced no finding"
+    assert injection[0].severity.value != "INFO"
+    assert "could not run" not in injection[0].title
+
+
+def test_canary_is_found_when_the_agent_replies_on_the_task_status(status_reply_agent: str, tmp_path: Path) -> None:
+    """An agent answering with no artifacts must still be caught echoing."""
+    findings = _active_findings(status_reply_agent, tmp_path / "a2a.json")
     injection = [f for f in findings if f.module == "a2a.probe.indirect-injection"]
     assert injection, "indirect-injection probe produced no finding"
     assert injection[0].severity.value != "INFO"
