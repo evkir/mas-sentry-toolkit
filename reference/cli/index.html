@@ -1535,6 +1535,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#mas-sentry-mcp-audit-source" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        mas-sentry mcp audit-source
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#mas-sentry-abfp-scan" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1716,6 +1727,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#mas-sentry-mcp-audit-source" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        mas-sentry mcp audit-source
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#mas-sentry-abfp-scan" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1778,8 +1800,21 @@ optional tooling, and scope-confirmation state.</p>
                     [--checks all|fingerprint|poisoning|ssrf|traversal]
                     [--out reports/mcp.json] [--confirm-scope]
 </code></pre></div>
-<p>Scans an MCP server. Localhost / <code>*.lab</code> / <code>*.test</code> / <code>*.local</code> targets
-bypass <code>--confirm-scope</code>.</p>
+<p>Scans an MCP server over the wire. Localhost / <code>*.lab</code> / <code>*.test</code> /
+<code>*.local</code> targets bypass <code>--confirm-scope</code>.</p>
+<h2 id="mas-sentry-mcp-audit-source">mas-sentry mcp audit-source</h2>
+<div class="highlight"><pre><span></span><code>mas-sentry mcp audit-source --path &lt;dir|file&gt;
+                            [--out reports/mcp-source.json]
+</code></pre></div>
+<p>Audits MCP server source for the STDIO command-injection class: user-held
+values reaching the command an MCP client will execute. This is the one MCP
+check that reads source rather than the wire, because a live scan can only
+reach a server whose command line is already built - the weakness is in how
+it was built.</p>
+<p>Takes a path, not a target, so it needs no <code>--confirm-scope</code>. A path under
+which no <code>.py</code>, <code>.ts</code> or <code>.js</code> file was read reports <code>enumeration_gap</code>
+rather than an empty result, since a clean tree and an unread tree produce
+the same empty list.</p>
 <h2 id="mas-sentry-abfp-scan">mas-sentry abfp scan</h2>
 <div class="highlight"><pre><span></span><code>mas-sentry abfp scan --target mqtt://host:port [--duration 60]
                      [--threshold 500] [--out reports/abfp.json]
@@ -1791,7 +1826,8 @@ bypass <code>--confirm-scope</code>.</p>
                         [--requirements requirements.txt]
                         [--out reports/agentic.json]
 </code></pre></div>
-<p>Static agentic scans across registered modules (ASI02/03/05/06/08/09).</p>
+<p>Static agentic scans across registered modules (tool misuse, identity abuse,
+supply chain, cascade, action audit, trust exploitation).</p>
 <h2 id="mas-sentry-report-convert">mas-sentry report convert</h2>
 <div class="highlight"><pre><span></span><code>mas-sentry report convert &lt;findings.json&gt;
                           --format html|md|json|junit|sarif

@@ -1747,10 +1747,14 @@
 
 
 <h1 id="agentic-modules-owasp-top-10-for-agentic-applications-2026">Agentic modules - OWASP Top 10 for Agentic Applications (2026)</h1>
+<p>Numbering follows the list published on 9 December 2025. MST previously
+carried a pre-release ordering; if you have reports from before that fix,
+their ASI numbers do not mean what the current ones mean.</p>
 <table>
 <thead>
 <tr>
 <th>ID</th>
+<th>Selector</th>
 <th>Module</th>
 <th>Style</th>
 <th>What it needs</th>
@@ -1758,64 +1762,104 @@
 </thead>
 <tbody>
 <tr>
-<td>ASI01</td>
+<td>ASI01 Agent Goal Hijack</td>
+<td><code>goal_hijack</code></td>
 <td><code>agentic/goal_hijack.py</code></td>
 <td>Active probe</td>
 <td>live agent transport + canary token</td>
 </tr>
 <tr>
-<td>ASI02</td>
+<td>ASI02 Tool Misuse</td>
+<td><code>tool_misuse</code></td>
 <td><code>agentic/tool_misuse.py</code></td>
 <td>Static</td>
 <td>tool inventory JSON</td>
 </tr>
 <tr>
-<td>ASI03</td>
+<td>ASI03 Identity &amp; Privilege Abuse</td>
+<td><code>identity_abuse</code></td>
 <td><code>agentic/identity_abuse.py</code></td>
 <td>Static</td>
 <td>JWT</td>
 </tr>
 <tr>
-<td>ASI04</td>
-<td><code>agentic/memory_poisoning.py</code></td>
-<td>Active probe</td>
-<td>live agent + N rounds</td>
-</tr>
-<tr>
-<td>ASI05</td>
-<td><code>agentic/cascade.py</code></td>
-<td>Static</td>
-<td>agent call graph</td>
-</tr>
-<tr>
-<td>ASI06</td>
-<td><code>agentic/action_audit.py</code></td>
-<td>Static</td>
-<td>action log sample</td>
-</tr>
-<tr>
-<td>ASI07</td>
-<td><code>agentic/resource_exhaustion.py</code></td>
-<td>Active probe</td>
-<td>telemetry hook</td>
-</tr>
-<tr>
-<td>ASI08</td>
+<td>ASI04 Agentic Supply Chain</td>
+<td><code>supply_chain</code></td>
 <td><code>agentic/supply_chain.py</code></td>
 <td>Static</td>
 <td>requirements / package.json / MCP list</td>
 </tr>
 <tr>
-<td>ASI09</td>
+<td>ASI05 Unexpected Code Execution</td>
+<td>-</td>
+<td>(no agentic module; see MCP <code>stdio_rce</code>)</td>
+<td>-</td>
+<td>-</td>
+</tr>
+<tr>
+<td>ASI06 Memory &amp; Context Poisoning</td>
+<td><code>memory_poisoning</code></td>
+<td><code>agentic/memory_poisoning.py</code></td>
+<td>Active probe</td>
+<td>live agent + N rounds</td>
+</tr>
+<tr>
+<td>ASI07 Insecure Inter-Agent Communication</td>
+<td>-</td>
+<td>(see ABFP <code>coordination</code>, A2A <code>mesh</code>)</td>
+<td>-</td>
+<td>-</td>
+</tr>
+<tr>
+<td>ASI08 Cascading Failures</td>
+<td><code>cascade</code></td>
+<td><code>agentic/cascade.py</code></td>
+<td>Static</td>
+<td>agent call graph</td>
+</tr>
+<tr>
+<td>ASI09 Human-Agent Trust Exploitation</td>
+<td><code>trust_exploit</code></td>
 <td><code>agentic/trust_exploit.py</code></td>
 <td>Static</td>
 <td>agent response + tool-call outcomes</td>
 </tr>
 <tr>
-<td>ASI10</td>
+<td>ASI10 Rogue Agents</td>
+<td><code>rogue_agent</code></td>
 <td><code>agentic/rogue_agent.py</code></td>
 <td>Static</td>
 <td>baseline + current topic graph (from ABFP)</td>
+</tr>
+</tbody>
+</table>
+<p>Two detectors have no home in the published list, having been dropped
+between the draft and the release. They keep an <code>MST_</code> prefix rather than a
+number that now means something else:</p>
+<table>
+<thead>
+<tr>
+<th>Tag</th>
+<th>Selector</th>
+<th>Module</th>
+<th>Style</th>
+<th>What it needs</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>MST_Untraceable_Actions</code></td>
+<td><code>action_audit</code></td>
+<td><code>agentic/action_audit.py</code></td>
+<td>Static</td>
+<td>action log sample</td>
+</tr>
+<tr>
+<td><code>MST_Resource_Exhaustion</code></td>
+<td><code>resource_exhaustion</code></td>
+<td><code>agentic/resource_exhaustion.py</code></td>
+<td>Active probe</td>
+<td>telemetry hook</td>
 </tr>
 </tbody>
 </table>
@@ -1828,13 +1872,18 @@
 <a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="w">  </span>--requirements<span class="w"> </span>./requirements.txt<span class="w"> </span><span class="se">\</span>
 <a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="w">  </span>--out<span class="w"> </span>reports/agentic.json
 </code></pre></div>
-<p>The static scan wires ASI02/03/05/06/08/09 into the UnifiedThreatEngine.
-Each module only runs when its required input is present in the context.
-Use <code>--asi asi02</code> (or any single id) to run just one module; <code>--asi all</code>
-(the default) runs every module that has input.</p>
+<p>The static scan wires tool misuse, identity abuse, supply chain, cascade,
+action audit and trust exploitation into the UnifiedThreatEngine. Each
+module only runs when its required input is present in the context.</p>
+<p><code>--asi</code> takes a category number (<code>asi04</code>), a full tag
+(<code>ASI04_Supply_Chain</code>) or the selector name (<code>supply_chain</code>); <code>--asi all</code>
+(the default) runs every module that has input. The selector names carry no
+number on purpose - a name that encodes one goes stale the moment the list
+is renumbered.</p>
 <h2 id="active-probes-separate-command">Active probes (separate command)</h2>
-<p>Active probes (ASI01, ASI04, ASI07) require a live transport. They will be
-added under <code>mas-sentry agentic probe</code> in a later release.</p>
+<p>Goal hijack, memory poisoning and resource exhaustion require a live
+transport. They will be added under <code>mas-sentry agentic probe</code> in a later
+release.</p>
 <h2 id="mapping-back-to-stride">Mapping back to STRIDE</h2>
 <table>
 <thead>
@@ -1845,44 +1894,52 @@ added under <code>mas-sentry agentic probe</code> in a later release.</p>
 </thead>
 <tbody>
 <tr>
-<td>ASI01</td>
+<td>ASI01 Agent Goal Hijack</td>
 <td>Tampering + Elevation of Privilege</td>
 </tr>
 <tr>
-<td>ASI02</td>
+<td>ASI02 Tool Misuse</td>
 <td>Elevation of Privilege</td>
 </tr>
 <tr>
-<td>ASI03</td>
+<td>ASI03 Identity &amp; Privilege Abuse</td>
 <td>Spoofing + Elevation of Privilege</td>
 </tr>
 <tr>
-<td>ASI04</td>
-<td>Tampering</td>
-</tr>
-<tr>
-<td>ASI05</td>
-<td>Denial of Service</td>
-</tr>
-<tr>
-<td>ASI06</td>
-<td>Repudiation</td>
-</tr>
-<tr>
-<td>ASI07</td>
-<td>Denial of Service</td>
-</tr>
-<tr>
-<td>ASI08</td>
+<td>ASI04 Agentic Supply Chain</td>
 <td>Tampering (supply path)</td>
 </tr>
 <tr>
-<td>ASI09</td>
+<td>ASI05 Unexpected Code Execution</td>
+<td>Elevation of Privilege</td>
+</tr>
+<tr>
+<td>ASI06 Memory &amp; Context Poisoning</td>
+<td>Tampering</td>
+</tr>
+<tr>
+<td>ASI07 Insecure Inter-Agent Communication</td>
+<td>Spoofing + Information Disclosure</td>
+</tr>
+<tr>
+<td>ASI08 Cascading Failures</td>
+<td>Denial of Service</td>
+</tr>
+<tr>
+<td>ASI09 Human-Agent Trust Exploitation</td>
 <td>Spoofing (UI)</td>
 </tr>
 <tr>
-<td>ASI10</td>
+<td>ASI10 Rogue Agents</td>
 <td>Spoofing + Elevation of Privilege</td>
+</tr>
+<tr>
+<td><code>MST_Untraceable_Actions</code></td>
+<td>Repudiation</td>
+</tr>
+<tr>
+<td><code>MST_Resource_Exhaustion</code></td>
+<td>Denial of Service</td>
 </tr>
 </tbody>
 </table>

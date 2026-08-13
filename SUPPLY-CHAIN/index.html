@@ -1470,10 +1470,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#self-audit-dogfooding-asi08" class="md-nav__link">
+  <a href="#self-audit-dogfooding-asi04" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Self-audit (dogfooding ASI08)
+        Self-audit (dogfooding ASI04)
       
     </span>
   </a>
@@ -1749,10 +1749,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#self-audit-dogfooding-asi08" class="md-nav__link">
+  <a href="#self-audit-dogfooding-asi04" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Self-audit (dogfooding ASI08)
+        Self-audit (dogfooding ASI04)
       
     </span>
   </a>
@@ -1856,7 +1856,7 @@ disclosed CVEs in unchanged dependencies):</p>
   lock is complete and untampered.</li>
 <li><strong>CVE audit</strong> - <code>pip-audit</code> against the lock; fails on any known
   vulnerability in a pinned dependency.</li>
-<li><strong>Self-audit (ASI08)</strong> - the toolkit scans its own lock file for supply-chain
+<li><strong>Self-audit (ASI04)</strong> - the toolkit scans its own lock file for supply-chain
   weakness and fails the build on any finding (see below).</li>
 <li><strong>Dependency review</strong> - on pull requests, flags newly introduced
   dependencies at <code>high</code> severity or above before merge.</li>
@@ -1864,15 +1864,15 @@ disclosed CVEs in unchanged dependencies):</p>
 <p>This is distinct from the <code>Security scan</code> job in <code>ci.yml</code>, which runs Bandit
 SAST over first-party source. Supply-chain verification covers the external
 dependency surface; Bandit covers the code we write.</p>
-<h2 id="self-audit-dogfooding-asi08">Self-audit (dogfooding ASI08)</h2>
-<p>MAS-Sentry implements OWASP Agentic Top 10 <strong>ASI08 (Supply Chain)</strong> as a
+<h2 id="self-audit-dogfooding-asi04">Self-audit (dogfooding ASI04)</h2>
+<p>MAS-Sentry implements OWASP Agentic Top 10 <strong>ASI04 (Agentic Supply Chain)</strong> as a
 scanner. CI points that scanner at the toolkit's own lock file:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>mas-sentry<span class="w"> </span>agentic<span class="w"> </span>scan<span class="w"> </span>--target<span class="w"> </span>self-audit<span class="w"> </span><span class="se">\</span>
 <a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="w">    </span>--requirements<span class="w"> </span>requirements-lock.txt<span class="w"> </span>--asi<span class="w"> </span>asi08<span class="w"> </span><span class="se">\</span>
 <a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="w">    </span>--out<span class="w"> </span>reports/self-asi08.json
 </code></pre></div>
 <p>A hash-pinned lock yields zero findings. If the lock ever regresses to floating
-versions, the scanner reports <code>ASI08_Supply_Chain</code> and the build fails. The
+versions, the scanner reports <code>ASI04_Supply_Chain</code> and the build fails. The
 product is its own regression test, and the run demonstrates the scanner on a
 real target.</p>
 <h2 id="updating-dependencies">Updating dependencies</h2>

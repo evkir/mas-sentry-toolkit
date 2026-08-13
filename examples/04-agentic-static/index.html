@@ -1774,7 +1774,7 @@
 files you already have - no live transport required.</p>
 <h2 id="run">Run</h2>
 <p>Audit a tool inventory (ASI02) and a JWT (ASI03), plus the dependency
-supply chain (ASI08):</p>
+supply chain (ASI04):</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>mas-sentry<span class="w"> </span>agentic<span class="w"> </span>scan<span class="w"> </span><span class="se">\</span>
 <a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="w">  </span>--target<span class="w"> </span>my-agent-system<span class="w"> </span><span class="se">\</span>
 <a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="w">  </span>--tools-file<span class="w"> </span>tools.json<span class="w"> </span><span class="se">\</span>
@@ -1790,14 +1790,14 @@ supply chain (ASI08):</p>
 <a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>| ASI                | Severity | Title                                        |
 <a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>|--------------------|----------|----------------------------------------------|
 <a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>| ASI02_Tool_Misuse  | HIGH     | Shell-passing tool present: exec_cmd         |
-<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>| ASI08_Supply_Chain | MEDIUM   | 12/12 requirements without exact version pin |
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>| ASI04_Supply_Chain | MEDIUM   | 12/12 requirements without exact version pin |
 </code></pre></div>
 <h2 id="interpretation">Interpretation</h2>
 <p>Only the modules whose inputs you supply will run - pass <code>--tools-file</code> for
-ASI02, <code>--token</code> for ASI03, <code>--requirements</code> for ASI08. ASI03 stays silent
+ASI02, <code>--token</code> for ASI03, <code>--requirements</code> for ASI04. ASI03 stays silent
 on a benign token; it fires on risky ones (long-lived agent JWTs, deep
 delegation chains). The live probes
-(ASI01 goal hijack, ASI04 memory poisoning, ASI07 resource exhaustion) need a
+(ASI01 goal hijack, ASI06 memory poisoning, and resource exhaustion) need a
 transport and are driven separately.</p>
 <h2 id="next-step">Next step</h2>
 <p>Feed the JSON into any report format, e.g. SARIF for code-scanning dashboards:</p>
