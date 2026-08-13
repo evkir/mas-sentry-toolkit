@@ -13,8 +13,24 @@ optional tooling, and scope-confirmation state.
                         [--checks all|fingerprint|poisoning|ssrf|traversal]
                         [--out reports/mcp.json] [--confirm-scope]
 
-Scans an MCP server. Localhost / `*.lab` / `*.test` / `*.local` targets
-bypass `--confirm-scope`.
+Scans an MCP server over the wire. Localhost / `*.lab` / `*.test` /
+`*.local` targets bypass `--confirm-scope`.
+
+## mas-sentry mcp audit-source
+
+    mas-sentry mcp audit-source --path <dir|file>
+                                [--out reports/mcp-source.json]
+
+Audits MCP server source for the STDIO command-injection class: user-held
+values reaching the command an MCP client will execute. This is the one MCP
+check that reads source rather than the wire, because a live scan can only
+reach a server whose command line is already built - the weakness is in how
+it was built.
+
+Takes a path, not a target, so it needs no `--confirm-scope`. A path under
+which no `.py`, `.ts` or `.js` file was read reports `enumeration_gap`
+rather than an empty result, since a clean tree and an unread tree produce
+the same empty list.
 
 ## mas-sentry abfp scan
 

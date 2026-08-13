@@ -124,7 +124,7 @@ reach, then use `evidence` to reproduce before you report anything onward.
 | ASI02 | Tool Misuse & Exploitation | `agentic/tool_misuse.py` |
 | ASI03 | Identity & Privilege Abuse | `agentic/identity_abuse.py` |
 | ASI04 | Agentic Supply Chain | `agentic/supply_chain.py` |
-| ASI05 | Unexpected Code Execution | MCP `stdio_rce` check |
+| ASI05 | Unexpected Code Execution | `mcp audit-source` (`mcp/audit/stdio_rce.py`) |
 | ASI06 | Memory & Context Poisoning | `agentic/memory_poisoning.py` |
 | ASI07 | Insecure Inter-Agent Communication | ABFP `coordination`, A2A `mesh` |
 | ASI08 | Cascading Failures | `agentic/cascade.py` |

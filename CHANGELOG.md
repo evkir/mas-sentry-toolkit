@@ -29,6 +29,26 @@
   verified in both directions against live servers: the reference SDK rejects all
   four with -32020, a deliberately permissive server is reported HIGH on all four.
 
+- New command `mas-sentry mcp audit-source --path <dir>`, which makes the
+  STDIO command-injection auditor reachable. `StdioConfigAuditor` had unit
+  coverage and no caller anywhere under `mas_sentry`, so the OX Security RCE
+  class it detects could not produce a row from any scan - the same defect as
+  the MQTT probes fixed in 0.8.0. It is a separate command rather than a
+  `--checks` flag because it reads source instead of the wire: by the time a
+  live scan can talk to a server, its stdio command line is already built.
+  Findings carry the file, line and matched pattern as evidence and are
+  classified ASI05 Unexpected Code Execution / CWE-78 / Elevation of
+  Privilege, which also gives ASI05 a detector that runs.
+- MCP checks that previously reached SARIF carrying only their own check name
+  are now classified: `ssrf` (CWE-918), `path_traversal` (CWE-22),
+  `resource_content` and `resource_template` (CWE-1427 with AML.T0051),
+  `header_body_desync` (CWE-436), `dns_rebind` (CWE-346) and `known_cve`
+  (CWE-1395). Ten of sixteen checks arrived untagged, so an operator
+  filtering GitHub code scanning by weakness class saw a CRITICAL SSRF as
+  untriaged noise. `fingerprint`, `enumeration_gap` and `input_required` stay
+  untagged on purpose: they report what the scan reached, not that something
+  is wrong.
+
 ### Changed
 - **Breaking.** ASI category numbers now follow the OWASP Top 10 for Agentic
   Applications published on 9 December 2025. MST carried a pre-release
