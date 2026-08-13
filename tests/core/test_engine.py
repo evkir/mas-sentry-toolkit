@@ -286,3 +286,43 @@ def test_from_propagation_finding_fuses_blast_radius() -> None:
     uf = from_propagation_finding(pf, target="mesh://lab", blast_radius=br)
     assert uf.severity == Severity.HIGH
     assert uf.evidence["blast_radius"] == br
+
+
+def test_every_security_meaningful_mcp_check_carries_a_weakness_class() -> None:
+    """A check that asserts a weakness must reach SARIF with a CWE on it.
+
+    Half the MCP surface used to arrive tagged with nothing but its own check
+    name, so an operator filtering GitHub code scanning by CWE saw a CRITICAL
+    SSRF as untriaged noise. The three coverage notes are excluded on purpose:
+    they report what the scan saw, not that anything is wrong.
+    """
+    from mas_sentry.core.adapters import _MCP_CHECK_TAGS
+
+    coverage_notes = {"fingerprint", "enumeration_gap", "input_required"}
+    emitted = {
+        "arg_injection",
+        "dns_rebind",
+        "header_body_desync",
+        "known_cve",
+        "path_traversal",
+        "resource_content",
+        "resource_template",
+        "ssrf",
+        "tool_poisoning",
+    }
+    for check in emitted:
+        tags = _MCP_CHECK_TAGS.get(check)
+        assert tags, f"{check} reaches the report with no taxonomy"
+        assert any(t.startswith("CWE-") for t in tags), f"{check} carries no CWE"
+    assert not (coverage_notes & set(_MCP_CHECK_TAGS)), "a coverage note was given a weakness class"
+
+
+def test_ssrf_finding_carries_its_four_lenses_end_to_end() -> None:
+    """The tags have to survive the adapter, not just sit in the table."""
+    from mas_sentry.core.adapters import from_mcp_check
+
+    finding = from_mcp_check(
+        {"check": "ssrf", "severity": "CRITICAL", "detail": "fetch_url -> http://169.254.169.254/"},
+        "lab",
+    )
+    assert finding.tags == ["ssrf", "ASI02_Tool_Misuse", "CWE-918", "STRIDE_Information_Disclosure"]

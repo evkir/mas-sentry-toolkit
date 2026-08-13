@@ -69,7 +69,34 @@ _MCP_CHECK_TAGS = {
     # Argument injection into tool calls is classic command injection - no clean
     # ATLAS technique, so it is deliberately left ATLAS-untagged.
     "arg_injection": ["ASI02_Tool_Misuse", "CWE-77", "STRIDE_Tampering"],
+    # A tool that will fetch an attacker-chosen URL is server-side request
+    # forgery reached through the tool surface, so the weakness is the fetch,
+    # not whatever the operator happens to expose on the inside.
+    "ssrf": ["ASI02_Tool_Misuse", "CWE-918", "STRIDE_Information_Disclosure"],
+    "path_traversal": ["ASI02_Tool_Misuse", "CWE-22", "STRIDE_Information_Disclosure"],
+    # Resource bodies and templated resource descriptors are ingested by the
+    # model exactly like tool descriptors are, so a directive planted in one is
+    # the same prompt-injection class as tool_poisoning and carries the same
+    # four lenses.
+    "resource_content": ["ASI01_Goal_Hijack", "CWE-1427", "STRIDE_Tampering", "AML.T0051"],
+    "resource_template": ["ASI01_Goal_Hijack", "CWE-1427", "STRIDE_Tampering", "AML.T0051"],
+    # The server accepted a request whose routing headers disagreed with its
+    # body. One parser reading two meanings out of one message is an
+    # interpretation conflict (CWE-436), not request smuggling (CWE-444),
+    # which needs two parsers disagreeing along a proxy chain.
+    "header_body_desync": ["ASI02_Tool_Misuse", "CWE-436", "STRIDE_Spoofing"],
+    # An endpoint honouring a Host or Origin it should have refused is an
+    # origin validation failure, whatever the attacker then reaches through it.
+    "dns_rebind": ["ASI02_Tool_Misuse", "CWE-346", "STRIDE_Spoofing"],
+    # A known-vulnerable server implementation is inherited risk, so it maps to
+    # the supply-chain lens rather than to anything the operator wrote.
+    "known_cve": ["ASI04_Supply_Chain", "CWE-1395"],
 }
+# Deliberately absent from the table: fingerprint, enumeration_gap and
+# input_required. None of them asserts a weakness - they report what the scan
+# saw and what it could not reach - so hanging a CWE on them would put
+# coverage notes into the same SARIF filters an operator uses to triage real
+# findings. Their bare check name is the whole tag list on purpose.
 
 
 def from_mcp_check(check_dict: dict[str, Any], target: str) -> Finding:
