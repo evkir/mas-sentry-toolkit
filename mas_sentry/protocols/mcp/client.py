@@ -86,6 +86,35 @@ META_SERVER_INFO = "io.modelcontextprotocol/serverInfo"
 MAX_LIST_PAGES = 50
 
 
+def client_capabilities(is_modern: bool) -> dict[str, Any]:
+    """Declare the elicitation modes this client can be shown, per route.
+
+    A resolver-backed server does not describe the elicitation it would raise
+    unless the client has declared the mode: the reference SDK checks the
+    declaration before rendering the request and answers -32021 instead
+    (mcp 2.0.0, `server/mcpserver/resolve.py`). Declaring nothing - which is
+    what an empty capability object did - means a probe aimed at such a tool
+    comes back as a plain error, and the consent URL or credential form the
+    server would have shown is never seen.
+
+    The routes get different declarations because the modes reach us
+    differently. On 2026-07-28 an elicitation arrives inside an
+    `input_required` result: the server answers and moves on, so both modes
+    are observable at no cost. On the 2025 line, form mode arrives as a
+    server-to-client request that the server then blocks on, and this client
+    never answers an elicitation - declaring form there would trade a fast
+    rejection for a read timeout and a server left waiting. URL mode on that
+    line arrives as error -32042, which costs nothing.
+
+    Two shapes are not interchangeable: a bare `elicitation: {}` reads as form
+    support to the reference SDK, and a url-only object does not read as form.
+    The modes are named explicitly for that reason. Sampling and roots stay
+    undeclared - both would have the server ask this client to act.
+    """
+    modes: dict[str, Any] = {"form": {}, "url": {}} if is_modern else {"url": {}}
+    return {"elicitation": modes}
+
+
 @dataclass(slots=True)
 class ServerInfo:
     name: str = ""
@@ -296,7 +325,7 @@ class McpClient:
         meta = dict(out.get("_meta") or {})
         meta.setdefault(META_PROTOCOL_VERSION, self.protocol_version)
         meta.setdefault(META_CLIENT_INFO, {"name": CLIENT_NAME, "version": CLIENT_VERSION})
-        meta.setdefault(META_CLIENT_CAPABILITIES, {})
+        meta.setdefault(META_CLIENT_CAPABILITIES, client_capabilities(True))
         out["_meta"] = meta
         return out
 
@@ -429,7 +458,7 @@ class McpClient:
             "initialize",
             {
                 "protocolVersion": LEGACY_PROTOCOL_VERSION,
-                "capabilities": {},
+                "capabilities": client_capabilities(False),
                 "clientInfo": {"name": CLIENT_NAME, "version": CLIENT_VERSION},
             },
             req_id=self._id(),

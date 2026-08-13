@@ -100,6 +100,42 @@ def test_every_modern_request_carries_the_envelope():
     assert META_CLIENT_CAPABILITIES in meta
 
 
+def test_the_modern_envelope_declares_both_elicitation_modes():
+    """A server that sees no declared mode never shows us the elicitation.
+
+    The reference SDK refuses the call with -32021 before it renders the
+    request, so an undeclared client is answered with an error where a
+    declared one is answered with the consent URL or the requested schema.
+    """
+    t = _ScriptedTransport(
+        {
+            DISCOVER_METHOD: _discover_result(),
+            "tools/list": {"result": {"tools": []}},
+        }
+    )
+    client = McpClient(t)
+    client.connect()
+    client.list_tools()
+    listing = next(r for r in t.sent if r["method"] == "tools/list")
+    elicitation = listing["params"]["_meta"][META_CLIENT_CAPABILITIES]["elicitation"]
+    assert set(elicitation) == {"form", "url"}
+
+
+def test_the_handshake_declares_url_mode_only():
+    """Form mode on the 2025 line is a request the server blocks on.
+
+    This client never answers an elicitation, so declaring form there buys a
+    read timeout and a server left waiting where the undeclared shape gets a
+    rejection we can report. URL mode arrives as an error and costs nothing.
+    """
+    t = _ScriptedTransport({"initialize": _initialize_result()})
+    McpClient(t).connect()
+    handshake = next(r for r in t.sent if r["method"] == "initialize")
+    elicitation = handshake["params"]["capabilities"]["elicitation"]
+    assert "url" in elicitation
+    assert "form" not in elicitation
+
+
 def test_unknown_discover_method_falls_back_to_the_handshake():
     """A 2025-line server does not know server/discover. -32601 is that answer."""
     t = _ScriptedTransport({"initialize": _initialize_result()})
