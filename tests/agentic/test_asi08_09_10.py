@@ -14,7 +14,7 @@ from mas_sentry.agentic.supply_chain import (
 )
 from mas_sentry.agentic.trust_exploit import AgentResponse, audit_response
 
-# ─────────────── ASI08 — supply chain ───────────────
+# ─────────────── ASI04 — supply chain ───────────────
 
 
 def test_levenshtein_basic_cases() -> None:
@@ -214,7 +214,7 @@ def test_rogue_agent_flagged_as_critical(
     findings = audit_for_rogue_agents(base, cur, target="lab")
     rogue = [f for f in findings if f.evidence.get("agent_id") == "rogue"]
     assert rogue
-    assert rogue[0].asi == AsiCategory.ASI10
+    assert rogue[0].asi == AsiCategory.ROGUE_AGENT
     assert rogue[0].severity in ("HIGH", "CRITICAL")
     assert rogue[0].cwe == "CWE-940"
     assert isinstance(rogue[0].evidence["new_topics"], list)
@@ -233,14 +233,14 @@ def test_rogue_agent_identical_graphs_no_findings(
 def test_default_pipeline_registers_all_eight_sync_modules() -> None:
     p = default_pipeline()
     assert set(p.modules.keys()) == {
-        "asi02_tool_misuse",
-        "asi03_identity_abuse",
-        "asi05_cascade",
-        "asi06_action_audit",
-        "asi07_resource_exhaustion",
-        "asi08_supply_chain",
-        "asi09_trust_exploit",
-        "asi10_rogue_agent",
+        "tool_misuse",
+        "identity_abuse",
+        "cascade",
+        "action_audit",
+        "resource_exhaustion",
+        "supply_chain",
+        "trust_exploit",
+        "rogue_agent",
     }
 
 
@@ -248,7 +248,7 @@ def test_pipeline_wrong_ctx_types_silently_skipped() -> None:
     # Passing wrong-type values for supply_chain / agent_response must not
     # crash the pipeline; modules should gracefully return [].
     findings = default_pipeline().run(
-        ["asi08_supply_chain", "asi09_trust_exploit"],
+        ["supply_chain", "trust_exploit"],
         {
             "target": "lab",
             "supply_chain": "not-a-context",

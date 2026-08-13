@@ -22,14 +22,21 @@ from .finding import Finding, Severity
 # MITRE ATLAS technique IDs for agentic detectors with a clean, verified match.
 _ASI_ATLAS = {
     "ASI01_Goal_Hijack": "AML.T0051",  # goal hijack via (indirect) prompt injection
-    "ASI04_Memory_Poisoning": "AML.T0080",  # AI Agent Context Poisoning
-    "ASI08_Supply_Chain": "AML.T0048",  # ML Supply Chain Compromise
+    "ASI06_Memory_Poisoning": "AML.T0080",  # AI Agent Context Poisoning
+    "ASI04_Supply_Chain": "AML.T0048",  # ML Supply Chain Compromise
 }
 
 
 def from_agentic(af: AgenticFinding) -> Finding:
-    """Map an AgenticFinding (ASI01-ASI10) into the unified Finding."""
-    asi_code = af.asi.value.split("_")[0].lower()  # "ASI01_Goal_Hijack" -> "asi01"
+    """Map an AgenticFinding into the unified Finding.
+
+    The module id comes from the enum member name, not from the tag value.
+    Splitting the value on its prefix used to yield "asi08" for supply
+    chain, which silently became a different category's number when the
+    published list renumbered; it would now also collapse both MST_-prefixed
+    categories onto one id.
+    """
+    asi_code = af.asi.name.lower()  # SUPPLY_CHAIN -> "supply_chain"
     tags = [af.asi.value]
     if af.cwe:
         tags.append(af.cwe)
@@ -51,12 +58,12 @@ def from_agentic(af: AgenticFinding) -> Finding:
 # Three-lens taxonomy (ASI/CWE/STRIDE) for the security-meaningful MCP checks.
 # Drift checks reuse the same tag format the ABFP surface emits.
 _MCP_CHECK_TAGS = {
-    "tool_rug_pull": ["ASI08_Supply_Chain", "CWE-494", "STRIDE_Tampering", "AML.T0110"],
+    "tool_rug_pull": ["ASI04_Supply_Chain", "CWE-494", "STRIDE_Tampering", "AML.T0110"],
     "tool_shadowing": ["ASI02_Tool_Misuse", "CWE-290", "STRIDE_Spoofing", "AML.T0110"],
     # Same class as tool_rug_pull, caught inside one session instead of across
     # runs: the descriptor moved after the inventory was read.
-    "tool_mutation": ["ASI08_Supply_Chain", "CWE-494", "STRIDE_Tampering", "AML.T0110"],
-    "tool_appeared": ["ASI08_Supply_Chain", "CWE-494", "STRIDE_Tampering", "AML.T0110"],
+    "tool_mutation": ["ASI04_Supply_Chain", "CWE-494", "STRIDE_Tampering", "AML.T0110"],
+    "tool_appeared": ["ASI04_Supply_Chain", "CWE-494", "STRIDE_Tampering", "AML.T0110"],
     # Tool-poisoning carries IPI directives in the descriptor fields the LLM ingests.
     "tool_poisoning": ["ASI01_Goal_Hijack", "CWE-1427", "STRIDE_Tampering", "AML.T0051"],
     # Argument injection into tool calls is classic command injection - no clean
@@ -229,7 +236,7 @@ def from_coordination_signal(signal: CoordinationSignal, target: str) -> Finding
         ),
         severity=severity,
         target=target,
-        tags=["abfp", "coordination", "ASI06_Communication_Abuse", "CWE-514", "STRIDE_Information_Disclosure"],
+        tags=["abfp", "coordination", "ASI07_Insecure_Communication", "CWE-514", "STRIDE_Information_Disclosure"],
         evidence={
             "source": signal.source,
             "target_agent": signal.target,

@@ -21,7 +21,7 @@ def _make_jwt(payload: dict[str, Any]) -> str:
     return f"{header}.{body}."
 
 
-# ─────────────── ASI05 — cascading failure ───────────────
+# ─────────────── ASI08 — cascading failure ───────────────
 
 
 def test_cascade_detects_cycle_without_breaker() -> None:
@@ -46,7 +46,7 @@ def test_cascade_flags_high_in_degree() -> None:
     spof = [f for f in findings if "single point of failure" in f.title.lower()]
     assert spof
     assert spof[0].evidence["in_degree"] == 5
-    assert spof[0].asi == AsiCategory.ASI05
+    assert spof[0].asi == AsiCategory.CASCADING_FAILURE
 
 
 def test_cascade_flags_retry_budget_gap() -> None:
@@ -63,7 +63,7 @@ def test_cascade_flags_retry_budget_gap() -> None:
     assert rb[0].severity == "LOW"
 
 
-# ─────────────── ASI06 — action audit ───────────────
+# ─────────────── action audit (MST-only) ───────────────
 
 
 def test_action_audit_flags_low_trace_coverage() -> None:
@@ -92,7 +92,7 @@ def test_action_audit_full_coverage_no_findings() -> None:
     assert audit_action_log(records, target="lab") == []
 
 
-# ─────────────── ASI07 — resource exhaustion ───────────────
+# ─────────────── resource exhaustion (MST-only) ───────────────
 
 
 def test_exhaustion_token_cap_breach() -> None:
@@ -188,4 +188,10 @@ def test_pipeline_end_to_end_all_asis() -> None:
     }
     findings = default_pipeline().run(None, ctx)
     asis = {f.asi.name for f in findings}
-    assert {"ASI02", "ASI03", "ASI05", "ASI06", "ASI07"}.issubset(asis)
+    assert {
+        "TOOL_MISUSE",
+        "IDENTITY_ABUSE",
+        "CASCADING_FAILURE",
+        "UNTRACEABLE_ACTIONS",
+        "RESOURCE_EXHAUSTION",
+    }.issubset(asis)

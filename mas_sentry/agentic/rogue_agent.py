@@ -27,7 +27,7 @@ def audit_for_rogue_agents(
             continue
         out.append(
             AgenticFinding(
-                asi=AsiCategory.ASI10,
+                asi=AsiCategory.ROGUE_AGENT,
                 severity=rf.score.severity.value,
                 title=(f"Rogue agent '{rf.agent_id}' (ABFP score {rf.score.total}/100)"),
                 detail=("Agent identity or behaviour outside learned fingerprint baseline"),

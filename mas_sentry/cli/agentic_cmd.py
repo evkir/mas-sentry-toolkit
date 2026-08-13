@@ -25,7 +25,7 @@ def agentic_scan(
     requirements: Path | None = typer.Option(None, "--requirements", help="requirements.txt"),
     out: Path = typer.Option(Path("reports/agentic.json"), "--out", "-o"),
 ) -> None:
-    """Static agentic scan. Live ASI01/ASI04 probes need a transport."""
+    """Static agentic scan. The live ASI01/ASI06 probes need a transport."""
     from mas_sentry.agentic.run import run_static_scan
 
     ctx = {

@@ -35,7 +35,7 @@ from .card_audit import _collect_scope_names, _oauth2_flows
 from .client import AgentCard
 
 _ESCALATION_TAGS = ["a2a", "mesh", "ASI03_Identity_Abuse", "CWE-269", "STRIDE_Elevation_Of_Privilege"]
-_CYCLE_TAGS = ["a2a", "mesh", "ASI07_Resource_Exhaustion", "CWE-674", "STRIDE_Denial_Of_Service"]
+_CYCLE_TAGS = ["a2a", "mesh", "MST_Resource_Exhaustion", "CWE-674", "STRIDE_Denial_Of_Service"]
 
 
 @dataclass(frozen=True, slots=True)

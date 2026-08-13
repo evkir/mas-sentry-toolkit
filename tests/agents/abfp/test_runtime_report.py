@@ -109,7 +109,7 @@ def test_write_report_includes_propagation_block(tmp_path: Path) -> None:
     crit = block[0]
     assert crit["severity"] == "CRITICAL"
     assert crit["chain"] == ["A", "B", "C"]
-    assert "ASI05_Cascading_Failure" in crit["tags"]
+    assert "ASI08_Cascading_Failure" in crit["tags"]
     assert crit["blast_radius"]["direct"] == ["D"]  # onward cascade fused in
     assert block[1]["blast_radius"] is None  # B not in cascade map
 

@@ -37,12 +37,12 @@ def _sample_findings_file(path: Path, *, wrapped: bool = True) -> Path:
             "evidence": {"url": "http://169.254.169.254/"},
         },
         {
-            "module": "agentic.asi08",
+            "module": "agentic.supply_chain",
             "title": "Floating deps",
             "detail": "not pinned",
             "severity": "MEDIUM",
             "target": "lab",
-            "tags": ["ASI08_Supply_Chain"],
+            "tags": ["ASI04_Supply_Chain"],
         },
     ]
     payload = {"findings": items} if wrapped else items

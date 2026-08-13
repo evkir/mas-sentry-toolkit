@@ -30,7 +30,7 @@ def _asis(findings: list) -> set[str]:
 # ─────────────── run_static_scan ───────────────
 
 
-def test_static_scan_finds_asi02_and_asi08(tmp_path: Path) -> None:
+def test_static_scan_finds_tool_misuse_and_supply_chain(tmp_path: Path) -> None:
     req = tmp_path / "requirements.txt"
     req.write_text("requests\nflask\n")
     ctx = {
@@ -42,7 +42,7 @@ def test_static_scan_finds_asi02_and_asi08(tmp_path: Path) -> None:
     findings = run_static_scan(ctx)
     asis = _asis(findings)
     assert "ASI02_Tool_Misuse" in asis
-    assert "ASI08_Supply_Chain" in asis
+    assert "ASI04_Supply_Chain" in asis
 
 
 def test_static_scan_asi_filter(tmp_path: Path) -> None:
@@ -57,7 +57,22 @@ def test_static_scan_asi_filter(tmp_path: Path) -> None:
     findings = run_static_scan(ctx)
     asis = _asis(findings)
     assert "ASI02_Tool_Misuse" in asis
-    assert "ASI08_Supply_Chain" not in asis
+    assert "ASI04_Supply_Chain" not in asis
+
+
+def test_asi_selector_resolves_the_published_number_not_the_module_name() -> None:
+    """--asi asi04 must select supply chain, the category that number now names.
+
+    The module names carry no number any more, so a selector matched as a
+    substring of the module name would silently select nothing here.
+    """
+    from mas_sentry.agentic.run import _select
+
+    available = ["tool_misuse", "supply_chain", "cascade", "action_audit"]
+    assert _select("asi04", available) == ["supply_chain"]
+    assert _select("asi08", available) == ["cascade"]
+    assert _select("supply_chain", available) == ["supply_chain"]
+    assert _select("all", available) is None
 
 
 def test_static_scan_token_yields_asi03() -> None:

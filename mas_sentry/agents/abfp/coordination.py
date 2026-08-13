@@ -33,7 +33,7 @@ Known limits, by construction:
 - A response window wider than the target cadence self-cancels: the null rises
   with the observation, the variance collapses, and z is reported as zero.
 
-Taxonomy: CWE-514 (covert channel) / STRIDE Information Disclosure / ASI06.
+Taxonomy: CWE-514 (covert channel) / STRIDE Information Disclosure / ASI07.
 """
 
 from __future__ import annotations

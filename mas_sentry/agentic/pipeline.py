@@ -2,7 +2,7 @@
 """Pluggable agentic-scan pipeline. Modules opt-in by name.
 
 Only synchronous static-input modules are registered here. ASI01
-(goal_hijack) and ASI04 (memory_poisoning) require live agent interaction
+(goal_hijack) and ASI06 (memory_poisoning) require live agent interaction
 across multiple turns and are orchestrated by their own drivers, not by
 this pipeline.
 """
@@ -102,12 +102,12 @@ def _run_rogue_agent(ctx: dict[str, Any]) -> list[AgenticFinding]:
 
 def default_pipeline() -> Pipeline:
     p = Pipeline()
-    p.register("asi02_tool_misuse", _run_tool_misuse)
-    p.register("asi03_identity_abuse", _run_identity_abuse)
-    p.register("asi05_cascade", _run_cascade)
-    p.register("asi06_action_audit", _run_action_audit)
-    p.register("asi07_resource_exhaustion", _run_resource_exhaustion)
-    p.register("asi08_supply_chain", _run_supply_chain)
-    p.register("asi09_trust_exploit", _run_trust_exploit)
-    p.register("asi10_rogue_agent", _run_rogue_agent)
+    p.register("tool_misuse", _run_tool_misuse)
+    p.register("identity_abuse", _run_identity_abuse)
+    p.register("cascade", _run_cascade)
+    p.register("action_audit", _run_action_audit)
+    p.register("resource_exhaustion", _run_resource_exhaustion)
+    p.register("supply_chain", _run_supply_chain)
+    p.register("trust_exploit", _run_trust_exploit)
+    p.register("rogue_agent", _run_rogue_agent)
     return p

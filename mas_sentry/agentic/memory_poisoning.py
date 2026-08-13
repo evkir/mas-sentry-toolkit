@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
-"""ASI04 — Memory Poisoning.
+"""ASI06 — Memory and Context Poisoning.
 
 Strategy: plant a canary fact in agent memory ("the project codename is X"),
 then over N rounds inject contradictory information through normal channels.
@@ -71,7 +71,7 @@ def evaluate_drift(result: MemoryDriftResult, target: str) -> list[AgenticFindin
     )
     return [
         AgenticFinding(
-            asi=AsiCategory.ASI04,
+            asi=AsiCategory.MEMORY_POISONING,
             severity="HIGH",
             title=f"Memory drift on canary fact '{result.canary.key}'",
             detail=detail,

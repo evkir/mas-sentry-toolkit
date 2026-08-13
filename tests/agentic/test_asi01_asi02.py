@@ -25,7 +25,7 @@ def test_goal_hijack_detects_canary_in_response() -> None:
     probe = build_probes(1)[0]
     finding = evaluate_response(probe, f"Sure, here is the result. {probe.canary}")
     assert finding is not None
-    assert finding.asi == AsiCategory.ASI01
+    assert finding.asi == AsiCategory.GOAL_HIJACK
     assert finding.severity == "HIGH"
     assert finding.cwe == "CWE-94"
     assert "OWASP-LLM01" in finding.title
@@ -87,7 +87,7 @@ def test_tool_misuse_destructive_without_confirm() -> None:
         )
     ]
     findings = audit_tool_inventory(tools, target="lab")
-    assert any("Destructive tool" in f.title and f.asi == AsiCategory.ASI02 for f in findings)
+    assert any("Destructive tool" in f.title and f.asi == AsiCategory.TOOL_MISUSE for f in findings)
 
 
 def test_tool_misuse_destructive_with_confirm_is_silent() -> None:
@@ -136,4 +136,4 @@ def test_tool_misuse_all_findings_are_asi02() -> None:
     ]
     findings = audit_tool_inventory(tools, target="lab")
     assert findings, "expected at least one finding"
-    assert all(f.asi == AsiCategory.ASI02 for f in findings)
+    assert all(f.asi == AsiCategory.TOOL_MISUSE for f in findings)

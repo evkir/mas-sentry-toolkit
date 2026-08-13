@@ -285,7 +285,7 @@ def test_propagation_block_flows_into_reports(tmp_path: Path):
                         "tier": "verbatim",
                         "chain": ["ingest", "router", "planner"],
                         "severity": "CRITICAL",
-                        "tags": ["ASI01_Goal_Hijack", "ASI05_Cascading_Failure"],
+                        "tags": ["ASI01_Goal_Hijack", "ASI08_Cascading_Failure"],
                         "blast_radius": {
                             "topics": ["t/x"],
                             "direct": ["worker"],
@@ -308,7 +308,7 @@ def test_propagation_block_flows_into_reports(tmp_path: Path):
     results = doc["runs"][0]["results"]
     prop = [x for x in results if x["ruleId"] == "MAS-SENTRY-ABFP.PROPAGATION"]
     assert prop, "propagation finding missing from SARIF"
-    assert "ASI05_Cascading_Failure" in prop[0]["properties"]["tags"]
+    assert "ASI08_Cascading_Failure" in prop[0]["properties"]["tags"]
     assert prop[0]["properties"]["blast_radius"]["transitive_count"] == 2
     rule = next(rr for rr in doc["runs"][0]["tool"]["driver"]["rules"] if rr["id"] == "MAS-SENTRY-ABFP.PROPAGATION")
     assert float(rule["properties"]["security-severity"]) >= 9.0
@@ -346,7 +346,7 @@ def test_propagation_chain_renders_distinctly(tmp_path: Path):
                         "tier": "verbatim",
                         "chain": ["ingest", "router", "planner"],
                         "severity": "CRITICAL",
-                        "tags": ["ASI05_Cascading_Failure"],
+                        "tags": ["ASI08_Cascading_Failure"],
                         "blast_radius": {
                             "topics": ["t/x"],
                             "direct": ["worker"],
@@ -391,7 +391,7 @@ def test_propagation_summary_banner(tmp_path: Path):
                         "tier": "verbatim",
                         "chain": ["ingest", "router", "planner"],
                         "severity": "CRITICAL",
-                        "tags": ["ASI05_Cascading_Failure"],
+                        "tags": ["ASI08_Cascading_Failure"],
                     }
                 ],
                 "propagation_summary": {"contaminated": 3, "max_depth": 2, "origins": ["ingest", "seed"]},

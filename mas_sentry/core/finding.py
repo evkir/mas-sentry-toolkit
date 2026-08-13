@@ -36,7 +36,7 @@ _SEV_RANK = {
 class Finding:
     """Unified Finding emitted by every module.
 
-    Examples of `module`: "mcp.audit.ssrf", "agentic.asi01_goal_hijack",
+    Examples of `module`: "mcp.audit.ssrf", "agentic.goal_hijack",
     "a2a.card_audit", "mqtt.broker_anon".
 
     `tags` carries cross-cutting taxonomy markers like "ASI01", "STRIDE:T",

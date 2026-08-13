@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
-"""ASI08 — Supply Chain.
+"""ASI04 — Agentic Supply Chain Compromise.
 
 Audits:
 - Pinned vs floating versions in requirements/package.json
@@ -70,7 +70,7 @@ def _audit_requirements(path: Path, target: str) -> list[AgenticFinding]:
     if floating > 0:
         out.append(
             AgenticFinding(
-                asi=AsiCategory.ASI08,
+                asi=AsiCategory.SUPPLY_CHAIN,
                 severity="MEDIUM",
                 title=f"{floating}/{total} requirements without exact version pin",
                 detail="Floating versions admit transitive supply-chain attacks",
@@ -86,7 +86,7 @@ def _audit_requirements(path: Path, target: str) -> list[AgenticFinding]:
     if git_direct > 0:
         out.append(
             AgenticFinding(
-                asi=AsiCategory.ASI08,
+                asi=AsiCategory.SUPPLY_CHAIN,
                 severity="HIGH",
                 title=f"{git_direct} direct git/editable installs in requirements",
                 detail=("Unauthenticated git pulls bypass PyPI metadata + hash checks"),
@@ -173,7 +173,7 @@ def _audit_package_json(path: Path, target: str) -> list[AgenticFinding]:
     if floating > 0:
         out.append(
             AgenticFinding(
-                asi=AsiCategory.ASI08,
+                asi=AsiCategory.SUPPLY_CHAIN,
                 severity="MEDIUM",
                 title=f"{floating}/{len(deps)} npm deps use floating versions",
                 detail=(
@@ -195,7 +195,7 @@ def _audit_package_json(path: Path, target: str) -> list[AgenticFinding]:
     if not has_lock:
         out.append(
             AgenticFinding(
-                asi=AsiCategory.ASI08,
+                asi=AsiCategory.SUPPLY_CHAIN,
                 severity="HIGH",
                 title="No lockfile present alongside package.json",
                 detail=("Without a lockfile, builds are non-deterministic and vulnerable to dep-confusion"),
@@ -216,7 +216,7 @@ def _audit_mcp_names(names: list[str], target: str) -> list[AgenticFinding]:
             if _levenshtein(n, known) == 1:
                 out.append(
                     AgenticFinding(
-                        asi=AsiCategory.ASI08,
+                        asi=AsiCategory.SUPPLY_CHAIN,
                         severity="CRITICAL",
                         title=f"Possible MCP-server typosquat: '{n}' vs '{known}'",
                         detail=("Single-character difference from a well-known server name — verify provenance"),

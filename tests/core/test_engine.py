@@ -150,7 +150,7 @@ def test_engine_by_severity_filters() -> None:
 
 def test_from_agentic_maps_module_and_tags() -> None:
     af = AgenticFinding(
-        asi=AsiCategory.ASI02,
+        asi=AsiCategory.TOOL_MISUSE,
         severity="HIGH",
         title="t",
         detail="d",
@@ -158,7 +158,7 @@ def test_from_agentic_maps_module_and_tags() -> None:
         cwe="CWE-78",
     )
     uf = from_agentic(af)
-    assert uf.module == "agentic.asi02"
+    assert uf.module == "agentic.tool_misuse"
     assert "ASI02_Tool_Misuse" in uf.tags
     assert "CWE-78" in uf.tags
     assert uf.severity == Severity.HIGH
@@ -220,7 +220,7 @@ def test_to_sev_falls_back_to_info() -> None:
 
 def test_from_mcp_check_drift_taxonomy() -> None:
     f = from_mcp_check({"check": "tool_rug_pull", "severity": "HIGH", "detail": "x changed"}, "stdio://srv")
-    assert f.tags == ["tool_rug_pull", "ASI08_Supply_Chain", "CWE-494", "STRIDE_Tampering", "AML.T0110"]
+    assert f.tags == ["tool_rug_pull", "ASI04_Supply_Chain", "CWE-494", "STRIDE_Tampering", "AML.T0110"]
     g = from_mcp_check({"check": "tool_shadowing", "severity": "HIGH", "detail": "dup"}, "stdio://srv")
     assert "ASI02_Tool_Misuse" in g.tags and "STRIDE_Spoofing" in g.tags and "AML.T0110" in g.tags
     # non-security drift checks carry only their own category tag
@@ -241,7 +241,7 @@ def test_from_mcp_check_injection_taxonomy() -> None:
 
 def test_from_agentic_maps_atlas_technique() -> None:
     af = AgenticFinding(
-        asi=AsiCategory.ASI04,
+        asi=AsiCategory.MEMORY_POISONING,
         severity="HIGH",
         title="memory poisoning",
         detail="persisted instruction",
@@ -249,7 +249,7 @@ def test_from_agentic_maps_atlas_technique() -> None:
     )
     assert "AML.T0080" in from_agentic(af).tags
     # an ASI without a clean ATLAS match carries no AML tag
-    af2 = AgenticFinding(asi=AsiCategory.ASI06, severity="LOW", title="t", detail="d", target="x")
+    af2 = AgenticFinding(asi=AsiCategory.UNTRACEABLE_ACTIONS, severity="LOW", title="t", detail="d", target="x")
     assert not any(t.startswith("AML.") for t in from_agentic(af2).tags)
 
 
@@ -266,7 +266,7 @@ def test_from_propagation_finding_maps_module_and_severity() -> None:
     assert uf.module == "abfp.propagation"
     assert uf.severity == Severity.CRITICAL
     assert uf.target == "mesh://lab"
-    assert "ASI05_Cascading_Failure" in uf.tags
+    assert "ASI08_Cascading_Failure" in uf.tags
     assert uf.evidence["contaminated_agent"] == "planner"
     assert uf.evidence["origin"] == "ingest"
     assert uf.evidence["depth"] == 2

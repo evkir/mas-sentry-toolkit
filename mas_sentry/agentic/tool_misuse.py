@@ -54,7 +54,7 @@ def audit_tool_inventory(tools: list[ToolInventoryEntry], target: str) -> list[A
         if _has_kw(haystack, DESTRUCTIVE_KEYWORDS) and not t.requires_confirmation:
             findings.append(
                 AgenticFinding(
-                    asi=AsiCategory.ASI02,
+                    asi=AsiCategory.TOOL_MISUSE,
                     severity="HIGH",
                     title=f"Destructive tool without confirmation gate: {t.name}",
                     detail=("Tool can cause irreversible damage but does not require user confirmation"),
@@ -70,7 +70,7 @@ def audit_tool_inventory(tools: list[ToolInventoryEntry], target: str) -> list[A
     if has_destructive and has_network:
         findings.append(
             AgenticFinding(
-                asi=AsiCategory.ASI02,
+                asi=AsiCategory.TOOL_MISUSE,
                 severity="MEDIUM",
                 title="Agent grants destructive + network primitives simultaneously",
                 detail=("Combination enables data-wipe + exfiltration in a single agent context"),
@@ -87,7 +87,7 @@ def audit_tool_inventory(tools: list[ToolInventoryEntry], target: str) -> list[A
         if _has_kw(t.name, SHELL_KEYWORDS):
             findings.append(
                 AgenticFinding(
-                    asi=AsiCategory.ASI02,
+                    asi=AsiCategory.TOOL_MISUSE,
                     severity="HIGH",
                     title=f"Shell-passing tool present: {t.name}",
                     detail=("Tool name implies arbitrary command execution; argument injection likely"),
@@ -103,7 +103,7 @@ def audit_tool_inventory(tools: list[ToolInventoryEntry], target: str) -> list[A
         if _has_kw(haystack, ADMIN_KEYWORDS):
             findings.append(
                 AgenticFinding(
-                    asi=AsiCategory.ASI02,
+                    asi=AsiCategory.TOOL_MISUSE,
                     severity="MEDIUM",
                     title=f"Admin-class tool exposed: {t.name}",
                     detail=("Tool advertises privileged operation; verify scoping and approval flow"),

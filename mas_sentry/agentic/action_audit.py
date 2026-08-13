@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
-"""ASI06 — Untraceable Actions.
+"""Untraceable Actions (MST-only category).
 
 Checks a sample of tool-call records and reports missing-trace coverage.
 A "record" is a dict with at least: tool, timestamp, optional
@@ -41,7 +41,7 @@ def audit_action_log(records: list[dict[str, Any]], target: str) -> list[Agentic
         severity = "HIGH" if trace_ratio < TRACE_COVERAGE_HIGH_SEV_BELOW else "MEDIUM"
         findings.append(
             AgenticFinding(
-                asi=AsiCategory.ASI06,
+                asi=AsiCategory.UNTRACEABLE_ACTIONS,
                 severity=severity,
                 title=f"Trace coverage = {trace_ratio:.0%}",
                 detail=(f"{stats.total - stats.with_trace} of {stats.total} tool calls have no trace ID"),
@@ -55,7 +55,7 @@ def audit_action_log(records: list[dict[str, Any]], target: str) -> list[Agentic
     if attrib_ratio < ATTRIB_COVERAGE_MIN:
         findings.append(
             AgenticFinding(
-                asi=AsiCategory.ASI06,
+                asi=AsiCategory.UNTRACEABLE_ACTIONS,
                 severity="HIGH",
                 title=f"User attribution coverage = {attrib_ratio:.0%}",
                 detail=(f"{stats.total - stats.with_user_attribution} actions lack actor/user attribution"),

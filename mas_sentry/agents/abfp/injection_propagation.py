@@ -221,7 +221,7 @@ def has_propagation(graph: nx.DiGraph) -> bool:
 # does not stay local, it rides legitimate inter-agent messaging downstream.
 _TRANSITIVE_TAGS: tuple[str, ...] = (
     "ASI01_Goal_Hijack",
-    "ASI05_Cascading_Failure",
+    "ASI08_Cascading_Failure",
     "CWE-1427",
     "STRIDE_Tampering",
     "AML.T0051",

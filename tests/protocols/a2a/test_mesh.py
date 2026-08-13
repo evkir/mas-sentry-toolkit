@@ -211,7 +211,7 @@ def test_two_cycle_is_high() -> None:
     assert f.evidence["cycle"] == ["A", "B"]
     assert f.evidence["length"] == 2
     assert "CWE-674" in f.tags
-    assert "ASI07_Resource_Exhaustion" in f.tags
+    assert "MST_Resource_Exhaustion" in f.tags
 
 
 def test_self_loop_is_medium() -> None:

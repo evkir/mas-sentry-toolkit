@@ -94,7 +94,7 @@ def test_audit_token_empty_string_returns_empty_list() -> None:
     assert audit_token("", target="lab") == []
 
 
-# ─────────────── ASI04 — memory poisoning ───────────────
+# ─────────────── ASI06 — memory poisoning ───────────────
 
 
 def test_memory_drift_detected_after_two_consecutive_misses() -> None:
@@ -107,7 +107,7 @@ def test_memory_drift_detected_after_two_consecutive_misses() -> None:
     findings = evaluate_drift(res, target="agent.lab")
     assert findings
     assert findings[0].severity == "HIGH"
-    assert findings[0].asi == AsiCategory.ASI04
+    assert findings[0].asi == AsiCategory.MEMORY_POISONING
     assert findings[0].cwe == "CWE-345"
 
 
@@ -144,8 +144,8 @@ def test_pipeline_runs_all_modules_when_selected_is_none() -> None:
     }
     findings = default_pipeline().run(None, ctx)
     asis = {f.asi.name for f in findings}
-    assert "ASI02" in asis
-    assert "ASI03" in asis
+    assert "TOOL_MISUSE" in asis
+    assert "IDENTITY_ABUSE" in asis
 
 
 def test_pipeline_filters_by_selected_names() -> None:
@@ -153,9 +153,9 @@ def test_pipeline_filters_by_selected_names() -> None:
         "target": "lab",
         "tools": [ToolInventoryEntry(name="exec_cmd")],
     }
-    findings = default_pipeline().run(["asi02_tool_misuse"], ctx)
+    findings = default_pipeline().run(["tool_misuse"], ctx)
     assert findings
-    assert all(f.asi.name == "ASI02" for f in findings)
+    assert all(f.asi.name == "TOOL_MISUSE" for f in findings)
 
 
 def test_pipeline_unknown_module_silently_skipped() -> None:

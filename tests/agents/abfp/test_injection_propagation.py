@@ -132,7 +132,7 @@ def test_directive_single_hop_is_high() -> None:
     assert f.tier == "directive"
     assert f.severity == Severity.HIGH
     assert f.chain == ["A", "B"]
-    assert "ASI05_Cascading_Failure" in f.tags
+    assert "ASI08_Cascading_Failure" in f.tags
 
 
 def test_multi_hop_escalates_to_critical() -> None:

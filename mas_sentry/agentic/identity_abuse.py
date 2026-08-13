@@ -59,7 +59,7 @@ def audit_token(token: str, target: str) -> list[AgenticFinding]:
     if insight.delegation_depth >= 3:
         findings.append(
             AgenticFinding(
-                asi=AsiCategory.ASI03,
+                asi=AsiCategory.IDENTITY_ABUSE,
                 severity="MEDIUM",
                 title=f"Delegation chain depth = {insight.delegation_depth}",
                 detail=("Long delegation chains weaken audit and increase impersonation surface"),
@@ -73,7 +73,7 @@ def audit_token(token: str, target: str) -> list[AgenticFinding]:
     if insight.lifetime_seconds > 3600 and _looks_like_agent(insight.claims):
         findings.append(
             AgenticFinding(
-                asi=AsiCategory.ASI03,
+                asi=AsiCategory.IDENTITY_ABUSE,
                 severity="HIGH",
                 title=f"Agent token lifetime = {insight.lifetime_seconds}s (> 1h)",
                 detail=("Long-lived agent tokens enable replay if compromised; prefer short TTL + rotation"),
@@ -90,7 +90,7 @@ def audit_token(token: str, target: str) -> list[AgenticFinding]:
     if insight.claims.get("email_verified") is not None and _looks_like_agent(insight.claims):
         findings.append(
             AgenticFinding(
-                asi=AsiCategory.ASI03,
+                asi=AsiCategory.IDENTITY_ABUSE,
                 severity="MEDIUM",
                 title="Agent token carries human-identity claims",
                 detail=("Token mixes machine and human claim sets — audit attribution will be ambiguous"),

@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
-"""ASI05 — Cascading Failure detection.
+"""ASI08 — Cascading Failure detection.
 
 Given a multi-agent call graph, detect:
 - Cycles (agent A → B → A) without circuit-breakers
@@ -46,7 +46,7 @@ def audit_call_graph(edges: list[AgentEdge], target: str) -> list[AgenticFinding
         if not any(breakers):
             findings.append(
                 AgenticFinding(
-                    asi=AsiCategory.ASI05,
+                    asi=AsiCategory.CASCADING_FAILURE,
                     severity="HIGH",
                     title=f"Agent call cycle without circuit breaker: {' → '.join(cycle)}",
                     detail=("Cycle can amplify failures and exhaust budget without recovery"),
@@ -62,7 +62,7 @@ def audit_call_graph(edges: list[AgentEdge], target: str) -> list[AgenticFinding
         if indeg >= HIGH_IN_DEGREE_THRESHOLD:
             findings.append(
                 AgenticFinding(
-                    asi=AsiCategory.ASI05,
+                    asi=AsiCategory.CASCADING_FAILURE,
                     severity="MEDIUM",
                     title=f"Single point of failure: '{node}' (in-degree {indeg})",
                     detail=("High fan-in concentrates risk; one failure cascades to many callers"),
@@ -76,7 +76,7 @@ def audit_call_graph(edges: list[AgentEdge], target: str) -> list[AgenticFinding
     if len(no_budget) >= RETRY_BUDGET_MIN_EDGES:
         findings.append(
             AgenticFinding(
-                asi=AsiCategory.ASI05,
+                asi=AsiCategory.CASCADING_FAILURE,
                 severity="LOW",
                 title=f"{len(no_budget)} agent edges lack retry-budget config",
                 detail=("Without retry budgets, transient errors can trigger runaway loops"),

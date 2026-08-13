@@ -31,12 +31,12 @@ def _sample() -> list[Finding]:
             tags=["ASI10_Rogue_Agent"],
         ),
         Finding(
-            module="agentic.asi08",
+            module="agentic.supply_chain",
             title="Floating deps",
             detail="requirements not pinned",
             severity=Severity.MEDIUM,
             target="lab",
-            tags=["ASI08_Supply_Chain"],
+            tags=["ASI04_Supply_Chain"],
         ),
     ]
 
