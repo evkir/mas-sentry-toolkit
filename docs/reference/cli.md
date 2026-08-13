@@ -30,7 +30,8 @@ Passive ABFP collection, fingerprint build, scoring, and HTML report.
                             [--requirements requirements.txt]
                             [--out reports/agentic.json]
 
-Static agentic scans across registered modules (ASI02/03/05/06/08/09).
+Static agentic scans across registered modules (tool misuse, identity abuse,
+supply chain, cascade, action audit, trust exploitation).
 
 ## mas-sentry report convert
 

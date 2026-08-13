@@ -104,6 +104,6 @@ The signal belongs to the relationship, not to either agent alone, so folding it
 into one agent's anomaly score would misattribute it. `observed` and `null_mean`
 ship alongside `z` so the reader can judge the effect rather than trust a label.
 
-Taxonomy: CWE-514 (covert channel) / STRIDE Information Disclosure / ASI06.
+Taxonomy: CWE-514 (covert channel) / STRIDE Information Disclosure / ASI07.
 No ATLAS technique is asserted - no clean match exists for a timing side channel
 between agents.

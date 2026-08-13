@@ -123,13 +123,19 @@ reach, then use `evidence` to reproduce before you report anything onward.
 | ASI01 | Agent Goal Hijack | `agentic/goal_hijack.py` |
 | ASI02 | Tool Misuse & Exploitation | `agentic/tool_misuse.py` |
 | ASI03 | Identity & Privilege Abuse | `agentic/identity_abuse.py` |
-| ASI04 | Memory Poisoning | `agentic/memory_poisoning.py` |
-| ASI05 | Cascading Failure | `agentic/cascade.py` |
-| ASI06 | Untraceable Actions | `agentic/action_audit.py` |
-| ASI07 | Resource Exhaustion | `agentic/resource_exhaustion.py` |
-| ASI08 | Supply Chain | `agentic/supply_chain.py` |
-| ASI09 | Human-Agent Trust Exploit | `agentic/trust_exploit.py` |
-| ASI10 | Rogue Agent | `agentic/rogue_agent.py` (ties to ABFP) |
+| ASI04 | Agentic Supply Chain | `agentic/supply_chain.py` |
+| ASI05 | Unexpected Code Execution | MCP `stdio_rce` check |
+| ASI06 | Memory & Context Poisoning | `agentic/memory_poisoning.py` |
+| ASI07 | Insecure Inter-Agent Communication | ABFP `coordination`, A2A `mesh` |
+| ASI08 | Cascading Failures | `agentic/cascade.py` |
+| ASI09 | Human-Agent Trust Exploitation | `agentic/trust_exploit.py` |
+| ASI10 | Rogue Agents | `agentic/rogue_agent.py` (ties to ABFP) |
+
+Two detectors sit outside the published list, which dropped both categories
+between draft and release. They are tagged `MST_Untraceable_Actions`
+(`agentic/action_audit.py`) and `MST_Resource_Exhaustion`
+(`agentic/resource_exhaustion.py`) rather than taking a number that now
+means something else.
 
 Full mapping in [THREAT_MODEL.md](THREAT_MODEL.md).
 

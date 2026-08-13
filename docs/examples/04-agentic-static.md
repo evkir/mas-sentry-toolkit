@@ -8,7 +8,7 @@ files you already have - no live transport required.
 ## Run
 
 Audit a tool inventory (ASI02) and a JWT (ASI03), plus the dependency
-supply chain (ASI08):
+supply chain (ASI04):
 
 ```bash
 mas-sentry agentic scan \
@@ -30,16 +30,16 @@ mas-sentry agentic scan \
 | ASI                | Severity | Title                                        |
 |--------------------|----------|----------------------------------------------|
 | ASI02_Tool_Misuse  | HIGH     | Shell-passing tool present: exec_cmd         |
-| ASI08_Supply_Chain | MEDIUM   | 12/12 requirements without exact version pin |
+| ASI04_Supply_Chain | MEDIUM   | 12/12 requirements without exact version pin |
 ```
 
 ## Interpretation
 
 Only the modules whose inputs you supply will run - pass `--tools-file` for
-ASI02, `--token` for ASI03, `--requirements` for ASI08. ASI03 stays silent
+ASI02, `--token` for ASI03, `--requirements` for ASI04. ASI03 stays silent
 on a benign token; it fires on risky ones (long-lived agent JWTs, deep
 delegation chains). The live probes
-(ASI01 goal hijack, ASI04 memory poisoning, ASI07 resource exhaustion) need a
+(ASI01 goal hijack, ASI06 memory poisoning, and resource exhaustion) need a
 transport and are driven separately.
 
 ## Next step

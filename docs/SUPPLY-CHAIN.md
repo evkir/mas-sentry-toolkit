@@ -56,7 +56,7 @@ disclosed CVEs in unchanged dependencies):
   lock is complete and untampered.
 - **CVE audit** - `pip-audit` against the lock; fails on any known
   vulnerability in a pinned dependency.
-- **Self-audit (ASI08)** - the toolkit scans its own lock file for supply-chain
+- **Self-audit (ASI04)** - the toolkit scans its own lock file for supply-chain
   weakness and fails the build on any finding (see below).
 - **Dependency review** - on pull requests, flags newly introduced
   dependencies at `high` severity or above before merge.
@@ -65,9 +65,9 @@ This is distinct from the `Security scan` job in `ci.yml`, which runs Bandit
 SAST over first-party source. Supply-chain verification covers the external
 dependency surface; Bandit covers the code we write.
 
-## Self-audit (dogfooding ASI08)
+## Self-audit (dogfooding ASI04)
 
-MAS-Sentry implements OWASP Agentic Top 10 **ASI08 (Supply Chain)** as a
+MAS-Sentry implements OWASP Agentic Top 10 **ASI04 (Agentic Supply Chain)** as a
 scanner. CI points that scanner at the toolkit's own lock file:
 
 ```bash
@@ -77,7 +77,7 @@ mas-sentry agentic scan --target self-audit \
 ```
 
 A hash-pinned lock yields zero findings. If the lock ever regresses to floating
-versions, the scanner reports `ASI08_Supply_Chain` and the build fails. The
+versions, the scanner reports `ASI04_Supply_Chain` and the build fails. The
 product is its own regression test, and the run demonstrates the scanner on a
 real target.
 

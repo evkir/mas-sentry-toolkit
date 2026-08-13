@@ -70,8 +70,8 @@ agent's unrelated topology dimensions. The ladder:
 
 An origin agent carries no propagation finding - it is already flagged by the
 per-agent `injection` dimension as an emitter. Every non-origin agent on a
-chain gets a finding tagged `ASI01_Goal_Hijack`, `ASI05_Cascading_Failure`,
-`CWE-1427`, `STRIDE_Tampering`, and `AML.T0051`. ASI05 is what separates a
+chain gets a finding tagged `ASI01_Goal_Hijack`, `ASI08_Cascading_Failure`,
+`CWE-1427`, `STRIDE_Tampering`, and `AML.T0051`. ASI08 is what separates a
 propagated directive from a merely-emitted one.
 
 ---

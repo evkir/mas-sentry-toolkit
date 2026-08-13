@@ -29,6 +29,27 @@
   verified in both directions against live servers: the reference SDK rejects all
   four with -32020, a deliberately permissive server is reported HIGH on all four.
 
+### Changed
+- **Breaking.** ASI category numbers now follow the OWASP Top 10 for Agentic
+  Applications published on 9 December 2025. MST carried a pre-release
+  ordering, so four numbers named the wrong category: supply chain moves from
+  ASI08 to ASI04, memory poisoning from ASI04 to ASI06, cascading failure from
+  ASI05 to ASI08, and inter-agent communication from ASI06 to ASI07. These are
+  SARIF tags, so an operator filtering GitHub code scanning on ASI04 for
+  supply-chain risk was served memory poisoning. Untraceable actions and
+  resource exhaustion were dropped from the list between draft and release;
+  they are now tagged `MST_Untraceable_Actions` and `MST_Resource_Exhaustion`
+  rather than occupying a number that means something else. Reports produced
+  before this release cannot be compared by ASI number with reports produced
+  after it.
+- **Breaking.** The agentic pipeline selectors lost their numeric prefix:
+  `asi08_supply_chain` is now `supply_chain`, `asi05_cascade` is `cascade`,
+  and so on. `mas-sentry agentic scan --asi` still accepts a number, but it is
+  resolved through the category values rather than matched as a substring of
+  the module name, so `--asi asi04` selects supply chain. Finding module ids
+  changed with them (`agentic.asi08` is now `agentic.supply_chain`), which
+  also keeps the two MST_-prefixed categories from collapsing onto one id.
+
 ### Fixed
 - MQTT broker auditing as a command (`mas-sentry mqtt scan`). The MQTT probes
   predate the pivot and had never been reachable from the product: nothing in

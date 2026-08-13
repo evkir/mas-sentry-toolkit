@@ -54,7 +54,7 @@ the rest:
 
 - **SARIF** emits a dedicated `abfp.propagation` rule. Its GitHub
   security-severity is band-anchored on the chain severity (a CRITICAL
-  contamination lands in the 9.0-10.0 band), and the ASI05 Cascading Failure
+  contamination lands in the 9.0-10.0 band), and the ASI08 Cascading Failure
   taxonomy plus the onward blast radius travel in the result properties, so
   code-scanning ranks a multi-hop relay above an isolated anomaly.
 - **HTML** renders a distinct contamination-chain block - the path

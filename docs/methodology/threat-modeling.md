@@ -59,8 +59,10 @@ and be less true.
 | **Denial of service** | Message floods, unbounded tool output, resource exhaustion | ABFP burst scoring, `agentic/resource_exhaustion.py` |
 | **Elevation of privilege** | Topic ACL bypass, delegation-mesh escalation, unauthorized task cancel | A2A mesh audit, A2A probes |
 
-**Repudiation has no detector.** ASI06 (Untraceable Actions) is covered
-statically in `agentic/action_audit.py`, but no protocol scan currently
+**Repudiation has no detector.** Untraceable actions are covered
+statically in `agentic/action_audit.py` under the MST-only
+`MST_Untraceable_Actions` tag - the published 2026 list has no category for
+them - but no protocol scan currently
 establishes whether an agent actions are attributable on the wire. The row is
 kept in this table because the category is real; claiming coverage for it would
 not be.

@@ -47,7 +47,7 @@ SARIF ranks it and cross-taxonomy filters see it:
 | Finding                     | Severity | ASI  | CWE      | STRIDE               |
 |-----------------------------|----------|------|----------|----------------------|
 | No / `none` authentication  | HIGH     | ASI03 | CWE-306  | Spoofing             |
-| Streaming without limits    | MEDIUM   | ASI07 | CWE-400  | Denial of Service    |
+| Streaming without limits    | MEDIUM   | MST  | CWE-400  | Denial of Service    |
 | Unsigned push callbacks     | MEDIUM   | ASI03 | CWE-345  | Spoofing             |
 | Excessive skill surface     | LOW      | ASI02 | CWE-272  | Elevation of Privilege |
 | Cleartext transport         | MEDIUM   | -    | CWE-319  | Tampering            |
@@ -137,7 +137,7 @@ delegation graph is built with scopes carried per node.
 | Detector                         | Flags                                                     | Severity                      | ASI   | CWE     | STRIDE                 |
 |----------------------------------|-----------------------------------------------------------|-------------------------------|-------|---------|------------------------|
 | Cross-agent privilege escalation | A delegate advertising OAuth2 scopes its delegator lacks   | HIGH / CRITICAL (depth >= 2)  | ASI03 | CWE-269 | Elevation of Privilege |
-| Recursive re-delegation          | A cycle in the delegation graph (unbounded re-delegation)  | HIGH / MEDIUM (self-loop)     | ASI07 | CWE-674 | Denial of Service      |
+| Recursive re-delegation          | A cycle in the delegation graph (unbounded re-delegation)  | HIGH / MEDIUM (self-loop)     | MST   | CWE-674 | Denial of Service      |
 
 **Privilege attenuation.** Every delegation hop must carry equal or lesser
 authority than the hop before it; no agent should delegate to a peer holding
