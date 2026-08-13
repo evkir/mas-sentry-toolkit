@@ -33,6 +33,10 @@ class StdioRceFinding:
 @dataclass(slots=True)
 class StdioConfigAuditor:
     findings: list[StdioRceFinding] = field(default_factory=list)
+    # Counted so a caller can tell "the tree is clean" from "the path matched
+    # no source at all". Both produce an empty finding list, and only one of
+    # them is evidence of anything.
+    scanned_files: int = 0
 
     def scan_path(self, path: str | Path) -> list[StdioRceFinding]:
         p = Path(path)
@@ -49,6 +53,7 @@ class StdioConfigAuditor:
             text = f.read_text(encoding="utf-8", errors="replace")
         except OSError:
             return
+        self.scanned_files += 1
         for i, line in enumerate(text.splitlines(), start=1):
             for pat in _SUSPECT_PATTERNS:
                 if pat.search(line):

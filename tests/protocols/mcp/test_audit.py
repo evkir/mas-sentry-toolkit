@@ -1,4 +1,5 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
+import json
 from pathlib import Path
 
 from mas_sentry.protocols.mcp.audit.config_inject import probe_via_config_field
@@ -88,3 +89,52 @@ def test_scan_tool_definitions_inspects_param_descriptions():
     ]
     findings = scan_tool_definitions(tools)
     assert "weather" in findings
+
+
+# ---- stdio_rce: reachable from the CLI ------------------------------------
+
+
+def test_source_audit_emits_a_row_that_report_convert_can_carry(tmp_path: Path) -> None:
+    """The auditor had unit coverage and no caller; the row is the product."""
+    from mas_sentry.core.adapters import from_mcp_check
+    from mas_sentry.protocols.mcp.runtime import run_stdio_source_audit
+
+    src = tmp_path / "src"
+    src.mkdir()
+    (src / "server.py").write_text("subprocess.run(cmd, shell=True)\n")
+    out = tmp_path / "nested" / "source.json"
+
+    rows = run_stdio_source_audit(path=src, target_label="lab", out=out)
+
+    assert [r["check"] for r in rows] == ["stdio_rce"]
+    assert rows[0]["severity"] == "HIGH"
+    assert rows[0]["line"] == 1
+    assert json.loads(out.read_text()) == rows
+
+    finding = from_mcp_check(rows[0], "lab")
+    assert "ASI05_Unexpected_Code_Execution" in finding.tags
+    assert "CWE-78" in finding.tags
+    assert finding.evidence["file"].endswith("server.py")
+
+
+def test_source_audit_reports_a_path_it_could_not_read(tmp_path: Path) -> None:
+    """An empty tree and a clean tree are the same empty list; say which."""
+    from mas_sentry.protocols.mcp.runtime import run_stdio_source_audit
+
+    empty = tmp_path / "empty"
+    empty.mkdir()
+    rows = run_stdio_source_audit(path=empty, target_label="lab", out=tmp_path / "source.json")
+
+    assert [r["check"] for r in rows] == ["enumeration_gap"]
+    assert rows[0]["severity"] == "INFO"
+
+
+def test_source_audit_stays_silent_on_a_clean_tree(tmp_path: Path) -> None:
+    from mas_sentry.protocols.mcp.runtime import run_stdio_source_audit
+
+    src = tmp_path / "src"
+    src.mkdir()
+    (src / "server.py").write_text("subprocess.run([cmd], shell=False)\n")
+    rows = run_stdio_source_audit(path=src, target_label="lab", out=tmp_path / "source.json")
+
+    assert rows == []

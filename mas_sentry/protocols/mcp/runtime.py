@@ -15,6 +15,7 @@ from .audit.header_desync import probe_header_desync
 from .audit.path_traversal import probe_arg_injection, probe_path_traversal
 from .audit.resource_content import audit_resource_content, audit_resource_templates
 from .audit.ssrf import probe_ssrf
+from .audit.stdio_rce import StdioConfigAuditor
 from .audit.tool_drift import detect_tool_drift
 from .audit.tool_mutation import detect_tool_mutation, notification_mark, snapshot_tools
 from .audit.tool_poisoning import detect_tool_poisoning
@@ -64,6 +65,55 @@ def run_mcp_scan(
     out.write_text(json.dumps(findings, indent=2, default=str))
     audit_write({"action": "mcp_scan_done", "target": target_label, "findings": len(findings)})
     return findings
+
+
+def run_stdio_source_audit(path: Path, target_label: str, out: Path) -> list[dict[str, Any]]:
+    """Audit an MCP server's own source for the STDIO command-injection class.
+
+    This is the only MCP check that reads source rather than the wire, because
+    the weakness lives in how the server builds `StdioServerParameters.command`
+    - by the time a live scan can talk to it, the vulnerable path has already
+    been compiled in. The auditor existed with unit coverage and no caller, so
+    the class it detects was unreachable from the product; this is the entry
+    point that fixes that.
+
+    A path matching no source emits an enumeration_gap row rather than an
+    empty report, because "clean" and "nothing was read" are the same empty
+    list and only one of them is a result.
+    """
+    audit_write({"action": "mcp_source_audit_start", "target": target_label})
+    auditor = StdioConfigAuditor()
+    hits = auditor.scan_path(path)
+    rows: list[dict[str, Any]] = [
+        {
+            "check": "stdio_rce",
+            "severity": "HIGH",
+            "detail": f"{hit.file}:{hit.line}: {hit.snippet}",
+            "file": hit.file,
+            "line": hit.line,
+            "pattern": hit.pattern,
+        }
+        for hit in hits
+    ]
+    if auditor.scanned_files == 0:
+        rows.append(
+            {
+                "check": "enumeration_gap",
+                "severity": "INFO",
+                "detail": f"No .py/.ts/.js source read under {path} - the audit covered nothing",
+            }
+        )
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(json.dumps(rows, indent=2, default=str))
+    audit_write(
+        {
+            "action": "mcp_source_audit_done",
+            "target": target_label,
+            "files": auditor.scanned_files,
+            "findings": len(hits),
+        }
+    )
+    return rows
 
 
 def _desync_rows(client: McpClient) -> list[dict[str, Any]]:

@@ -308,6 +308,7 @@ def test_every_security_meaningful_mcp_check_carries_a_weakness_class() -> None:
         "resource_content",
         "resource_template",
         "ssrf",
+        "stdio_rce",
         "tool_poisoning",
     }
     for check in emitted:

@@ -72,3 +72,27 @@ def mcp_scan(
     for f in findings:
         table.add_row(f["check"], f["severity"], f["detail"][:80])
     console.print(table)
+
+
+@app.command("audit-source")
+def mcp_audit_source(
+    path: Path = typer.Option(..., "--path", "-p", help="Directory or file holding the MCP server source"),
+    out: Path = typer.Option(Path("reports/mcp-source.json"), "--out", "-o"),
+) -> None:
+    """Audit MCP server source for the STDIO command-injection class.
+
+    Reads source rather than the wire: the weakness is in how the server
+    builds its stdio command, which a live scan cannot observe.
+    """
+    from mas_sentry.protocols.mcp.runtime import run_stdio_source_audit
+
+    if not path.exists():
+        raise typer.BadParameter(f"No such path: {path}")
+    rows = run_stdio_source_audit(path=path, target_label=str(path), out=out)
+    table = Table(title=f"MCP source audit - {path}")
+    table.add_column("Check")
+    table.add_column("Severity")
+    table.add_column("Detail")
+    for row in rows:
+        table.add_row(row["check"], row["severity"], row["detail"][:80])
+    console.print(table)

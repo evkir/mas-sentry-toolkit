@@ -91,6 +91,10 @@ _MCP_CHECK_TAGS = {
     # A known-vulnerable server implementation is inherited risk, so it maps to
     # the supply-chain lens rather than to anything the operator wrote.
     "known_cve": ["ASI04_Supply_Chain", "CWE-1395"],
+    # User-controlled data reaching the stdio command line is OS command
+    # injection, and the agentic consequence is code the operator never
+    # authorised running on the server host.
+    "stdio_rce": ["ASI05_Unexpected_Code_Execution", "CWE-78", "STRIDE_Elevation_Of_Privilege"],
 }
 # Deliberately absent from the table: fingerprint, enumeration_gap and
 # input_required. None of them asserts a weakness - they report what the scan
