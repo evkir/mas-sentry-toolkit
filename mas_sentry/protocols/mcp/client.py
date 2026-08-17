@@ -63,6 +63,14 @@ HEADER_MISMATCH = -32020
 # ordinary error loses the one fact that separates "the probe found nothing"
 # from "the probe never reached the tool".
 MISSING_REQUIRED_CLIENT_CAPABILITY = -32021
+# The 2025 line delivers URL mode as an error rather than as a result: the
+# server hands over the address it wants a browser sent to and stops. The
+# address is the finding, so an error read only for its code loses it.
+URL_ELICITATION_REQUIRED = -32042
+# The one input request that carries a consent surface. Sampling and roots ask
+# the client to act; only this one asks a human to go somewhere or type
+# something, which is what makes it worth auditing.
+ELICITATION_METHOD = "elicitation/create"
 DISCOVER_METHOD = "server/discover"
 
 # SEP-2322. On the 2026-07-28 route a server may answer tools/call, prompts/get
@@ -95,6 +103,9 @@ MAX_LIST_PAGES = 50
 # the scanner one truncated list rather than a walk it does not come back from.
 MAX_CAPABILITY_DEPTH = 4
 MAX_CAPABILITY_PATHS = 20
+# Same reasoning for the elicitation schema: the property list is the target's
+# to write, and only the first fields are worth carrying into a report.
+MAX_ELICITATION_FIELDS = 40
 
 
 def client_capabilities(is_modern: bool) -> dict[str, Any]:
@@ -221,6 +232,32 @@ class InputRequired:
 
 
 @dataclass(frozen=True, slots=True)
+class ElicitationRequest:
+    """One elicitation the server sent, kept as it arrived.
+
+    Recording that a call was suspended says a probe stopped; it does not say
+    what the server asked a human to do. That question is answered entirely by
+    the request parameters - the address a browser would be sent to in URL
+    mode, the properties a form would collect in form mode - and those are the
+    only part of the exchange an operator can act on. Reading the request for
+    its method alone and dropping its params keeps the fact of the suspension
+    and throws away its content.
+
+    Both routes land here. On 2026-07-28 the request arrives inside an
+    `input_required` result; on the 2025 line URL mode arrives as error -32042
+    instead. `elicitationId` is deliberately not read: it was removed from URL
+    mode in 2026-07-28, and a parser that needs it would stop working against
+    a current server for the sake of a value that identifies nothing to us.
+    """
+
+    method: str
+    mode: str
+    message: str
+    url: str
+    fields: tuple[tuple[str, str], ...]
+
+
+@dataclass(frozen=True, slots=True)
 class CapabilityGap:
     """One call the server refused because the client declared too little.
 
@@ -295,6 +332,8 @@ class McpClient:
         self.input_required: list[InputRequired] = []
         # Calls the server refused for want of a capability. See CapabilityGap.
         self.capability_gaps: list[CapabilityGap] = []
+        # Elicitations the server sent on either route. See ElicitationRequest.
+        self.elicitations: list[ElicitationRequest] = []
 
     def _record_issue(self, method: str, error: dict[str, Any] | None) -> None:
         """Remember a listing that failed, once per method."""
@@ -400,8 +439,12 @@ class McpClient:
                 if not isinstance(entry, dict):
                     continue
                 name = entry.get("method")
-                if isinstance(name, str) and name and name not in kinds:
+                if not isinstance(name, str) or not name:
+                    continue
+                if name not in kinds:
                     kinds.append(name)
+                if name == ELICITATION_METHOD:
+                    self._keep_elicitation(self._elicitation_of(method, entry.get("params")))
         record = InputRequired(
             method=method,
             kinds=tuple(sorted(kinds)),
@@ -445,6 +488,58 @@ class McpClient:
         if record not in self.capability_gaps:
             self.capability_gaps.append(record)
 
+    @staticmethod
+    def _elicitation_of(method: str, params: Any) -> ElicitationRequest | None:
+        """Parse one elicitation request's params, or None when unreadable.
+
+        The mode is taken from the wire when the server names it and inferred
+        from the shape when it does not: a 2025-line server predating modes
+        sends a schema and no `mode` at all, and treating that as unparseable
+        would drop the exact case where the client is oldest and the operator
+        least likely to be looking.
+        """
+        if not isinstance(params, dict):
+            return None
+        schema = params.get("requestedSchema")
+        url = params.get("url")
+        mode = params.get("mode")
+        if not isinstance(mode, str) or not mode:
+            mode = "form" if isinstance(schema, dict) else ("url" if isinstance(url, str) else "")
+        fields: list[tuple[str, str]] = []
+        properties = schema.get("properties") if isinstance(schema, dict) else None
+        if isinstance(properties, dict):
+            for key in sorted(properties, key=str)[:MAX_ELICITATION_FIELDS]:
+                spec = properties[key]
+                description = ""
+                if isinstance(spec, dict):
+                    description = str(spec.get("description") or spec.get("title") or "")[:200]
+                fields.append((str(key), description))
+        return ElicitationRequest(
+            method=method,
+            mode=mode,
+            message=str(params.get("message", ""))[:300],
+            url=url if isinstance(url, str) else "",
+            fields=tuple(fields),
+        )
+
+    def _keep_elicitation(self, request: ElicitationRequest | None) -> None:
+        if request is not None and request not in self.elicitations:
+            self.elicitations.append(request)
+
+    def _note_url_elicitation(self, method: str, resp: JsonRpcResponse) -> None:
+        """Record the addresses a -32042 refusal wants a browser sent to."""
+        if not resp.is_error:
+            return
+        error = resp.error or {}
+        if error.get("code") != URL_ELICITATION_REQUIRED:
+            return
+        data = error.get("data")
+        entries = data.get("elicitations") if isinstance(data, dict) else None
+        if not isinstance(entries, list):
+            return
+        for entry in entries[:MAX_ELICITATION_FIELDS]:
+            self._keep_elicitation(self._elicitation_of(method, entry))
+
     def send(self, method: str, params: dict[str, Any] | None = None) -> JsonRpcResponse:
         """Send one request on whichever route this client negotiated."""
         if self.is_modern:
@@ -452,6 +547,7 @@ class McpClient:
         resp = self.transport.send(JsonRpcCodec.request(method, params, req_id=self._id()))
         self._note_input_required(method, resp)
         self._note_capability_gap(method, resp)
+        self._note_url_elicitation(method, resp)
         return resp
 
     def connect(self) -> ServerInfo:
