@@ -57,6 +57,12 @@ UNSUPPORTED_PROTOCOL_VERSION = -32022
 # Headers disagreed with the body. We never provoke this by accident; a server
 # that does NOT return it when provoked is itself the finding.
 HEADER_MISMATCH = -32020
+# The server would have elicited, sampled or listed roots, and refused because
+# this client did not declare the capability. It names what it wanted in
+# `data.requiredCapabilities`. The call did not run: reading this as an
+# ordinary error loses the one fact that separates "the probe found nothing"
+# from "the probe never reached the tool".
+MISSING_REQUIRED_CLIENT_CAPABILITY = -32021
 DISCOVER_METHOD = "server/discover"
 
 # SEP-2322. On the 2026-07-28 route a server may answer tools/call, prompts/get
@@ -84,6 +90,11 @@ META_SERVER_INFO = "io.modelcontextprotocol/serverInfo"
 # A hostile server can hand back cursors forever. Every listing is bounded, and
 # hitting the bound is reported rather than silently accepted as a full result.
 MAX_LIST_PAGES = 50
+# The refusal payload is written by the target. Both bounds exist so that a
+# server answering with a deeply nested or very wide capability object costs
+# the scanner one truncated list rather than a walk it does not come back from.
+MAX_CAPABILITY_DEPTH = 4
+MAX_CAPABILITY_PATHS = 20
 
 
 def client_capabilities(is_modern: bool) -> dict[str, Any]:
@@ -210,6 +221,37 @@ class InputRequired:
 
 
 @dataclass(frozen=True, slots=True)
+class CapabilityGap:
+    """One call the server refused because the client declared too little.
+
+    The refusal arrives on the error path with a `requiredCapabilities`
+    payload naming what the server wanted, and it is emphatically not a
+    failure of the target: the server behaved correctly and said so. What it
+    means for the scan is that the tool behind that method was never reached,
+    so every probe aimed at it established nothing. Reported for the same
+    reason a suspended call is - the alternative is a report where an
+    unexercised surface is indistinguishable from a clean one.
+    """
+
+    method: str
+    capabilities: tuple[str, ...]
+    message: str
+
+    @property
+    def severity(self) -> str:
+        """Not a weakness in the target - a hole in what this scan can claim."""
+        return "MEDIUM"
+
+    @property
+    def detail(self) -> str:
+        wanted = ", ".join(self.capabilities) if self.capabilities else "no capability named"
+        return (
+            f"{self.method} was refused for a client capability this scanner does not "
+            f"offer ({wanted}): {self.message}. Probes against this method reached no result."
+        )
+
+
+@dataclass(frozen=True, slots=True)
 class ResourceTemplateDef:
     """A parameterised resource URI the server will expand on request.
 
@@ -251,6 +293,8 @@ class McpClient:
         self.discover_result: dict[str, Any] = {}
         # Calls the server suspended instead of answering. See InputRequired.
         self.input_required: list[InputRequired] = []
+        # Calls the server refused for want of a capability. See CapabilityGap.
+        self.capability_gaps: list[CapabilityGap] = []
 
     def _record_issue(self, method: str, error: dict[str, Any] | None) -> None:
         """Remember a listing that failed, once per method."""
@@ -366,12 +410,48 @@ class McpClient:
         if record not in self.input_required:
             self.input_required.append(record)
 
+    @staticmethod
+    def _capability_paths(payload: Any, prefix: str = "") -> list[str]:
+        """Flatten a capability object into dotted leaf paths, bounded.
+
+        `{"elicitation": {"form": {}}}` reads as `elicitation.form`, which is
+        the shape an operator can act on. The walk is bounded in depth and in
+        breadth because the payload comes from the target: an unbounded walk
+        over a hostile structure is a denial of service against the scanner.
+        """
+        if not isinstance(payload, dict) or not payload or prefix.count(".") >= MAX_CAPABILITY_DEPTH:
+            return [prefix] if prefix else []
+        out: list[str] = []
+        for key in sorted(str(k) for k in payload):
+            out.extend(McpClient._capability_paths(payload[key], f"{prefix}.{key}" if prefix else key))
+            if len(out) >= MAX_CAPABILITY_PATHS:
+                return out[:MAX_CAPABILITY_PATHS]
+        return out
+
+    def _note_capability_gap(self, method: str, resp: JsonRpcResponse) -> None:
+        """Record a call refused for a missing capability, once per distinct refusal."""
+        if not resp.is_error:
+            return
+        error = resp.error or {}
+        if error.get("code") != MISSING_REQUIRED_CLIENT_CAPABILITY:
+            return
+        data = error.get("data")
+        required = data.get("requiredCapabilities") if isinstance(data, dict) else None
+        record = CapabilityGap(
+            method=method,
+            capabilities=tuple(self._capability_paths(required)),
+            message=str(error.get("message", "no message"))[:200],
+        )
+        if record not in self.capability_gaps:
+            self.capability_gaps.append(record)
+
     def send(self, method: str, params: dict[str, Any] | None = None) -> JsonRpcResponse:
         """Send one request on whichever route this client negotiated."""
         if self.is_modern:
             params = self.envelope(params)
         resp = self.transport.send(JsonRpcCodec.request(method, params, req_id=self._id()))
         self._note_input_required(method, resp)
+        self._note_capability_gap(method, resp)
         return resp
 
     def connect(self) -> ServerInfo:

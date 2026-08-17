@@ -96,8 +96,8 @@ _MCP_CHECK_TAGS = {
     # authorised running on the server host.
     "stdio_rce": ["ASI05_Unexpected_Code_Execution", "CWE-78", "STRIDE_Elevation_Of_Privilege"],
 }
-# Deliberately absent from the table: fingerprint, enumeration_gap and
-# input_required. None of them asserts a weakness - they report what the scan
+# Deliberately absent from the table: fingerprint, enumeration_gap,
+# input_required and capability_required. None of them asserts a weakness - they report what the scan
 # saw and what it could not reach - so hanging a CWE on them would put
 # coverage notes into the same SARIF filters an operator uses to triage real
 # findings. Their bare check name is the whole tag list on purpose.

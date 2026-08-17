@@ -298,7 +298,7 @@ def test_every_security_meaningful_mcp_check_carries_a_weakness_class() -> None:
     """
     from mas_sentry.core.adapters import _MCP_CHECK_TAGS
 
-    coverage_notes = {"fingerprint", "enumeration_gap", "input_required"}
+    coverage_notes = {"fingerprint", "enumeration_gap", "input_required", "capability_required"}
     emitted = {
         "arg_injection",
         "dns_rebind",

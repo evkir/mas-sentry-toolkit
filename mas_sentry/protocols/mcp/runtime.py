@@ -256,6 +256,12 @@ def _run_all_checks(
     for suspended in client.input_required:
         out.append({"check": "input_required", "severity": suspended.severity, "detail": suspended.detail})
 
+    # Same class of hole, arriving on the error path instead: the server would
+    # have asked this client to act, found no declaration for it and refused.
+    # The tool behind that method was never reached.
+    for gap in client.capability_gaps:
+        out.append({"check": "capability_required", "severity": gap.severity, "detail": gap.detail})
+
     # Reported last, after every auditor has had its chance to list something.
     # A surface that refused to enumerate produced no findings for a reason
     # that is not "it was clean", and that distinction has to survive into the
