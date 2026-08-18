@@ -3,6 +3,55 @@
 ## [Unreleased]
 
 ### Added
+- MCP now audits the consent surface: `elicitation_url` and
+  `elicitation_secret_field`, both tagged ASI09. An elicitation is the one point
+  in the protocol where a server addresses the operator rather than the agent -
+  URL mode sends a browser somewhere, form mode asks for values to be typed -
+  and both are trust decisions made by a person who sees only what the client
+  renders. Severity is spent only where that person could not have checked the
+  surface even in principle: credentials embedded ahead of the host or a
+  cleartext scheme off loopback are HIGH, a bare IP host is MEDIUM, and a
+  consent address that leaves the scanned origin is INFO, because an off-origin
+  address is what an identity provider is and a severity there would fire on
+  every honest OAuth flow. Form mode is specified for non-sensitive input, so a
+  schema collecting a secret is HIGH when the property is named for it and
+  MEDIUM when only the description is - a name is chosen, prose says "no
+  password is required" as readily as it asks for one. MST declines every
+  elicitation by never retrying; nothing here completes a flow, follows a
+  redirect or fills a field. Both directions are pinned: an https address on the
+  scanned origin and a form collecting a workspace name produce nothing.
+- MCP declares the elicitation modes a server needs to see before it will
+  elicit. The client sent an empty capability object, and the reference SDK
+  checks the declaration before rendering the request - so a resolver-backed
+  tool answered `-32021` and the consent URL or credential schema behind it was
+  never shown. The routes are declared differently on purpose: 2026-07-28 gets
+  `{form, url}` because the request arrives inside an `input_required` result
+  and the server moves on, while the 2025 line gets url-only because form mode
+  there is a server-to-client request the server then blocks on, and a client
+  that never answers would trade a fast rejection for a read timeout and a
+  wedged server. Sampling and roots stay undeclared; both ask the client to act.
+  A bare `elicitation: {}` reads as form support to the reference SDK and a
+  url-only object does not, so the modes are named explicitly.
+
+### Fixed
+- MCP kept only the method name of an elicitation and dropped its params, which
+  is where the address and the requested schema live. A scan could record that a
+  server had asked a human to authorize somewhere and lose the somewhere. Both
+  routes now land in the same record - `input_requests` on 2026-07-28, the
+  `-32042` payload on the 2025 line. `elicitationId` is deliberately not read:
+  2026-07-28 removed it from URL mode, and a parser that required it would stop
+  working against current servers for a value that identifies nothing to us. A
+  schema arriving with no declared `mode` still reads as form, which is the
+  shape a server predating modes sends.
+- MCP read `-32021` as an ordinary error. The refusal means the call never
+  reached the tool, so a probe aimed at it established nothing - and an
+  unexercised surface that reports like a clean one is the failure mode this
+  scanner exists to avoid. Recorded as `capability_required` (MEDIUM), carrying
+  the capabilities the server named. Left out of the taxonomy table on purpose,
+  alongside the other findings that describe the scan rather than the target.
+  The walk over the refusal payload is bounded in depth and breadth, because
+  that payload is written by the target.
+
 - MCP now speaks the stateless 2026-07-28 route, falling back to the handshake.
   The revision removes both the `initialize` handshake and `Mcp-Session-Id`:
   every request carries the protocol version, client info and capabilities in

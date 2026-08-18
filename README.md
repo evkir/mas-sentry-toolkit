@@ -109,6 +109,11 @@ as the vulnerabilities, because they mark the edges of what was actually tested:
 - `*.enumeration_gap` - a probe did not run or a listing was refused. The surface
   behind it was **not** examined. A refusal from a target enforcing
   authentication is INFO; an unreachable target is MEDIUM.
+- `capability_required` - the server refused the call because MST does not offer
+  a client capability it wanted, and named what was missing. The tool behind
+  that method was never reached, so probes aimed at it established nothing.
+- `input_required` - the server suspended the call pending input from a person.
+  Same consequence: the probe stopped short of a verdict.
 - `inconclusive` probe results - the probe ran and the target's answer did not
   settle the question. Not a pass.
 - An empty findings list is only meaningful when no gap findings sit next to it.
@@ -128,7 +133,7 @@ reach, then use `evidence` to reproduce before you report anything onward.
 | ASI06 | Memory & Context Poisoning | `agentic/memory_poisoning.py` |
 | ASI07 | Insecure Inter-Agent Communication | ABFP `coordination`, A2A `mesh` |
 | ASI08 | Cascading Failures | `agentic/cascade.py` |
-| ASI09 | Human-Agent Trust Exploitation | `agentic/trust_exploit.py` |
+| ASI09 | Human-Agent Trust Exploitation | `agentic/trust_exploit.py`, `mcp/audit/elicitation.py` |
 | ASI10 | Rogue Agents | `agentic/rogue_agent.py` (ties to ABFP) |
 
 Two detectors sit outside the published list, which dropped both categories
