@@ -95,6 +95,13 @@ _MCP_CHECK_TAGS = {
     # injection, and the agentic consequence is code the operator never
     # authorised running on the server host.
     "stdio_rce": ["ASI05_Unexpected_Code_Execution", "CWE-78", "STRIDE_Elevation_Of_Privilege"],
+    # A consent address the person is asked to trust with no way to check it:
+    # cleartext, a bare IP, or credentials packed ahead of the host. Origin
+    # validation is the weakness class; the human is who it is spent on.
+    "elicitation_url": ["ASI09_Human_Agent_Trust", "CWE-346", "STRIDE_Spoofing"],
+    # Form mode is specified for non-sensitive input, so a schema collecting a
+    # secret routes a credential through the client and into model context.
+    "elicitation_secret_field": ["ASI09_Human_Agent_Trust", "CWE-522", "STRIDE_Information_Disclosure"],
 }
 # Deliberately absent from the table: fingerprint, enumeration_gap,
 # input_required and capability_required. None of them asserts a weakness - they report what the scan

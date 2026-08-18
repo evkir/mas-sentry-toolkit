@@ -302,6 +302,8 @@ def test_every_security_meaningful_mcp_check_carries_a_weakness_class() -> None:
     emitted = {
         "arg_injection",
         "dns_rebind",
+        "elicitation_secret_field",
+        "elicitation_url",
         "header_body_desync",
         "known_cve",
         "path_traversal",

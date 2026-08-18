@@ -11,6 +11,7 @@ from mas_sentry.core.audit_log import write as audit_write
 from mas_sentry.core.scope import assert_in_scope
 
 from .audit.dns_rebind import test_dns_rebinding
+from .audit.elicitation import audit_elicitations
 from .audit.header_desync import probe_header_desync
 from .audit.path_traversal import probe_arg_injection, probe_path_traversal
 from .audit.resource_content import audit_resource_content, audit_resource_templates
@@ -255,6 +256,12 @@ def _run_all_checks(
     # exercised as one that was exercised and held.
     for suspended in client.input_required:
         out.append({"check": "input_required", "severity": suspended.severity, "detail": suspended.detail})
+
+    # The suspension says a probe stopped; this says what the server asked a
+    # person to do while it was stopped. Read off requests that were recorded
+    # and never answered.
+    for ef in audit_elicitations(client):
+        out.append({"check": ef.check, "severity": ef.severity, "detail": ef.detail})
 
     # Same class of hole, arriving on the error path instead: the server would
     # have asked this client to act, found no declaration for it and refused.
