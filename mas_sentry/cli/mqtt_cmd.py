@@ -14,7 +14,7 @@ console = Console()
 @app.command("exploit")
 def mqtt_exploit(
     target: str = typer.Option(..., "--target", "-t", help="mqtt://host[:port] | host[:port] (default port 1883)"),
-    attack: str = typer.Option("retained-poison", "--attack", "-a", help="retained-poison|will-hijack"),
+    attack: str = typer.Option("retained-poison", "--attack", "-a", help="retained-poison|will-hijack|credentials"),
     topic: str = typer.Option("", "--topic", help="Topic to plant on (default: a probe topic of our own)"),
     out: Path = typer.Option(Path("reports/mqtt-exploit.json"), "--out", "-o"),
     confirm_scope: bool = typer.Option(
