@@ -984,6 +984,17 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#consent-surface" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Consent surface
+      
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -1726,6 +1737,17 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#consent-surface" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Consent surface
+      
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -1781,6 +1803,80 @@
 <li>We trust nothing the server sends. Every response is treated as adversarial input.</li>
 <li>We control everything we send: explicit byte-level requests, no library coercion in the way.</li>
 </ul>
+<h2 id="consent-surface">Consent surface</h2>
+<p>An elicitation is where a server stops addressing the agent and addresses the
+person operating it: URL mode sends a browser somewhere, form mode asks for
+values to be typed. MST reads both and answers neither.</p>
+<p><strong>What is declared.</strong> A resolver-backed server will not describe the
+elicitation it would raise unless the client declares the mode first - the
+reference SDK checks the declaration and answers <code>-32021</code> instead. The two
+routes are declared differently on purpose:</p>
+<table>
+<thead>
+<tr>
+<th>Route</th>
+<th>Declared</th>
+<th>Why</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>2026-07-28</td>
+<td><code>elicitation: {form, url}</code></td>
+<td>the request arrives inside an <code>input_required</code> result; the server answers and moves on</td>
+</tr>
+<tr>
+<td>2025 line</td>
+<td><code>elicitation: {url}</code></td>
+<td>form mode there is a request the server blocks on, and MST never answers one; URL mode arrives as error <code>-32042</code> and costs nothing</td>
+</tr>
+</tbody>
+</table>
+<p>Sampling and roots stay undeclared: both ask the client to act.</p>
+<p><strong>What is audited.</strong> The address in URL mode and the schema in form mode, never
+the exchange. Severity is spent only where a person could not have checked the
+surface even in principle:</p>
+<table>
+<thead>
+<tr>
+<th>Observation</th>
+<th>Severity</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>credentials embedded ahead of the host</td>
+<td>HIGH</td>
+</tr>
+<tr>
+<td>cleartext scheme, off loopback</td>
+<td>HIGH</td>
+</tr>
+<tr>
+<td>bare IP host, off loopback</td>
+<td>MEDIUM</td>
+</tr>
+<tr>
+<td>secret named in a form property</td>
+<td>HIGH</td>
+</tr>
+<tr>
+<td>secret named only in a property description</td>
+<td>MEDIUM</td>
+</tr>
+<tr>
+<td>consent address leaves the scanned origin</td>
+<td>INFO</td>
+</tr>
+</tbody>
+</table>
+<p>An off-origin consent URL is what an identity provider is, and http on loopback
+is how a locally spawned server authorizes - a severity on either would put a
+finding on every honest target. The name/description split exists because a
+property name is chosen deliberately while a description is prose, and prose
+says "no password is required" as readily as it asks for one.</p>
+<p>Form mode is specified for non-sensitive input, so a schema collecting a
+credential is a spec violation before it is a judgement call.</p>
 
 
 
