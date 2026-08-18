@@ -14,8 +14,15 @@ console = Console()
 @app.command("exploit")
 def mqtt_exploit(
     target: str = typer.Option(..., "--target", "-t", help="mqtt://host[:port] | host[:port] (default port 1883)"),
-    attack: str = typer.Option("retained-poison", "--attack", "-a", help="retained-poison|will-hijack|credentials"),
+    attack: str = typer.Option(
+        "retained-poison", "--attack", "-a", help="retained-poison|will-hijack|credentials|command-inject"
+    ),
     topic: str = typer.Option("", "--topic", help="Topic to plant on (default: a probe topic of our own)"),
+    payload: str = typer.Option(
+        "",
+        "--payload",
+        help="command-inject only: body to publish (default: an inert marker). You own what you send.",
+    ),
     out: Path = typer.Option(Path("reports/mqtt-exploit.json"), "--out", "-o"),
     confirm_scope: bool = typer.Option(
         False,
@@ -43,6 +50,7 @@ def mqtt_exploit(
             topic=topic or DEFAULT_PROBE_TOPIC,
             out=out,
             scope_confirmed=confirm_scope,
+            payload=payload,
         )
     except ScopeViolation as exc:
         raise typer.BadParameter(str(exc)) from exc

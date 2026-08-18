@@ -33,6 +33,30 @@
   A bare `elicitation: {}` reads as form support to the reference SDK and a
   url-only object does not, so the modes are named explicitly.
 
+### Removed
+- `exploits/mqtt_fuzzer.py`. Run against a live broker every case it sends -
+  null byte, newline, unicode, traversal and SQL metacharacters in topic names,
+  oversized payloads, 65535-character topics - was recorded as `OK`, because a
+  paho `publish()` does not raise on a malformed topic and the module read
+  neither the return code nor whether the broker was still alive afterwards. It
+  had no branch in which it could report anything, so its output was a list of
+  passes that no target could fail. Establishing what a broker does with a
+  malformed topic needs a round trip and a liveness check after each case; that
+  is a detector to write, not a line to patch.
+- `exploits/mqtt_command_injection.py`. Its canned payloads - an actuator
+  shutdown, telemetry forced to 999.9, a config override - were aimed at fixed
+  production-looking topics, and it reported success on a publish that returned
+  without error. Mosquitto drops a publish denied by an ACL silently, so that
+  success was not a claim it could make. Replaced by `mqtt exploit --attack
+  command-inject`, which subscribes before it publishes and reports only what
+  came back, sends an inert marker unless the operator passes `--payload`, and
+  writes without the retain flag so the probe leaves nothing behind.
+- `exploits/mqtt_retained.py`. Its scan half duplicated
+  `protocols/mqtt_retained_audit.py`, which is reachable from
+  `mqtt scan --checks retained`, emits Findings rather than a table and audits
+  the content of what it reads. Its poison half is
+  `exploits/mqtt_retained_poison.py`, now reachable as `mqtt exploit`.
+
 ### Fixed
 - MCP kept only the method name of an elicitation and dropped its params, which
   is where the address and the requested schema live. A scan could record that a
