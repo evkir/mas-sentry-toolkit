@@ -6,6 +6,7 @@ import typer
 from .a2a_cmd import app as a2a_app
 from .abfp_cmd import app as abfp_app
 from .agentic_cmd import app as agentic_app
+from .amqp_cmd import app as amqp_app
 from .doctor_cmd import app as doctor_app
 from .mcp_cmd import app as mcp_app
 from .mqtt_cmd import app as mqtt_app
@@ -15,6 +16,7 @@ app = typer.Typer(help="MAS-Sentry: unified MAS security toolkit", no_args_is_he
 app.add_typer(mqtt_app, name="mqtt", help="MQTT broker auditing")
 app.add_typer(abfp_app, name="abfp", help="Agent Behavioral Fingerprinting (Phases 1-5)")
 app.add_typer(mcp_app, name="mcp", help="Model Context Protocol auditing")
+app.add_typer(amqp_app, name="amqp", help="RabbitMQ management API auditing")
 app.add_typer(a2a_app, name="a2a", help="Agent-to-Agent (A2A) protocol scanning")
 app.add_typer(agentic_app, name="agentic", help="OWASP Agentic Top 10 (2026) scans")
 app.add_typer(report_app, name="report", help="Convert findings to report formats")

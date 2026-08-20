@@ -142,6 +142,19 @@ class AMQPAnalyzer(BaseProtocolAnalyzer):
         console.print(table)
         return self.connections
 
+    def enumerate_bindings(self) -> list[dict]:
+        """Fetch the binding table. Unlike the other enumerations, this one is not cosmetic.
+
+        A binding whose source is `amq.rabbitmq.trace` means the firehose is
+        wired into a queue: every message the tracer sees, headers and body,
+        is copied there for whoever drains it.
+        """
+        data = self._api_get(f"bindings/{self.vhost}")
+        if not data:
+            return []
+        self.bindings = data
+        return self.bindings
+
     def check_default_credentials(self) -> bool:
         """Check if guest:guest works (RabbitMQ default)"""
         original_user = self.username
