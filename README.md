@@ -8,9 +8,24 @@
 [![codecov](https://codecov.io/gh/evkir/mas-sentry-toolkit/branch/main/graph/badge.svg)](https://codecov.io/gh/evkir/mas-sentry-toolkit)
 [![Downloads](https://img.shields.io/pypi/dm/mas-sentry-toolkit?style=for-the-badge)](https://pypi.org/project/mas-sentry-toolkit/)
 
-> **Offensive-security scanner for multi-agent systems.** MCP and A2A agent protocols, plus MQTT agent messaging - audited against the reference SDKs rather than against our own idea of the wire. Aligned with the OWASP Top 10 for Agentic Applications (2026).
+> **Active offensive-security scanner for multi-agent systems.** It speaks MCP, A2A, MQTT and AMQP on the wire and probes live targets, rather than reading configuration files and tool descriptions from disk. Every check is deterministic - no model is asked for a verdict, and nothing about the target leaves the host. Aligned with the OWASP Top 10 for Agentic Applications (2026).
 
 ## Why this one
+
+**The target is probed, not described.** A scan opens a connection, negotiates a
+protocol version, calls what the server exposes and reads what comes back. Most
+of what this finds is invisible to a reader of the same server's manifest: a
+tool whose descriptor changes between two listings, a call the server suspends
+to ask a human for a password, a broker that accepts a retained message from a
+client with no credentials. Static review and live probing answer different
+questions, and this one answers the second.
+
+**Nothing about the target leaves the host, and no model is asked for a
+verdict.** Every check is deterministic: a finding exists because a probe
+observed a specific behaviour on the wire, not because a classifier scored a
+description. A run is therefore reproducible in CI, re-derivable by a reviewer
+from the `evidence` block, and usable on engagements where shipping a client's
+tool inventory to a third-party analysis API is not an option.
 
 **The protocol clients are verified against the reference SDKs.** The lab ships an
 intentionally vulnerable MCP server built on `mcp` and an A2A agent built on
@@ -34,9 +49,10 @@ tags are left off where no clean match exists.
 
 | Area | Module | Covers |
 |---|---|---|
-| MCP | `protocols/mcp/` | STDIO / streamable HTTP, tool poisoning, SSRF, path traversal, resource + template content, tool drift and rug-pull, DNS rebinding |
+| MCP | `protocols/mcp/` | STDIO and streamable HTTP on both the 2026-07-28 and 2025-11-25 routes, tool poisoning, SSRF, path traversal, resource and template content, tool drift and rug-pull, DNS rebinding, header/body desync, the elicitation consent surface, STDIO source audit |
 | A2A | `protocols/a2a/` | AgentCard audit, card poisoning and routing-hijack, active probes, delegation-mesh escalation and recursion |
-| MQTT | `protocols/mqtt_*.py` | Broker auth posture, $SYS exposure, topic inventory, retained-payload injection and beacons |
+| MQTT | `protocols/mqtt_*.py`, `exploits/` | Broker auth posture, $SYS exposure, topic inventory, retained-payload injection and beacons; write-side attacks confirmed by reading them back (`mqtt exploit`) |
+| AMQP | `protocols/amqp_*.py` | RabbitMQ management API: default accounts, topology exposure, message-tracing taps that copy every traced message into a queue |
 | ABFP | `agents/abfp/` | Behavioral fingerprinting, rogue-agent scoring, injection propagation, coordination side-channel |
 | Agentic | `agentic/` | OWASP ASI01-ASI10 static checks |
 | Engine | `core/` | Unified `Finding`, threat engine, scope guard, injection and exfiltration primitives |
@@ -89,13 +105,19 @@ mas-sentry mcp scan  --target http://127.0.0.1:9800/mcp
 mas-sentry a2a scan  --target http://127.0.0.1:9700
 ```
 
-A scan of the MCP rig, verbatim:                                                                                  Check Severity Detail
-fingerprint INFO vuln-mcp-ref 0.1.0 (4 tools)
-tool_poisoning CRITICAL search_notes: suspicious patterns in tool description
-resource_content HIGH file://lab/policy: ignore-previous; markdown-image beacon
-resource_template HIGH file://lab/notes/{name}: ignore-previous
-ssrf CRITICAL fetch_url -> file:///etc/passwd
-path_traversal HIGH read_file: ../../../../etc/passwd                                                                                                                                                                               ## Reading a report
+A scan of the MCP rig, verbatim:
+
+```
+Check              Severity  Detail
+fingerprint        INFO      vuln-mcp-ref 0.1.0 (4 tools)
+tool_poisoning     CRITICAL  search_notes: suspicious patterns in tool description
+resource_content   HIGH      file://lab/policy: ignore-previous; markdown-image beacon
+resource_template  HIGH      file://lab/notes/{name}: ignore-previous
+ssrf               CRITICAL  fetch_url -> file:///etc/passwd
+path_traversal     HIGH      read_file: ../../../../etc/passwd
+```
+
+## Reading a report
 
 Every scan writes a JSON file of unified findings; `report convert` turns that
 file into HTML, Markdown, SARIF or JUnit. Each finding carries a `module`, a
