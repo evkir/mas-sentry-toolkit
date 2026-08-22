@@ -57,10 +57,18 @@ mas-sentry mcp scan     --target 'stdio://python3 ./server.py'
 mas-sentry a2a scan     --target http://127.0.0.1:9700
 mas-sentry a2a mesh     --manifest mesh.json
 mas-sentry mqtt scan    --target mqtt://localhost:1883 --duration 20
+mas-sentry mqtt exploit --target mqtt://localhost:1883 --attack retained-poison
+mas-sentry amqp scan    --target localhost:15672 --username guest --password guest
 mas-sentry abfp scan    --target mqtt://localhost:1883 --duration 60
 mas-sentry agentic scan --target my-app --requirements requirements.txt --asi all
 mas-sentry report convert reports/mcp.json --format html --out reports/mcp.html
 ```
+
+`mqtt exploit` writes to the broker. It plants on a probe topic of its own
+unless `--topic` names another, confirms by reading back rather than by a
+successful publish, and clears what it planted - reporting a LOW finding if the
+clear did not take. `--payload` sends a body of your choosing instead of an
+inert marker; what that body does is yours to own.
 
 Active probes and non-lab targets need `--confirm-scope` (or
 `MAS_SENTRY_SCOPE_CONFIRMED=1`). Anything on `localhost`, `.lab`, `.test` or

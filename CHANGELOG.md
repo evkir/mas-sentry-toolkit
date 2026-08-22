@@ -3,6 +3,24 @@
 ## [Unreleased]
 
 ### Added
+- `mqtt exploit` reaches the write-side attacks that shipped in `exploits/` and
+  were callable from nothing: retained plant, Last Will plant, command-topic
+  write and the credential wordlist. Each is confirmed by reading back rather
+  than by a publish that returned without error - a publish proves this client
+  sent bytes, not that the broker kept them, and mosquitto drops a write denied
+  by an ACL silently. Confirmed plants are CRITICAL, unconfirmed ones are
+  reported as attempted, and a refused write is INFO. The probe writes to
+  `mas-sentry/exploit-probe` unless `--topic` names another, clears what it
+  planted, and reports a LOW finding when the clear did not take, because a
+  scanner that leaves the target poisoned has run the attack rather than tested
+  for it.
+- `amqp scan` reaches the RabbitMQ management audit, which was importable,
+  correct and called by nothing. It returns Findings instead of printing tables,
+  so what it sees now reaches `report convert`. New with it: bindings whose
+  source is `amq.rabbitmq.trace` are reported HIGH, because each one delivers a
+  copy of every traced message - headers and body - to a queue anyone with
+  access can drain. The command audits the management API on 15672 and says so;
+  the 5672 binary protocol has never been spoken by this module.
 - MCP now audits the consent surface: `elicitation_url` and
   `elicitation_secret_field`, both tagged ASI09. An elicitation is the one point
   in the protocol where a server addresses the operator rather than the agent -
@@ -58,6 +76,18 @@
   `exploits/mqtt_retained_poison.py`, now reachable as `mqtt exploit`.
 
 ### Fixed
+- The MQTT credential search reported every pair in its wordlist as valid
+  against a broker that requires no authentication, because such a broker
+  answers CONNACK 0 to any username it is handed. A control pair generated at
+  run time - one that cannot have been provisioned by anyone - is now offered
+  first: if it is accepted the wordlist is not tried at all and the finding is
+  that the broker checks nothing. Verified in both directions against live
+  brokers, since a control that suppressed real results would trade one
+  blindness for another.
+- A default-credentials refusal from the RabbitMQ management API is no longer
+  read as the account being absent. RabbitMQ refuses `guest` from anything but
+  loopback out of the box, so a remote refusal establishes only that this
+  vantage point cannot use it.
 - MCP kept only the method name of an elicitation and dropped its params, which
   is where the address and the requested schema live. A scan could record that a
   server had asked a human to authorize somewhere and lose the somewhere. Both

@@ -6,7 +6,11 @@ Top 10 (2026)** and powered by **ABFP** behavioural fingerprinting.
 
 ## What's inside
 
-- **MQTT / AMQP** - classical messaging-MAS pentest modules.
+- **MQTT** - broker audit (`mqtt scan`) plus write-side attacks confirmed by
+  read back (`mqtt exploit`): retained plant, Last Will plant, command-topic
+  write, credential wordlist.
+- **AMQP** - RabbitMQ management API audit (`amqp scan`, HTTP port 15672).
+  The 5672 binary protocol is not spoken.
 - **MCP** - independent JSON-RPC implementation for offensive testing.
   Detects STDIO RCE, SSRF, tool poisoning, path traversal.
 - **A2A** - Google Agent-to-Agent protocol client plus active probes.
