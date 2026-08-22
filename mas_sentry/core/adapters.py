@@ -99,12 +99,19 @@ _MCP_CHECK_TAGS = {
     # cleartext, a bare IP, or credentials packed ahead of the host. Origin
     # validation is the weakness class; the human is who it is spent on.
     "elicitation_url": ["ASI09_Human_Agent_Trust", "CWE-346", "STRIDE_Spoofing"],
+    # An MCP Apps document declares which origins its iframe may reach. A
+    # wildcard or a cleartext origin in that declaration is a permissive
+    # cross-domain policy on a page the audited server wrote.
+    "app_ui_reach": ["ASI09_Human_Agent_Trust", "CWE-942", "STRIDE_Spoofing"],
+    # Browser capabilities the same document asks the host to grant it.
+    "app_permissions": ["ASI09_Human_Agent_Trust", "CWE-272", "STRIDE_Elevation_Of_Privilege"],
     # Form mode is specified for non-sensitive input, so a schema collecting a
     # secret routes a credential through the client and into model context.
     "elicitation_secret_field": ["ASI09_Human_Agent_Trust", "CWE-522", "STRIDE_Information_Disclosure"],
 }
 # Deliberately absent from the table: fingerprint, enumeration_gap,
-# input_required and capability_required. None of them asserts a weakness - they report what the scan
+# input_required, capability_required, app_surface and app_binding. None of
+# them asserts a weakness - they report what the scan
 # saw and what it could not reach - so hanging a CWE on them would put
 # coverage notes into the same SARIF filters an operator uses to triage real
 # findings. Their bare check name is the whole tag list on purpose.

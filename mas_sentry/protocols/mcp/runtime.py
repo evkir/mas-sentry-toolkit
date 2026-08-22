@@ -10,6 +10,7 @@ from typing import Any
 from mas_sentry.core.audit_log import write as audit_write
 from mas_sentry.core.scope import assert_in_scope
 
+from .audit.apps import audit_apps
 from .audit.dns_rebind import test_dns_rebinding
 from .audit.elicitation import audit_elicitations
 from .audit.header_desync import probe_header_desync
@@ -256,6 +257,12 @@ def _run_all_checks(
     # exercised as one that was exercised and held.
     for suspended in client.input_required:
         out.append({"check": "input_required", "severity": suspended.severity, "detail": suspended.detail})
+
+    # The other surface a server points at a person rather than at the model:
+    # a document it wrote, rendered inside the operator's client. Declarations
+    # only - nothing here is rendered or executed.
+    for af in audit_apps(client):
+        out.append({"check": af.check, "severity": af.severity, "detail": af.detail})
 
     # The suspension says a probe stopped; this says what the server asked a
     # person to do while it was stopped. Read off requests that were recorded
