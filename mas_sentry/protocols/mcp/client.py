@@ -186,9 +186,22 @@ class PromptDef:
 
 @dataclass(frozen=True, slots=True)
 class ResourceDef:
+    """One entry from `resources/list`, kept whole.
+
+    The listing was read for three scalars and the rest discarded, which was
+    fine while a resource was only ever a body to fetch. MCP Apps changed that:
+    a `ui://` resource declares, in its `_meta.ui`, the Content-Security-Policy
+    domains its iframe may reach and the browser permissions it asks the host
+    to grant. Those declarations are the audit surface - the HTML is what it
+    does, `_meta.ui` is what it is allowed to do - and a parser that keeps the
+    URI and drops the rest reports on a UI without knowing whether it may call
+    home.
+    """
+
     uri: str
     name: str = ""
     mime_type: str = ""
+    meta: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass(frozen=True, slots=True)
@@ -711,6 +724,7 @@ class McpClient:
                     uri=r.get("uri", ""),
                     name=r.get("name", ""),
                     mime_type=r.get("mimeType", ""),
+                    meta=raw_meta if isinstance(raw_meta := r.get("_meta"), dict) else {},
                 )
             )
         return out
