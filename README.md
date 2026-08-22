@@ -49,7 +49,7 @@ tags are left off where no clean match exists.
 
 | Area | Module | Covers |
 |---|---|---|
-| MCP | `protocols/mcp/` | STDIO and streamable HTTP on both the 2026-07-28 and 2025-11-25 routes, tool poisoning, SSRF, path traversal, resource and template content, tool drift and rug-pull, DNS rebinding, header/body desync, the elicitation consent surface, STDIO source audit |
+| MCP | `protocols/mcp/` | STDIO and streamable HTTP on both the 2026-07-28 and 2025-11-25 routes, tool poisoning, SSRF, path traversal, resource and template content, tool drift and rug-pull, DNS rebinding, header/body desync, the elicitation consent surface, the MCP Apps UI surface, STDIO source audit |
 | A2A | `protocols/a2a/` | AgentCard audit, card poisoning and routing-hijack, active probes, delegation-mesh escalation and recursion |
 | MQTT | `protocols/mqtt_*.py`, `exploits/` | Broker auth posture, $SYS exposure, topic inventory, retained-payload injection and beacons; write-side attacks confirmed by reading them back (`mqtt exploit`) |
 | AMQP | `protocols/amqp_*.py` | RabbitMQ management API: default accounts, topology exposure, message-tracing taps that copy every traced message into a queue |
@@ -163,7 +163,7 @@ reach, then use `evidence` to reproduce before you report anything onward.
 | ASI06 | Memory & Context Poisoning | `agentic/memory_poisoning.py` |
 | ASI07 | Insecure Inter-Agent Communication | ABFP `coordination`, A2A `mesh` |
 | ASI08 | Cascading Failures | `agentic/cascade.py` |
-| ASI09 | Human-Agent Trust Exploitation | `agentic/trust_exploit.py`, `mcp/audit/elicitation.py` |
+| ASI09 | Human-Agent Trust Exploitation | `agentic/trust_exploit.py`, `mcp/audit/elicitation.py`, `mcp/audit/apps.py` |
 | ASI10 | Rogue Agents | `agentic/rogue_agent.py` (ties to ABFP) |
 
 Two detectors sit outside the published list, which dropped both categories

@@ -3,6 +3,25 @@
 ## [Unreleased]
 
 ### Added
+- MCP Apps (SEP-1865) is audited: `app_ui_reach`, `app_html_reach`,
+  `app_html_channel` and `app_permissions`, all tagged ASI09, plus `app_surface`
+  and `app_binding` as inventory. The extension lets a server ship an HTML
+  document under a `ui://` URI that the host renders in a sandboxed iframe, and
+  a click inside that iframe fires a tool call back over the same connection -
+  a page written by the party under audit, rendered inside the operator's own
+  client. MST declares the extension because the reference SDK serves text
+  instead of a UI to a client that has not named both the identifier and the
+  `text/html;profile=mcp-app` MIME type, and then reads two things: what the app
+  declares in `_meta.ui`, and what its document actually refers to. A wildcard
+  or cleartext origin in a CSP domain list is HIGH. A document that reaches a
+  host its own CSP does not declare is MEDIUM, because a host enforcing that
+  declaration blocks the request - the finding is a discrepancy, not egress -
+  while the same reach with no CSP at all is HIGH. Requested browser
+  permissions are MEDIUM: the host grants them, the server only asks. A CSP
+  domain outside the server's origin is not reported at all, since an app
+  loading from its own CDN is the ordinary case. Nothing is rendered and
+  nothing in the document is executed; the body is fetched with
+  `resources/read`, which is defined as side-effect free.
 - `mqtt exploit` reaches the write-side attacks that shipped in `exploits/` and
   were callable from nothing: retained plant, Last Will plant, command-topic
   write and the credential wordlist. Each is confirmed by reading back rather
@@ -76,6 +95,11 @@
   `exploits/mqtt_retained_poison.py`, now reachable as `mqtt exploit`.
 
 ### Fixed
+- `resources/list` was read for three scalars and its `_meta` discarded, which
+  became a loss when MCP Apps started carrying the Content-Security-Policy
+  domains and browser permissions of a `ui://` resource there. The HTML is what
+  an app does; `_meta.ui` is what it is allowed to do, and auditing the first
+  without the second reports on a UI without knowing whether it may call home.
 - The MQTT credential search reported every pair in its wordlist as valid
   against a broker that requires no authentication, because such a broker
   answers CONNACK 0 to any username it is handed. A control pair generated at

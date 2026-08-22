@@ -77,3 +77,47 @@ says "no password is required" as readily as it asks for one.
 
 Form mode is specified for non-sensitive input, so a schema collecting a
 credential is a spec violation before it is a judgement call.
+
+## App surface
+
+MCP Apps (SEP-1865, stable since 2026-01-26) is the second place a server
+addresses the operator instead of the model. It ships an HTML document under a
+`ui://` URI, the host renders it in a sandboxed iframe, and a click inside that
+iframe fires a tool call back over the same connection. The trust direction is
+the inverse of the web's: on a page the user picked the origin and the browser
+enforces it, while here the document is written by the party under audit and
+rendered inside the operator's own client.
+
+MST declares the extension for the same reason it declares the elicitation
+modes - the reference SDK serves text instead of a UI to a client that has not
+named both `io.modelcontextprotocol/ui` and the `text/html;profile=mcp-app`
+MIME type, so an undeclaring scanner sees a server with no UI at all. Nothing
+is rendered and nothing inside the document is executed; the body is fetched
+with `resources/read`, which is defined as side-effect free, and read as text.
+
+Two questions are asked of every app. What does it declare, and what does its
+document do:
+
+| Observation | Severity |
+|---|---|
+| wildcard in any CSP domain list | HIGH |
+| cleartext origin in any CSP domain list | HIGH |
+| document reaches a host with no CSP declared at all | HIGH |
+| document reaches a host its own CSP does not declare | MEDIUM |
+| `postMessage` with a wildcard target origin | MEDIUM |
+| camera, microphone, geolocation or clipboard requested | MEDIUM |
+| no CSP declared, no external reach observed | MEDIUM |
+| tool bound to a `ui://` resource the server does not list | MEDIUM |
+| `ui://` resource served under another MIME type | MEDIUM |
+| CSP domain outside the server's own origin | not reported |
+
+Two of those lines carry the reasoning. A permission is **requested**, not
+granted - the host decides - so it stays MEDIUM however alarming the capability
+sounds. And an undeclared reach is MEDIUM rather than HIGH because a host that
+enforces the declaration blocks it: what the finding establishes is a
+discrepancy between what the document says and what it does, not egress. With
+no CSP at all there is nothing to enforce, and the same reach becomes HIGH.
+
+A tool whose `_meta.ui.visibility` omits `model` is reachable from the server's
+own document and from nowhere the model can weigh. That is a legitimate
+pattern, so it is named in the inventory rather than reported as a weakness.
