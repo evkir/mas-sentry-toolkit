@@ -60,8 +60,12 @@ class ResourceFinding:
         return "MEDIUM"
 
 
-def _read_resource_text(client: McpClient, uri: str) -> str:
-    """Fetch one resource and return its decoded text, or empty on refusal."""
+def read_resource_text(client: McpClient, uri: str) -> str:
+    """Fetch one resource and return its decoded text, or empty on refusal.
+
+    Public because the Apps audit reads the same way and a second copy of this
+    would be a second place for the refusal handling to drift.
+    """
     resp = client.send("resources/read", {"uri": uri})
     if resp.is_error or is_tool_error(resp.result):
         return ""
@@ -116,7 +120,7 @@ def audit_resource_content(client: McpClient) -> list[ResourceFinding]:
     for resource in client.list_resources():
         if not resource.uri:
             continue
-        text = _read_resource_text(client, resource.uri)[:_MAX_SCAN_CHARS]
+        text = read_resource_text(client, resource.uri)[:_MAX_SCAN_CHARS]
         if not text:
             continue
         patterns = tuple(sorted({m.pattern for m in scan_string(text)}))

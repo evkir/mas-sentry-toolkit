@@ -9,8 +9,9 @@ enforces it, while here the document is written by the party under audit and
 rendered inside the operator's own client, next to its source tree and its
 credentials.
 
-This module reads declarations only - the `_meta.ui` block on the tool and on
-the resource. It never renders the document and never executes anything in it.
+This module reads the declarations - the `_meta.ui` block on the tool and on
+the resource - and then the document itself, as text. It never renders the
+document and never executes anything in it.
 Two things are worth reading there. The CSP domain lists say where the iframe
 is permitted to reach, and a list containing a wildcard or a cleartext origin
 describes a UI that may call anywhere or may be tampered with in transit. The
@@ -27,15 +28,41 @@ every honest UI is noise.
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
+from urllib.parse import urlsplit
 
 from ..client import APP_MIME_TYPE, McpClient
+from .resource_content import read_resource_text
 
 UI_SCHEME = "ui://"
 SURFACE_CHECK = "app_surface"
 REACH_CHECK = "app_ui_reach"
 PERMISSION_CHECK = "app_permissions"
 BINDING_CHECK = "app_binding"
+HTML_REACH_CHECK = "app_html_reach"
+HTML_CHANNEL_CHECK = "app_html_channel"
+
+# An app document is a page, so its outbound references live in the places a
+# page keeps them: element attributes, the fetch/XHR/WebSocket entry points, and
+# stylesheet imports. Only absolute URLs are collected - a relative one resolves
+# against the host's own origin and reaches nowhere new.
+_URL_PATTERN = re.compile(
+    r"""(?:src|href|action|data-src)\s*=\s*["']([^"']+)["']"""
+    r"""|(?:fetch|open|WebSocket|EventSource|importScripts)\s*\(\s*["']([^"']+)["']"""
+    r"""|@import\s+(?:url\()?["']([^"']+)["']""",
+    re.IGNORECASE,
+)
+
+# The host is the iframe's parent, so a wildcard target origin sends the app's
+# messages to whatever ends up embedding it rather than to the host alone.
+_WILDCARD_POST = re.compile(r"""postMessage\s*\([^)]*?,\s*["']\*["']""", re.IGNORECASE | re.DOTALL)
+
+_REMOTE_SCHEMES = ("http", "https", "ws", "wss")
+
+# App documents are pages, not corpora. A generous prefix carries the head, the
+# inline scripts and the handlers without letting one oversized body stall a scan.
+_MAX_HTML_CHARS = 40000
 
 # The four lists the extension defines. Each names origins the iframe may use
 # for a different purpose, and all four are equally worth reading: a wildcard in
@@ -219,8 +246,99 @@ def _surface_finding(bindings: list[UiBinding], resources: list[AppResource]) ->
     return AppFinding(check=SURFACE_CHECK, severity="INFO", detail=detail)
 
 
-def audit_apps(client: McpClient) -> list[AppFinding]:
-    """Read every UI declaration the server made. Renders nothing."""
+def _declared_hosts(resource: AppResource) -> set[str]:
+    """The hosts the resource said its iframe may use, scheme and path stripped."""
+    hosts: set[str] = set()
+    for key in _CSP_LISTS:
+        for entry in resource.csp.get(key, []):
+            candidate = entry.strip()
+            if "//" in candidate:
+                candidate = urlsplit(candidate).netloc or candidate.split("//", 1)[1]
+            candidate = candidate.split("/", 1)[0].strip().lower()
+            if candidate:
+                hosts.add(candidate)
+    return hosts
+
+
+def _covered(host: str, declared: set[str]) -> bool:
+    """Whether a declared entry permits this host, honouring a leading wildcard."""
+    if host in declared:
+        return True
+    for entry in declared:
+        if entry == "*":
+            return True
+        if entry.startswith("*.") and (host == entry[2:] or host.endswith(entry[1:])):
+            return True
+    return False
+
+
+def _remote_hosts(html: str) -> set[str]:
+    """Every absolute host the document refers to."""
+    hosts: set[str] = set()
+    for match in _URL_PATTERN.finditer(html):
+        url = next((g for g in match.groups() if g), "")
+        parts = urlsplit(url.strip())
+        if parts.scheme.lower() in _REMOTE_SCHEMES and parts.hostname:
+            hosts.add(parts.hostname.lower())
+    return hosts
+
+
+def _html_findings(resource: AppResource, html: str) -> list[AppFinding]:
+    out: list[AppFinding] = []
+    declared = _declared_hosts(resource)
+    undeclared = sorted(h for h in _remote_hosts(html) if not _covered(h, declared))
+    if undeclared:
+        # With a CSP in place a compliant host blocks the undeclared reach, so
+        # this is a discrepancy between what the document says and what it does
+        # rather than a confirmed egress. With no CSP at all nothing blocks it
+        # and the reach is the whole finding.
+        if declared:
+            out.append(
+                AppFinding(
+                    check=HTML_REACH_CHECK,
+                    severity="MEDIUM",
+                    detail=(
+                        f"{resource.uri} refers to {', '.join(undeclared[:_SAMPLE])}, which its own CSP "
+                        "does not declare. A host that enforces the declaration blocks the request, so "
+                        "either the declaration is wrong or the document is doing something it did not "
+                        "announce - both are worth resolving before the UI is trusted."
+                    ),
+                )
+            )
+        else:
+            out.append(
+                AppFinding(
+                    check=HTML_REACH_CHECK,
+                    severity="HIGH",
+                    detail=(
+                        f"{resource.uri} declares no CSP and reaches {', '.join(undeclared[:_SAMPLE])}. "
+                        "Nothing in the extension's declaration bounds where a document the audited "
+                        "server wrote may send what the operator does inside it."
+                    ),
+                )
+            )
+    if _WILDCARD_POST.search(html):
+        out.append(
+            AppFinding(
+                check=HTML_CHANNEL_CHECK,
+                severity="MEDIUM",
+                detail=(
+                    f"{resource.uri} posts messages with a wildcard target origin. The channel is "
+                    "meant for the host that embedded the iframe; a wildcard delivers to whatever "
+                    "embeds it instead, including a page that framed the client's own UI."
+                ),
+            )
+        )
+    return out
+
+
+def audit_apps(client: McpClient, read_documents: bool = True) -> list[AppFinding]:
+    """Audit the UI surface: what it declares, and what its document does.
+
+    Nothing here renders the document or executes anything inside it. The body
+    is fetched with `resources/read`, which the spec defines as returning
+    application-controlled data with no side effects, and then read as text.
+    """
     bindings = collect_bindings(client)
     resources = collect_app_resources(client)
     out: list[AppFinding] = []
@@ -235,4 +353,8 @@ def audit_apps(client: McpClient) -> list[AppFinding]:
         permission = _permission_finding(resource)
         if permission is not None:
             out.append(permission)
+        if read_documents:
+            html = read_resource_text(client, resource.uri)[:_MAX_HTML_CHARS]
+            if html:
+                out.extend(_html_findings(resource, html))
     return out

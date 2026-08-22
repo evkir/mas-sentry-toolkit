@@ -105,6 +105,10 @@ _MCP_CHECK_TAGS = {
     "app_ui_reach": ["ASI09_Human_Agent_Trust", "CWE-942", "STRIDE_Spoofing"],
     # Browser capabilities the same document asks the host to grant it.
     "app_permissions": ["ASI09_Human_Agent_Trust", "CWE-272", "STRIDE_Elevation_Of_Privilege"],
+    # Where the document actually reaches, against where it said it would.
+    "app_html_reach": ["ASI09_Human_Agent_Trust", "CWE-942", "STRIDE_Information_Disclosure"],
+    # The app-to-host channel addressed to whatever embeds the iframe.
+    "app_html_channel": ["ASI09_Human_Agent_Trust", "CWE-346", "STRIDE_Spoofing"],
     # Form mode is specified for non-sensitive input, so a schema collecting a
     # secret routes a credential through the client and into model context.
     "elicitation_secret_field": ["ASI09_Human_Agent_Trust", "CWE-522", "STRIDE_Information_Disclosure"],

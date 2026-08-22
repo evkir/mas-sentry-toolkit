@@ -308,6 +308,8 @@ def test_every_security_meaningful_mcp_check_carries_a_weakness_class() -> None:
     }
     emitted = {
         "arg_injection",
+        "app_html_channel",
+        "app_html_reach",
         "app_permissions",
         "app_ui_reach",
         "dns_rebind",
