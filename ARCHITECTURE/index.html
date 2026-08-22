@@ -1874,7 +1874,11 @@ the engine decoupled from any individual protocol or detector.</p>
   scoring mapped to STRIDE/ASI tags.</li>
 <li><code>protocols/a2a/</code> -- A2A agent-card audit and probes.</li>
 <li><code>protocols/</code> (mqtt/amqp analyzers) and <code>exploits/</code> -- transport-level MQTT/AMQP
-  tooling retained from the toolkit's IoT-messaging origins.</li>
+  tooling from the toolkit's IoT-messaging origins. Every module here is reached
+  from the CLI and returns Findings: <code>mqtt scan</code>, <code>mqtt exploit</code>, <code>amqp scan</code>.
+  That is a rule rather than a description - a module no command calls audits
+  nothing, however well it is tested, and the three modules that could not be
+  reached were either wired up or deleted.</li>
 </ul>
 <h2 id="threat-modeling-corethreat_enginepy">Threat modeling (core/threat_engine.py)</h2>
 <p><code>UnifiedThreatEngine</code> composes audit modules, deduplicates findings across them

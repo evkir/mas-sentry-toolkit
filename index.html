@@ -1723,7 +1723,11 @@ MQTT-based IoT swarms to MCP-driven LLM agents. Aligned with <strong>OWASP Agent
 Top 10 (2026)</strong> and powered by <strong>ABFP</strong> behavioural fingerprinting.</p>
 <h2 id="whats-inside">What's inside</h2>
 <ul>
-<li><strong>MQTT / AMQP</strong> - classical messaging-MAS pentest modules.</li>
+<li><strong>MQTT</strong> - broker audit (<code>mqtt scan</code>) plus write-side attacks confirmed by
+  read back (<code>mqtt exploit</code>): retained plant, Last Will plant, command-topic
+  write, credential wordlist.</li>
+<li><strong>AMQP</strong> - RabbitMQ management API audit (<code>amqp scan</code>, HTTP port 15672).
+  The 5672 binary protocol is not spoken.</li>
 <li><strong>MCP</strong> - independent JSON-RPC implementation for offensive testing.
   Detects STDIO RCE, SSRF, tool poisoning, path traversal.</li>
 <li><strong>A2A</strong> - Google Agent-to-Agent protocol client plus active probes.</li>
