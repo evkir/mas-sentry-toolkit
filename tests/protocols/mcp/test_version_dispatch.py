@@ -6,6 +6,8 @@ from typing import Any
 import pytest
 
 from mas_sentry.protocols.mcp.client import (
+    APP_MIME_TYPE,
+    APPS_EXTENSION,
     DISCOVER_METHOD,
     LEGACY_PROTOCOL_VERSION,
     META_CLIENT_CAPABILITIES,
@@ -119,6 +121,35 @@ def test_the_modern_envelope_declares_both_elicitation_modes():
     listing = next(r for r in t.sent if r["method"] == "tools/list")
     elicitation = listing["params"]["_meta"][META_CLIENT_CAPABILITIES]["elicitation"]
     assert set(elicitation) == {"form", "url"}
+
+
+def test_the_modern_envelope_declares_the_apps_extension():
+    """A server that sees no declaration serves text and its UI is never listed.
+
+    The reference SDK requires the identifier and the app MIME type together,
+    so both are pinned - declaring the extension with no settings would read as
+    unsupported and cost exactly what declaring nothing costs.
+    """
+    t = _ScriptedTransport(
+        {
+            DISCOVER_METHOD: _discover_result(),
+            "tools/list": {"result": {"tools": []}},
+        }
+    )
+    client = McpClient(t)
+    client.connect()
+    client.list_tools()
+    listing = next(r for r in t.sent if r["method"] == "tools/list")
+    extensions = listing["params"]["_meta"][META_CLIENT_CAPABILITIES]["extensions"]
+    assert extensions[APPS_EXTENSION]["mimeTypes"] == [APP_MIME_TYPE]
+
+
+def test_the_handshake_claims_no_extensions():
+    """The 2025 line has no extensions field; claiming one there is noise on the wire."""
+    t = _ScriptedTransport({"initialize": _initialize_result()})
+    McpClient(t).connect()
+    handshake = next(r for r in t.sent if r["method"] == "initialize")
+    assert "extensions" not in handshake["params"]["capabilities"]
 
 
 def test_the_handshake_declares_url_mode_only():

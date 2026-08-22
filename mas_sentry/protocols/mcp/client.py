@@ -71,6 +71,19 @@ URL_ELICITATION_REQUIRED = -32042
 # the client to act; only this one asks a human to go somewhere or type
 # something, which is what makes it worth auditing.
 ELICITATION_METHOD = "elicitation/create"
+# MCP Apps (SEP-1865, stable since 2026-01-26). A server ships an HTML document
+# under a `ui://` URI, the host renders it in a sandboxed iframe, and a click
+# inside that iframe fires a tool call back over the same JSON-RPC connection.
+# The trust direction is the opposite of the web's: the page is supplied by the
+# party being audited and rendered inside the operator's own client.
+#
+# The identifier and the MIME type are both load-bearing. The reference SDK
+# treats the app surface as unsupported unless the client names the extension
+# AND lists this MIME type in its settings (mcp 2.0.0,
+# `server/apps.py:client_supports_apps`), and falls back to text-only output -
+# so an undeclaring scanner sees a server with no UI at all.
+APPS_EXTENSION = "io.modelcontextprotocol/ui"
+APP_MIME_TYPE = "text/html;profile=mcp-app"
 DISCOVER_METHOD = "server/discover"
 
 # SEP-2322. On the 2026-07-28 route a server may answer tools/call, prompts/get
@@ -132,9 +145,19 @@ def client_capabilities(is_modern: bool) -> dict[str, Any]:
     support to the reference SDK, and a url-only object does not read as form.
     The modes are named explicitly for that reason. Sampling and roots stay
     undeclared - both would have the server ask this client to act.
+
+    The MCP Apps extension is declared on the modern route for the same reason
+    the elicitation modes are: a server that sees no declaration serves text
+    instead of its UI, and the surface goes unaudited rather than unfound.
+    Declaring it costs nothing here - this client parses what the server
+    advertises and never renders an iframe or executes what is inside one. The
+    2025 line has no `extensions` field at all, so nothing is claimed there.
     """
     modes: dict[str, Any] = {"form": {}, "url": {}} if is_modern else {"url": {}}
-    return {"elicitation": modes}
+    out: dict[str, Any] = {"elicitation": modes}
+    if is_modern:
+        out["extensions"] = {APPS_EXTENSION: {"mimeTypes": [APP_MIME_TYPE]}}
+    return out
 
 
 @dataclass(slots=True)
