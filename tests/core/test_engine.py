@@ -303,6 +303,7 @@ def test_every_security_meaningful_mcp_check_carries_a_weakness_class() -> None:
         "enumeration_gap",
         "input_required",
         "capability_required",
+        "auth_required",
         "app_surface",
         "app_binding",
     }

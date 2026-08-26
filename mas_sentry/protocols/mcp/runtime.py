@@ -258,6 +258,13 @@ def _run_all_checks(
     for suspended in client.input_required:
         out.append({"check": "input_required", "severity": suspended.severity, "detail": suspended.detail})
 
+    # A refusal that named an authentication scheme bounds the whole scan: the
+    # probes above ran unauthenticated, so anything behind the boundary is
+    # unexamined rather than clean.
+    challenge = getattr(client.transport, "auth_challenge", None)
+    if challenge is not None:
+        out.append({"check": "auth_required", "severity": "MEDIUM", "detail": challenge.detail})
+
     # The other surface a server points at a person rather than at the model:
     # a document it wrote, rendered inside the operator's client. Declarations
     # only - nothing here is rendered or executed.

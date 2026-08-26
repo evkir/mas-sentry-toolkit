@@ -45,6 +45,7 @@ from typing import Any
 
 import httpx
 
+from .auth import AuthChallenge, parse_challenge
 from .jsonrpc import JsonRpcRequest, JsonRpcResponse
 
 SESSION_HEADER = "Mcp-Session-Id"
@@ -102,7 +103,13 @@ def _error_response(req: JsonRpcRequest, r: httpx.Response) -> JsonRpcResponse:
     # A parse failure is not one of those: the decoder reports -32700 for any
     # body it could not read, including plain-text proxy pages, and passing that
     # on would invent a protocol error where there was only an HTTP one.
-    error = decoded.error or {}
+    # `error` is typed as a JSON-RPC error object, but the body of a 401 is not
+    # a JSON-RPC message at all: RFC 6750 says an OAuth resource server answers
+    # {"error": "invalid_token", ...}, so the decoder hands back a plain string
+    # here and this used to crash the whole scan on `.get`. Every OAuth-guarded
+    # MCP server answers that way, which made an authenticated target the one
+    # shape MST could not survive.
+    error = decoded.error if isinstance(decoded.error, dict) else {}
     if decoded.result is not None or (decoded.is_error and error.get("code") != _PARSE_ERROR):
         return decoded
     return JsonRpcResponse(id=req.id, error={"code": r.status_code, "message": r.reason_phrase})
@@ -165,6 +172,10 @@ class HttpSseTransport:
         self._client: httpx.Client | None = None
         self.session_id: str | None = None
         self.protocol_version: str | None = None
+        # The last refusal that named an authentication scheme. Kept on the
+        # transport because it arrives in headers, which nothing above this
+        # layer ever sees.
+        self.auth_challenge: AuthChallenge | None = None
         # Server-initiated traffic seen on the response stream. Kept for the
         # same reason STDIO keeps it: a mid-session tools/list_changed exists
         # nowhere else.
@@ -185,6 +196,19 @@ class HttpSseTransport:
         if req is not None and self.emit_routing_headers:
             headers.update(routing_headers(req))
         return headers
+
+    def _capture_challenge(self, r: httpx.Response) -> None:
+        """Keep the authentication challenge a refusal carried.
+
+        Only 401 and 403 are read: those are the statuses that carry a
+        `WWW-Authenticate` header, and reading one off a 500 would record a
+        challenge no client would act on.
+        """
+        if r.status_code not in (401, 403):
+            return
+        challenge = parse_challenge(r.status_code, r.headers.get("www-authenticate", ""))
+        if challenge is not None:
+            self.auth_challenge = challenge
 
     def _capture_protocol_state(
         self,
@@ -250,6 +274,7 @@ class HttpSseTransport:
             headers=self._request_headers("text/event-stream", req),
         )
         if r.status_code >= 400:
+            self._capture_challenge(r)
             return _error_response(req, r)
         resp, inbound = _decode_body(r, req.id)
         self.notifications.extend(inbound)
@@ -277,6 +302,7 @@ class HttpSseTransport:
                 headers.pop(key, None)
         r = self._client.post(self.config.url, json=req.to_dict(), headers=headers)
         if r.status_code >= 400:
+            self._capture_challenge(r)
             return _error_response(req, r)
         resp, inbound = _decode_body(r, req.id)
         self.notifications.extend(inbound)
@@ -295,6 +321,7 @@ class StreamableHttpTransport(HttpSseTransport):
             headers=self._request_headers("application/json, text/event-stream", req),
         )
         if r.status_code >= 400:
+            self._capture_challenge(r)
             return _error_response(req, r)
         resp, inbound = _decode_body(r, req.id)
         self.notifications.extend(inbound)
