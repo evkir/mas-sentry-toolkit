@@ -19,7 +19,7 @@ from .audit.resource_content import audit_resource_content, audit_resource_templ
 from .audit.ssrf import probe_ssrf
 from .audit.stdio_rce import StdioConfigAuditor
 from .audit.tool_drift import detect_tool_drift
-from .audit.tool_mutation import detect_tool_mutation, notification_mark, snapshot_tools
+from .audit.tool_mutation import detect_tool_mutation, listing_mark, notification_mark, snapshot_tools
 from .audit.tool_poisoning import detect_tool_poisoning
 from .client import McpClient
 from .fingerprint import fingerprint, known_cves_for
@@ -178,6 +178,7 @@ def _run_all_checks(
     mutation_watch = checks in ("all", "mutation")
     tools_before = snapshot_tools(client) if mutation_watch else {}
     inbound_mark = notification_mark(client) if mutation_watch else 0
+    issues_mark = listing_mark(client) if mutation_watch else 0
 
     if checks in ("all", "poisoning"):
         for pf in detect_tool_poisoning(client):
@@ -248,7 +249,7 @@ def _run_all_checks(
             out.append({"check": df.kind, "severity": df.severity, "detail": df.detail})
 
     if mutation_watch:
-        for mf in detect_tool_mutation(client, tools_before, inbound_mark):
+        for mf in detect_tool_mutation(client, tools_before, inbound_mark, issues_mark):
             out.append({"check": mf.kind, "severity": mf.severity, "detail": mf.detail})
 
     # A call the server suspended is not a call that came back clean. Every

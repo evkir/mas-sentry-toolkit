@@ -67,9 +67,47 @@ def _announced_since(client: McpClient, mark: int) -> bool:
     return any(message.get("method") == TOOLS_LIST_CHANGED for message in inbound[mark:])
 
 
-def detect_tool_mutation(client: McpClient, before: dict[str, str], mark: int) -> list[MutationFinding]:
-    """Re-enumerate and report every descriptor that moved under us."""
+def listing_mark(client: McpClient) -> int:
+    """Remember how many listings had already failed before the probes ran."""
+    return len(client.enumeration_issues)
+
+
+def _listing_failed(client: McpClient, mark: int) -> bool:
+    """Whether the re-enumeration itself did not come back."""
+    return any(issue.method == "tools/list" for issue in client.enumeration_issues[mark:])
+
+
+def detect_tool_mutation(
+    client: McpClient,
+    before: dict[str, str],
+    mark: int,
+    issues_mark: int = 0,
+) -> list[MutationFinding]:
+    """Re-enumerate and report every descriptor that moved under us.
+
+    The comparison is only meaningful when the second enumeration succeeded. A
+    listing that timed out returns the same empty mapping as a server that
+    withdrew everything, and reading one as the other turns a slow tool into a
+    page of findings about tools that never went anywhere. Seen against the
+    reference lab server: one call blocked on a DNS lookup, the single-threaded
+    server queued everything behind it, and the scan reported five tools as
+    withdrawn.
+    """
     after = snapshot_tools(client)
+    if _listing_failed(client, issues_mark):
+        return [
+            MutationFinding(
+                tool="",
+                kind="mutation_inconclusive",
+                severity="MEDIUM",
+                detail=(
+                    "The inventory could not be re-read after the probes ran, so nothing was compared. "
+                    "A server that stopped answering and a server that withdrew its tools look identical "
+                    "from here, and this scan does not claim to tell them apart."
+                ),
+                announced=False,
+            )
+        ]
     announced = _announced_since(client, mark)
     disclosure = "announced by a tools/list_changed notification" if announced else "with no notification at all"
     out: list[MutationFinding] = []
