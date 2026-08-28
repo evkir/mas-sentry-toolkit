@@ -18,11 +18,14 @@ the scan continues instead of taking the process down with it.
 
 from __future__ import annotations
 
+import contextlib
 import os
 import select
 import shlex
 import subprocess
+import threading
 import time
+from collections import deque
 from collections.abc import Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass
@@ -37,6 +40,13 @@ READ_CHUNK = 65536
 # request rather than the scan.
 MAX_MESSAGES_PER_SEND = 100
 STDERR_TAIL_CHARS = 400
+
+# Lines of server stderr kept for diagnostics. Enough to carry a traceback,
+# bounded because the volume is the target's to choose.
+STDERR_TAIL_LINES = 200
+
+# How long to wait for the reader to finish once the process is gone.
+STDERR_DRAIN_WAIT_S = 2.0
 # select() on a pipe is POSIX-only. Elsewhere we fall back to a blocking read,
 # which is the old behaviour: worse, but honest about being unbounded.
 _CAN_POLL = os.name == "posix"
@@ -68,6 +78,10 @@ class StdioTransport:
         # Responses that arrived before the request that asked for them was
         # the one waiting. JSON-RPC does not promise ordering.
         self._pending: dict[Any, JsonRpcResponse] = {}
+        # The tail of whatever the server wrote to stderr, drained by a reader
+        # thread. Bounded: this is diagnostic context for a failure, not a log.
+        self._stderr_tail: deque[str] = deque(maxlen=STDERR_TAIL_LINES)
+        self._stderr_reader: threading.Thread | None = None
 
     # STDIO frames requests without headers, so the header/body desync audit
     # has nothing to measure here and skips this transport rather than
@@ -92,10 +106,33 @@ class StdioTransport:
             cwd=self.config.cwd,
             bufsize=0,
         )
-        # Non-blocking stderr: a chatty/dead server must never deadlock us
-        # while we wait on stdout.readline().
-        if self._proc.stderr is not None:
-            os.set_blocking(self._proc.stderr.fileno(), False)
+        # A pipe nobody reads fills up, and a server whose stderr buffer is
+        # full blocks on write and stops answering on stdout. Marking our end
+        # non-blocking - which is what this used to do - reads nothing and
+        # empties nothing, so the guarantee in that comment was never held.
+        #
+        # Seen against the reference lab server: each refused tool call logged
+        # a formatted traceback, roughly sixty kilobytes accumulated over one
+        # probe pass, and every request after that timed out. A server that
+        # logs is more common than one that does not.
+        self._start_stderr_reader()
+
+    def _start_stderr_reader(self) -> None:
+        """Drain stderr for as long as the process lives, keeping the tail."""
+        stream = self._proc.stderr if self._proc else None
+        if stream is None:
+            return
+
+        def drain() -> None:
+            try:
+                for line in iter(stream.readline, b""):
+                    self._stderr_tail.append(line.decode("utf-8", errors="replace").rstrip())
+            except (OSError, ValueError):
+                # The pipe closed under us while the process was shutting down.
+                return
+
+        self._stderr_reader = threading.Thread(target=drain, daemon=True)
+        self._stderr_reader.start()
 
     def close(self) -> None:
         if self._proc and self._proc.poll() is None:
@@ -212,7 +249,16 @@ class StdioTransport:
         return line
 
     def _exit_reason(self, method: str) -> str:
-        """Explain a closed pipe with whatever the server said on its way out."""
+        """Explain a closed pipe with whatever the server said on its way out.
+
+        The child is given a bounded moment to finish exiting first. Its last
+        line is usually the traceback that explains the closed pipe, and
+        reading the tail while the process is still writing it returns nothing -
+        which is how this looked before: a closed pipe reported with no reason.
+        """
+        if self._proc is not None:
+            with contextlib.suppress(subprocess.TimeoutExpired):
+                self._proc.wait(timeout=STDERR_DRAIN_WAIT_S)
         code = self._proc.poll() if self._proc else None
         tail = " | ".join(self.stderr_lines())[-STDERR_TAIL_CHARS:]
         status = "exited" if code is None else f"exited with code {code}"
@@ -220,14 +266,21 @@ class StdioTransport:
         return f"server closed stdout during {method} and {status}{suffix}"
 
     def stderr_lines(self) -> Iterator[str]:
-        """Drain whatever stderr has buffered. Non-blocking: returns on empty."""
-        if not self._proc or not self._proc.stderr:
-            return
-        while True:
-            line = self._proc.stderr.readline()
-            if not line:
-                return
-            yield line.decode("utf-8", errors="replace").rstrip()
+        """Whatever the reader thread has collected, oldest first.
+
+        Reading is non-destructive: the same tail explains every failure in a
+        session, and a diagnostic that empties itself on first use is one that
+        is missing by the time a second error asks for it.
+
+        When the process has already exited its stderr is finite, so the reader
+        is given a bounded moment to finish. Without that wait the last thing a
+        crashing server said - which is the whole reason to keep a tail - races
+        the caller asking for it.
+        """
+        reader = self._stderr_reader
+        if reader is not None and self._proc is not None and self._proc.poll() is not None:
+            reader.join(timeout=STDERR_DRAIN_WAIT_S)
+        yield from list(self._stderr_tail)
 
 
 @contextmanager
