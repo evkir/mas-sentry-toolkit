@@ -45,6 +45,7 @@ Environment:
 from __future__ import annotations
 
 import os
+import threading
 import urllib.request
 from typing import Any
 
@@ -114,14 +115,44 @@ def read_file(path: str) -> str:
         raise ValueError(f"cannot read {path}: {exc}") from exc
 
 
+def _fetch(url: str) -> str:
+    with urllib.request.urlopen(url, timeout=FETCH_TIMEOUT_S) as resp:
+        return resp.read(READ_LIMIT).decode("utf-8", errors="replace")
+
+
 @srv.tool()
 def fetch_url(url: str) -> str:
-    """Dereference any URL with no scheme or destination guard."""
-    try:
-        with urllib.request.urlopen(url, timeout=FETCH_TIMEOUT_S) as resp:
-            return resp.read(READ_LIMIT).decode("utf-8", errors="replace")
-    except Exception as exc:
-        raise ValueError(f"cannot fetch {url}: {exc}") from exc
+    """Dereference any URL with no scheme or destination guard.
+
+    The dereference is unguarded on purpose - that is what the SSRF probe is
+    here to confirm - but it is bounded in time, which is a different thing.
+    `urlopen(timeout=)` does not cover name resolution, and one of MST's own
+    payloads points at `metadata.google.internal`: on a host where that name
+    neither resolves nor fails fast, the lookup blocks for tens of seconds.
+    This server is single-threaded, so every later request queues behind it and
+    the whole scan degrades into timeouts - which is exactly what happened in
+    CI while passing on a workstation whose resolver answered immediately.
+
+    The work runs on a daemon thread that is abandoned rather than awaited: the
+    lookup may keep blocking, but the server answers and keeps serving.
+    """
+    result: list[tuple[str, str]] = []
+
+    def work() -> None:
+        try:
+            result.append(("ok", _fetch(url)))
+        except Exception as exc:
+            result.append(("err", str(exc)))
+
+    worker = threading.Thread(target=work, daemon=True)
+    worker.start()
+    worker.join(FETCH_TIMEOUT_S + 1.0)
+    if not result:
+        raise ValueError(f"cannot fetch {url}: no answer within {FETCH_TIMEOUT_S + 1.0}s")
+    kind, payload = result[0]
+    if kind == "err":
+        raise ValueError(f"cannot fetch {url}: {payload}")
+    return payload
 
 
 def _mutated_read_config(key: str) -> str:
