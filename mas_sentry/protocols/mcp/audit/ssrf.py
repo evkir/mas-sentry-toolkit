@@ -16,7 +16,30 @@ _SENSITIVE_URLS = [
     "file:///etc/passwd",  # file scheme
 ]
 
+# What a real answer from each destination carries, keyed by the part of the
+# payload that selects it. Every token here has to be something the
+# destination writes and the payload does not, and the table exists so that
+# invariant can be checked over the whole set rather than trusted per line.
+#
+# It was not, and the GCP row cost a CRITICAL false positive: the old token was
+# `computemetadata`, which is a substring of the GCP payload itself, so any
+# tool that echoed its argument - a log line, a refusal naming the URL it
+# refused, a validator - confirmed SSRF against a target that had done nothing.
+# `metadata-flavor` replaces it because the metadata server, and not the
+# request, is what puts it on the wire: an unadorned fetch is refused with 403
+# and a body naming the missing `Metadata-Flavor` header, which is proof the
+# tool reached the metadata service even though it read nothing from it.
+_INDICATORS: tuple[tuple[str, tuple[str, ...]], ...] = (
+    ("169.254.169.254", ("ami-id", "instance-id")),
+    ("metadata.google", ("metadata-flavor",)),
+    ("/etc/passwd", ("root:",)),
+    ("127.0.0.1:6379", ("redis", "noauth")),
+)
+
 _FETCH_TOOLS = ("fetch", "http", "url", "download", "convert", "markitdown")
+
+# The answer is written by the target, and the report has to stay readable.
+EVIDENCE_CHARS = 200
 
 
 @dataclass(frozen=True, slots=True)
@@ -57,18 +80,25 @@ def probe_ssrf(client: McpClient) -> list[SsrfFinding]:
                 continue
             if _ssrf_indicator(url, text):
                 # Confirmed exfiltration of sensitive content.
-                out.append(SsrfFinding(tool=tool.name, url=url, status="OK", evidence=text[:200]))
+                out.append(SsrfFinding(tool=tool.name, url=url, status="OK", evidence=_evidence(text)))
             # Silent successes without indicators are dropped — too noisy
             # to be useful in reports.
     return out
 
 
+def _evidence(text: str) -> str:
+    """The answer, collapsed to one readable line.
+
+    Carried into the report rather than dropped there. A CRITICAL row naming a
+    tool and a URL asks the reader to take the match on trust; the same row
+    carrying what came back lets them see for themselves whether the target
+    answered or merely repeated the question - which is the whole difference
+    between this finding and the false positive that produced this function.
+    """
+    return " ".join(text.split())[:EVIDENCE_CHARS]
+
+
 def _ssrf_indicator(url: str, body: str) -> bool:
+    """True when the body carries something only the destination could have written."""
     lower = body.lower()
-    if "169.254.169.254" in url and ("ami-id" in lower or "instance-id" in lower):
-        return True
-    if "metadata.google" in url and "computemetadata" in lower:
-        return True
-    if "/etc/passwd" in url and "root:" in lower:
-        return True
-    return "127.0.0.1:6379" in url and ("redis" in lower or "noauth" in lower)
+    return any(marker in url and any(token in lower for token in tokens) for marker, tokens in _INDICATORS)

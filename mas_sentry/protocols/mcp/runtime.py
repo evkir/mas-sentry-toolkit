@@ -220,7 +220,7 @@ def _run_all_checks(
                     {
                         "check": "ssrf",
                         "severity": "CRITICAL",
-                        "detail": f"{sf.tool} -> {sf.url}",
+                        "detail": f"{sf.tool} -> {sf.url}: {sf.evidence or 'no body captured'}",
                     }
                 )
 
