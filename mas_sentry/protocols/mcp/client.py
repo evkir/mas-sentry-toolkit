@@ -100,6 +100,17 @@ INPUT_REQUIRED_RESULT_TYPE = "input_required"
 INPUT_REQUESTS_KEY = "inputRequests"
 REQUEST_STATE_KEY = "requestState"
 
+# SEP-2663. The second shape a server can answer with instead of the result,
+# and the one that reads as a clean call when a client checks `resultType`
+# against a single value: a deferral carries `resultType: "task"` and a handle
+# under `task`, no content and no `isError`. The Tasks extension states a
+# server MUST NOT return it to a client that did not carry the extension
+# capability on the request, and this client never declares it, so a task here
+# is a conformance defect in the target as well as a hole in our coverage.
+TASK_RESULT_TYPE = "task"
+TASK_KEY = "task"
+TASKS_EXTENSION = "io.modelcontextprotocol/tasks"
+
 # Envelope keys the stateless route carries in params._meta. Namespaced and
 # camelCase - read off the reference SDK, not transcribed from prose.
 META_PROTOCOL_VERSION = "io.modelcontextprotocol/protocolVersion"
@@ -268,6 +279,49 @@ class InputRequired:
 
 
 @dataclass(frozen=True, slots=True)
+class DeferredTask:
+    """One call the server answered with a task handle instead of a result.
+
+    The handle is recorded and never polled. Polling would put the length of
+    the scan in the target's hands - a server sets `pollIntervalMs` and `ttlMs`
+    itself, and a task that stays `working` for its whole TTL costs the scanner
+    that TTL per probe. It is also not ours to poll: the extension has to be
+    declared on the request, this client declares it nowhere, and a server that
+    hands a task to such a client has broken the one MUST NOT the extension
+    states about returning them.
+
+    Both halves matter to the report. The target violated the extension, and
+    the probe aimed at that method reached a handle rather than a tool - which
+    without this record is a call that returned no content and no error, and
+    therefore indistinguishable from a tool that ran and found nothing.
+    """
+
+    method: str
+    status: str
+    has_task_id: bool
+    ttl_ms: int | None
+    poll_interval_ms: int | None
+
+    @property
+    def severity(self) -> str:
+        """A conformance defect in the target and a hole in what this scan tested."""
+        return "MEDIUM"
+
+    @property
+    def detail(self) -> str:
+        status = self.status or "no status"
+        handle = "a taskId" if self.has_task_id else "no taskId"
+        ttl = f"{self.ttl_ms}ms" if self.ttl_ms is not None else "unstated"
+        poll = f"{self.poll_interval_ms}ms" if self.poll_interval_ms is not None else "unstated"
+        return (
+            f"{self.method} was answered with a task handle ({handle}, status {status}, ttl {ttl}, "
+            f"poll interval {poll}) instead of a result. This client never declares the "
+            f"{TASKS_EXTENSION} extension, which a server MUST NOT return a task to. The call did "
+            "not run: probes against this method reached a handle, not a tool."
+        )
+
+
+@dataclass(frozen=True, slots=True)
 class ElicitationRequest:
     """One elicitation the server sent, kept as it arrived.
 
@@ -370,6 +424,8 @@ class McpClient:
         self.capability_gaps: list[CapabilityGap] = []
         # Elicitations the server sent on either route. See ElicitationRequest.
         self.elicitations: list[ElicitationRequest] = []
+        # Calls the server deferred to a task instead of answering. See DeferredTask.
+        self.deferred_tasks: list[DeferredTask] = []
 
     def _record_issue(self, method: str, error: dict[str, Any] | None) -> None:
         """Remember a listing that failed, once per method."""
@@ -462,6 +518,48 @@ class McpClient:
         if result.get(RESULT_TYPE_KEY) != INPUT_REQUIRED_RESULT_TYPE:
             return None
         return result
+
+    @staticmethod
+    def task_of(resp: JsonRpcResponse) -> dict[str, Any] | None:
+        """Return the deferred-task payload, or None when this is a real result.
+
+        Asked the same way `input_required_of` is asked, and for the same
+        reason: the two deferral shapes differ only in the value of one field,
+        so a reader that compares that field against one of them lets the other
+        through as a completed call.
+        """
+        result = resp.result
+        if not isinstance(result, dict):
+            return None
+        if result.get(RESULT_TYPE_KEY) != TASK_RESULT_TYPE:
+            return None
+        task = result.get(TASK_KEY)
+        return task if isinstance(task, dict) else {}
+
+    def _note_deferred_task(self, method: str, resp: JsonRpcResponse) -> None:
+        """Record a deferred call, once per method.
+
+        Deduplicated on the method alone rather than on the whole record: the
+        handle is written by the target, and a server varying its taskId or its
+        poll interval per call would otherwise turn one fact into a row per
+        probe.
+        """
+        task = self.task_of(resp)
+        if task is None:
+            return
+        if any(rec.method == method for rec in self.deferred_tasks):
+            return
+        ttl = task.get("ttlMs")
+        poll = task.get("pollIntervalMs")
+        self.deferred_tasks.append(
+            DeferredTask(
+                method=method,
+                status=str(task.get("status", ""))[:60],
+                has_task_id=bool(task.get("taskId")),
+                ttl_ms=ttl if isinstance(ttl, int) and not isinstance(ttl, bool) else None,
+                poll_interval_ms=poll if isinstance(poll, int) and not isinstance(poll, bool) else None,
+            )
+        )
 
     def _note_input_required(self, method: str, resp: JsonRpcResponse) -> None:
         """Record a suspended call once per distinct (method, requested inputs)."""
@@ -582,6 +680,7 @@ class McpClient:
             params = self.envelope(params)
         resp = self.transport.send(JsonRpcCodec.request(method, params, req_id=self._id()))
         self._note_input_required(method, resp)
+        self._note_deferred_task(method, resp)
         self._note_capability_gap(method, resp)
         self._note_url_elicitation(method, resp)
         return resp

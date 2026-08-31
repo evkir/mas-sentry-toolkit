@@ -259,6 +259,13 @@ def _run_all_checks(
     for suspended in client.input_required:
         out.append({"check": "input_required", "severity": suspended.severity, "detail": suspended.detail})
 
+    # The other deferral the protocol allows, and the one that leaves no trace
+    # at all: a task handle carries no content and no error, so a scan against
+    # a server that defers every call produced a fingerprint and nothing else,
+    # which is byte for byte the report of a clean target.
+    for deferred in client.deferred_tasks:
+        out.append({"check": "task_undeclared", "severity": deferred.severity, "detail": deferred.detail})
+
     # A refusal that named an authentication scheme bounds the whole scan: the
     # probes above ran unauthenticated, so anything behind the boundary is
     # unexamined rather than clean.
