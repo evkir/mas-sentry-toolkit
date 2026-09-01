@@ -38,6 +38,7 @@ HTTP status alone would discard it.
 
 from __future__ import annotations
 
+import time
 from collections.abc import Iterator
 from contextlib import contextmanager, suppress
 from dataclasses import dataclass
@@ -66,12 +67,39 @@ NAME_BEARING_METHODS = {
 }
 
 
+# How the read of one response ends. Anything other than a whole body or the
+# answer arriving is a bound of ours, and has to be reported as ours.
+_STOP_COMPLETE = "complete"
+_STOP_ANSWERED = "answered"
+_STOP_DEADLINE = "deadline"
+_STOP_OVERSIZE = "oversize"
+
+# Below the JSON-RPC reserved band (-32768..-32000), because these are not
+# protocol errors: they are this scanner giving up, and a reader that cannot
+# tell the two apart will file our surrender as the target's defect.
+DEADLINE_ERROR = -32800
+OVERSIZE_ERROR = -32801
+
+# Rebuilding the response from the bytes we chose to keep makes these three
+# describe a body that no longer exists.
+_DROPPED_HEADERS = frozenset({"content-length", "content-encoding", "transfer-encoding"})
+
+# Enough for a listing of several thousand tools and far short of a body that
+# would cost the host its memory.
+MAX_RESPONSE_CHARS = 8 * 1024 * 1024
+
+
 @dataclass(slots=True)
 class HttpConfig:
     url: str
     headers: dict[str, str] | None = None
     timeout: float = 15.0
     verify_tls: bool = True
+    # Wall clock for one request, end to end. Distinct from `timeout`, which
+    # httpx applies between reads: a server sending one byte a second keeps
+    # every read inside the timeout and the request open forever. Measured, not
+    # reasoned about - a request with `timeout=2.0` was still running at 35s.
+    deadline: float = 30.0
 
 
 def routing_headers(req: JsonRpcRequest) -> dict[str, str]:
@@ -113,6 +141,74 @@ def _error_response(req: JsonRpcRequest, r: httpx.Response) -> JsonRpcResponse:
     if decoded.result is not None or (decoded.is_error and error.get("code") != _PARSE_ERROR):
         return decoded
     return JsonRpcResponse(id=req.id, error={"code": r.status_code, "message": r.reason_phrase})
+
+
+def _carries_answer(text: str, req_id: Any) -> bool:
+    """True once a complete SSE frame in `text` holds the answer to `req_id`.
+
+    Asked after every chunk so the read can stop at the answer. A server MAY
+    keep a stream open after answering, and a reader that waits for the body to
+    end waits for a server that has decided not to end it - which is not a
+    hostile server, it is a permitted one.
+    """
+    for line in text.splitlines():
+        if not line.startswith("data:"):
+            continue
+        message = JsonRpcResponse.decode(line[5:].strip())
+        if message.id == req_id and (message.result is not None or message.is_error):
+            return True
+    return False
+
+
+def _read_bounded(r: httpx.Response, req_id: Any, deadline: float) -> tuple[str, str]:
+    """Read one response, stopping at the answer, the deadline, or the cap.
+
+    The transport timeout httpx enforces is the gap between reads, not the
+    length of the request, so it bounds a silent server and nothing else. The
+    deadline here is wall clock and is checked after every chunk, which is the
+    only place a dribbling server can be caught.
+    """
+    sse = "text/event-stream" in r.headers.get("content-type", "")
+    buf = ""
+    cursor = 0
+    for chunk in r.iter_text():
+        buf += chunk
+        if len(buf) > MAX_RESPONSE_CHARS:
+            return buf[:MAX_RESPONSE_CHARS], _STOP_OVERSIZE
+        if sse:
+            end = buf.rfind("\n")
+            if end > cursor:
+                if _carries_answer(buf[cursor:end], req_id):
+                    return buf, _STOP_ANSWERED
+                cursor = end
+        if time.monotonic() >= deadline:
+            return buf, _STOP_DEADLINE
+    return buf, _STOP_COMPLETE
+
+
+def _bounded_response(req: JsonRpcRequest, stop: str, deadline: float) -> JsonRpcResponse:
+    """The answer when we stopped reading, phrased as ours rather than the target's."""
+    if stop == _STOP_OVERSIZE:
+        return JsonRpcResponse(
+            id=req.id,
+            error={
+                "code": OVERSIZE_ERROR,
+                "message": (
+                    f"stopped reading the answer to {req.method} after {MAX_RESPONSE_CHARS} characters; "
+                    "this is a scanner bound, not a server error"
+                ),
+            },
+        )
+    return JsonRpcResponse(
+        id=req.id,
+        error={
+            "code": DEADLINE_ERROR,
+            "message": (
+                f"stopped waiting for the answer to {req.method} after {deadline}s; the target held the "
+                "response open without answering. This is a scanner bound, not a server error"
+            ),
+        },
+    )
 
 
 def _decode_body(r: httpx.Response, req_id: Any = None) -> tuple[JsonRpcResponse, list[dict[str, Any]]]:
@@ -264,18 +360,39 @@ class HttpSseTransport:
                 headers={SESSION_HEADER: self.session_id},
             )
 
+    def _post(
+        self,
+        req: JsonRpcRequest,
+        headers: dict[str, str],
+        content: bytes | None = None,
+        json_body: Any = None,
+    ) -> tuple[httpx.Response, str]:
+        """POST and read the answer under a wall-clock deadline and a size cap.
+
+        The body is streamed and reassembled into a response of our own so
+        every caller downstream keeps working against an httpx.Response; the
+        three headers that describe the original framing are dropped, because
+        they describe a body this one no longer is.
+        """
+        client = self._client
+        if client is None:
+            raise RuntimeError("Transport not open")
+        deadline = time.monotonic() + self.config.deadline
+        with client.stream("POST", self.config.url, content=content, json=json_body, headers=headers) as streamed:
+            text, stop = _read_bounded(streamed, req.id, deadline)
+            kept = {k: v for k, v in streamed.headers.items() if k.lower() not in _DROPPED_HEADERS}
+            status = streamed.status_code
+        return httpx.Response(status, headers=kept, content=text.encode()), stop
+
     def send(self, req: JsonRpcRequest) -> JsonRpcResponse:
         if not self._client:
             raise RuntimeError("Transport not open")
-        body = req.encode()
-        r = self._client.post(
-            self.config.url,
-            content=body,
-            headers=self._request_headers("text/event-stream", req),
-        )
+        r, stop = self._post(req, self._request_headers("text/event-stream", req), content=req.encode())
         if r.status_code >= 400:
             self._capture_challenge(r)
             return _error_response(req, r)
+        if stop in (_STOP_DEADLINE, _STOP_OVERSIZE):
+            return _bounded_response(req, stop, self.config.deadline)
         resp, inbound = _decode_body(r, req.id)
         self.notifications.extend(inbound)
         self._capture_protocol_state(req, r.headers, resp)
@@ -300,10 +417,12 @@ class HttpSseTransport:
                 headers[key] = value
             else:
                 headers.pop(key, None)
-        r = self._client.post(self.config.url, json=req.to_dict(), headers=headers)
+        r, stop = self._post(req, headers, json_body=req.to_dict())
         if r.status_code >= 400:
             self._capture_challenge(r)
             return _error_response(req, r)
+        if stop in (_STOP_DEADLINE, _STOP_OVERSIZE):
+            return _bounded_response(req, stop, self.config.deadline)
         resp, inbound = _decode_body(r, req.id)
         self.notifications.extend(inbound)
         return resp
@@ -315,14 +434,16 @@ class StreamableHttpTransport(HttpSseTransport):
     def send(self, req: JsonRpcRequest) -> JsonRpcResponse:
         if not self._client:
             raise RuntimeError("Transport not open")
-        r = self._client.post(
-            self.config.url,
-            json=req.to_dict(),
-            headers=self._request_headers("application/json, text/event-stream", req),
+        r, stop = self._post(
+            req,
+            self._request_headers("application/json, text/event-stream", req),
+            json_body=req.to_dict(),
         )
         if r.status_code >= 400:
             self._capture_challenge(r)
             return _error_response(req, r)
+        if stop in (_STOP_DEADLINE, _STOP_OVERSIZE):
+            return _bounded_response(req, stop, self.config.deadline)
         resp, inbound = _decode_body(r, req.id)
         self.notifications.extend(inbound)
         self._capture_protocol_state(req, r.headers, resp)

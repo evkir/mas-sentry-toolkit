@@ -135,17 +135,16 @@ def test_http_transport_files_inbound_traffic(monkeypatch: pytest.MonkeyPatch) -
         'data: {"jsonrpc":"2.0","id":1,"result":{"tools":[]}}\n'
     )
 
-    def fake_post(self: Any, url: str, **kwargs: Any) -> httpx.Response:
-        return httpx.Response(
-            200,
-            text=body,
-            headers={"content-type": "text/event-stream"},
-            request=httpx.Request("POST", url),
-        )
+    def answer(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, text=body, headers={"content-type": "text/event-stream"})
 
-    monkeypatch.setattr(httpx.Client, "post", fake_post)
+    # Mocked at the transport rather than at `Client.post`. Patching the method
+    # ties the test to which httpx call the code happens to make, and the read
+    # moved to `Client.stream` the day the request grew a deadline - at which
+    # point the fake was bypassed and the test dialled a real socket.
     t = HttpSseTransport(HttpConfig(url="http://localhost/mcp"))
     t.open()
+    t._client = httpx.Client(transport=httpx.MockTransport(answer))
     try:
         resp = t.send(JsonRpcRequest(method="tools/list", params={}, id=1))
         assert resp.result == {"tools": []}
