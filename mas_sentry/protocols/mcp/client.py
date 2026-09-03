@@ -21,6 +21,7 @@ misconfigured, and then report on a generation nobody is speaking.
 
 from __future__ import annotations
 
+import time
 from dataclasses import dataclass, field
 from typing import Any, Protocol
 
@@ -63,6 +64,11 @@ HEADER_MISMATCH = -32020
 # ordinary error loses the one fact that separates "the probe found nothing"
 # from "the probe never reached the tool".
 MISSING_REQUIRED_CLIENT_CAPABILITY = -32021
+# This scanner ran out of the time it was given, and stopped before issuing the
+# request. Outside the JSON-RPC reserved band for the same reason the transport
+# deadline is: a bound of ours read as a fault of the target's is a finding we
+# invented.
+BUDGET_EXHAUSTED = -32802
 # The 2025 line delivers URL mode as an error rather than as a result: the
 # server hands over the address it wants a browser sent to and stops. The
 # address is the finding, so an error read only for its code loses it.
@@ -278,6 +284,58 @@ class InputRequired:
         )
 
 
+def _now() -> float:
+    """The clock the budget spends, named so a test can hold it still.
+
+    `default_factory=time.monotonic` would bind the function at class
+    definition and read a clock nothing can move, which makes every case about
+    running out of budget a case about waiting for a real wall clock.
+    """
+    return time.monotonic()
+
+
+@dataclass(slots=True)
+class ScanBudget:
+    """Wall clock for the whole scan, spent one request at a time.
+
+    The per-request deadline in the transport bounds a single answer. It does
+    not bound their number, and the number is written by the target: the probe
+    count runs at roughly eleven requests per tool over an inventory the server
+    chooses the size of, which measured out at 55508 requests against a server
+    advertising 5000 tools. A per-request bound multiplied by an unbounded
+    count is not a bound.
+
+    Time rather than a request count, because time is what an operator has and
+    what a hostile server actually spends. The budget is checked before a
+    request is issued rather than after it returns, so exhaustion costs nothing
+    further, and it latches: once gone it stays gone, and the method that was
+    about to be sent is kept as the place the scan stopped.
+    """
+
+    seconds: float
+    started: float = field(default_factory=_now)
+    stopped_at: str = ""
+    requests: int = 0
+
+    @property
+    def exhausted(self) -> bool:
+        return bool(self.stopped_at)
+
+    @property
+    def elapsed(self) -> float:
+        return _now() - self.started
+
+    def spend(self, method: str) -> bool:
+        """Take one request from the budget. False means do not send it."""
+        if self.stopped_at:
+            return False
+        if self.elapsed >= self.seconds:
+            self.stopped_at = method
+            return False
+        self.requests += 1
+        return True
+
+
 @dataclass(frozen=True, slots=True)
 class DeferredTask:
     """One call the server answered with a task handle instead of a result.
@@ -409,8 +467,16 @@ class Enumeration:
 
 
 class McpClient:
-    def __init__(self, transport: Transport) -> None:
+    def __init__(self, transport: Transport, budget: ScanBudget | None = None) -> None:
         self.transport = transport
+        # None means no bound, which is what every caller had before this
+        # existed and what the unit suites still want.
+        self.budget = budget
+        # Read by the coverage row: what the last successful listing offered,
+        # against what the probes actually reached. Both are needed, because
+        # "stopped early" without them says nothing an operator can act on.
+        self.tools_seen = 0
+        self.tools_probed: set[str] = set()
         self._next_id = 0
         self.server: ServerInfo | None = None
         self.enumeration_issues: list[EnumerationIssue] = []
@@ -428,11 +494,19 @@ class McpClient:
         self.deferred_tasks: list[DeferredTask] = []
 
     def _record_issue(self, method: str, error: dict[str, Any] | None) -> None:
-        """Remember a listing that failed, once per method."""
+        """Remember a listing that failed, once per method.
+
+        A listing the budget refused is not one the surface refused. Recording
+        it here would file our own stop as a fact about the target once per
+        method, which a server can multiply by running the clock down during
+        enumeration; the budget row says it once and says it accurately.
+        """
         if any(issue.method == method for issue in self.enumeration_issues):
             return
         error = error or {}
         code = error.get("code")
+        if code == BUDGET_EXHAUSTED:
+            return
         self.enumeration_issues.append(
             EnumerationIssue(
                 method=method,
@@ -676,6 +750,21 @@ class McpClient:
 
     def send(self, method: str, params: dict[str, Any] | None = None) -> JsonRpcResponse:
         """Send one request on whichever route this client negotiated."""
+        if self.budget is not None and not self.budget.spend(method):
+            return JsonRpcResponse(
+                id=None,
+                error={
+                    "code": BUDGET_EXHAUSTED,
+                    "message": (
+                        f"{method} was not sent: the scan budget of {self.budget.seconds}s was already spent. "
+                        "This is a scanner bound, not a server error"
+                    ),
+                },
+            )
+        if method == "tools/call" and isinstance(params, dict):
+            name = params.get("name")
+            if isinstance(name, str):
+                self.tools_probed.add(name)
         if self.is_modern:
             params = self.envelope(params)
         resp = self.transport.send(JsonRpcCodec.request(method, params, req_id=self._id()))
@@ -801,6 +890,11 @@ class McpClient:
                     raw=t,
                 )
             )
+        # Only a listing that produced something counts. A listing the budget
+        # refused to send returns nothing, and overwriting the count with zero
+        # would report the inventory as empty rather than as unread.
+        if out:
+            self.tools_seen = len(out)
         return out
 
     def list_prompts(self) -> list[PromptDef]:

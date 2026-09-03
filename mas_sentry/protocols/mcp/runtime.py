@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
@@ -21,10 +22,16 @@ from .audit.stdio_rce import StdioConfigAuditor
 from .audit.tool_drift import detect_tool_drift
 from .audit.tool_mutation import detect_tool_mutation, listing_mark, notification_mark, snapshot_tools
 from .audit.tool_poisoning import detect_tool_poisoning
-from .client import McpClient
+from .client import McpClient, ScanBudget
 from .fingerprint import fingerprint, known_cves_for
 from .transport_http import HttpConfig, open_http
 from .transport_stdio import StdioConfig, open_stdio
+
+# Ten minutes. Every rig in lab/ finishes a full scan in under a second, and
+# the hostile shape this bounds - 5000 advertised tools, eleven probes each -
+# needs hours, so the default separates them without a judgement call. A bound
+# that never fires is decoration; one that fires on an honest target is noise.
+DEFAULT_BUDGET_S = 600.0
 
 
 def run_mcp_scan(
@@ -35,21 +42,32 @@ def run_mcp_scan(
     out: Path,
     scope_confirmed: bool,
     tool_baseline: Path | None = None,
+    budget_seconds: float = DEFAULT_BUDGET_S,
 ) -> list[dict[str, Any]]:
     _enforce_scope(scheme=scheme, command=command, confirmed=scope_confirmed)
     audit_write({"action": "mcp_scan_start", "target": target_label, "checks": checks})
 
     findings: list[dict[str, Any]] = []
+    # Zero disables the bound. Present because an operator scanning a slow but
+    # trusted target should be able to say so, and absent as a default because
+    # every scan before this one was unbounded and that is the defect.
+    budget = ScanBudget(seconds=budget_seconds) if budget_seconds > 0 else None
 
     if scheme == "stdio":
         with open_stdio(StdioConfig(command=command)) as t:
             findings.extend(
-                _run_all_checks(McpClient(t), transport="stdio", checks=checks, tool_baseline=tool_baseline)
+                _run_all_checks(
+                    McpClient(t, budget=budget), transport="stdio", checks=checks, tool_baseline=tool_baseline
+                )
             )
     elif scheme in ("http", "https"):
         assert isinstance(command, str)  # CLI guarantees this for http(s)
         with open_http(HttpConfig(url=command)) as t:
-            findings.extend(_run_all_checks(McpClient(t), transport=scheme, checks=checks, tool_baseline=tool_baseline))
+            findings.extend(
+                _run_all_checks(
+                    McpClient(t, budget=budget), transport=scheme, checks=checks, tool_baseline=tool_baseline
+                )
+            )
             if checks in ("all", "rebind"):
                 rb = test_dns_rebinding(command)
                 if rb.vulnerable:
@@ -156,6 +174,84 @@ def _desync_rows(client: McpClient) -> list[dict[str, Any]]:
     return rows
 
 
+def _poisoning_rows(client: McpClient) -> list[dict[str, Any]]:
+    return [
+        {"check": "tool_poisoning", "severity": pf.severity, "detail": f"{pf.tool}: {'; '.join(pf.reasons)}"}
+        for pf in detect_tool_poisoning(client)
+    ]
+
+
+def _resource_rows(client: McpClient) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    for rf in audit_resource_content(client):
+        signals = list(rf.injection_patterns) + list(rf.exfil_channels)
+        rows.append({"check": "resource_content", "severity": rf.severity, "detail": f"{rf.uri}: {'; '.join(signals)}"})
+    for rt in audit_resource_templates(client):
+        signals = list(rt.injection_patterns) + list(rt.exfil_channels)
+        rows.append(
+            {"check": "resource_template", "severity": rt.severity, "detail": f"{rt.uri}: {'; '.join(signals)}"}
+        )
+    return rows
+
+
+def _ssrf_rows(client: McpClient) -> list[dict[str, Any]]:
+    return [
+        {
+            "check": "ssrf",
+            "severity": "CRITICAL",
+            "detail": f"{sf.tool} -> {sf.url}: {sf.evidence or 'no body captured'}",
+        }
+        for sf in probe_ssrf(client)
+        if sf.status == "OK"
+    ]
+
+
+def _traversal_rows(client: McpClient) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = [
+        {"check": "path_traversal", "severity": "HIGH", "detail": f"{tf.tool}: {tf.payload}"}
+        for tf in probe_path_traversal(client)
+        if tf.confirmed
+    ]
+    rows.extend(
+        {"check": "arg_injection", "severity": "CRITICAL", "detail": f"{tf.tool}: {tf.payload}"}
+        for tf in probe_arg_injection(client)
+        if tf.confirmed
+    )
+    return rows
+
+
+def _drift_rows(client: McpClient, tool_baseline: Path | None) -> list[dict[str, Any]]:
+    return [
+        {"check": df.kind, "severity": df.severity, "detail": df.detail}
+        for df in detect_tool_drift(client, tool_baseline)
+    ]
+
+
+def _mutation_rows(
+    client: McpClient, tools_before: dict[str, Any], inbound_mark: int, issues_mark: int
+) -> list[dict[str, Any]]:
+    return [
+        {"check": mf.kind, "severity": mf.severity, "detail": mf.detail}
+        for mf in detect_tool_mutation(client, tools_before, inbound_mark, issues_mark)
+    ]
+
+
+def _budget_row(budget: ScanBudget, ran: list[str], skipped: list[str], probed: set[str], seen: int) -> dict[str, Any]:
+    """Say what the scan did and did not get to before it stopped."""
+    covered = f"{len(probed)} of {seen} tools" if seen else f"{len(probed)} tools"
+    did = ", ".join(ran) if ran else "none"
+    did_not = ", ".join(skipped) if skipped else "none"
+    return {
+        "check": "scan_budget_exhausted",
+        "severity": "MEDIUM",
+        "detail": (
+            f"the scan stopped after {budget.elapsed:.0f}s and {budget.requests} requests, at "
+            f"{budget.stopped_at}. Modules completed: {did}. Modules not run: {did_not}. "
+            f"Probes reached {covered}. What those modules would have found is unknown, not absent"
+        ),
+    }
+
+
 def _run_all_checks(
     client: McpClient, transport: str, checks: str, tool_baseline: Path | None = None
 ) -> list[dict[str, Any]]:
@@ -180,77 +276,32 @@ def _run_all_checks(
     inbound_mark = notification_mark(client) if mutation_watch else 0
     issues_mark = listing_mark(client) if mutation_watch else 0
 
-    if checks in ("all", "poisoning"):
-        for pf in detect_tool_poisoning(client):
-            out.append(
-                {
-                    "check": "tool_poisoning",
-                    "severity": pf.severity,
-                    "detail": f"{pf.tool}: {'; '.join(pf.reasons)}",
-                }
-            )
-
-    if checks in ("all", "resources"):
-        for rf in audit_resource_content(client):
-            signals = list(rf.injection_patterns) + list(rf.exfil_channels)
-            out.append(
-                {
-                    "check": "resource_content",
-                    "severity": rf.severity,
-                    "detail": f"{rf.uri}: {'; '.join(signals)}",
-                }
-            )
-        for rt in audit_resource_templates(client):
-            signals = list(rt.injection_patterns) + list(rt.exfil_channels)
-            out.append(
-                {
-                    "check": "resource_template",
-                    "severity": rt.severity,
-                    "detail": f"{rt.uri}: {'; '.join(signals)}",
-                }
-            )
-
-    if checks in ("all", "desync"):
-        out.extend(_desync_rows(client))
-
-    if checks in ("all", "ssrf"):
-        for sf in probe_ssrf(client):
-            if sf.status == "OK":
-                out.append(
-                    {
-                        "check": "ssrf",
-                        "severity": "CRITICAL",
-                        "detail": f"{sf.tool} -> {sf.url}: {sf.evidence or 'no body captured'}",
-                    }
-                )
-
-    if checks in ("all", "traversal"):
-        for tf in probe_path_traversal(client):
-            if tf.confirmed:
-                out.append(
-                    {
-                        "check": "path_traversal",
-                        "severity": "HIGH",
-                        "detail": f"{tf.tool}: {tf.payload}",
-                    }
-                )
-        for tf in probe_arg_injection(client):
-            if tf.confirmed:
-                out.append(
-                    {
-                        "check": "arg_injection",
-                        "severity": "CRITICAL",
-                        "detail": f"{tf.tool}: {tf.payload}",
-                    }
-                )
-
-    if checks in ("all", "drift"):
-        for df in detect_tool_drift(client, tool_baseline):
-            out.append({"check": df.kind, "severity": df.severity, "detail": df.detail})
-
+    # Ordered because the report has to be able to say which of them ran. Each
+    # entry issues requests, so each is a place the budget can run out, and a
+    # module skipped for that reason is a hole in coverage that has to be named
+    # rather than left as an absence of findings.
+    modules: list[tuple[str, Callable[[], list[dict[str, Any]]]]] = [
+        ("poisoning", lambda: _poisoning_rows(client)),
+        ("resources", lambda: _resource_rows(client)),
+        ("desync", lambda: _desync_rows(client)),
+        ("ssrf", lambda: _ssrf_rows(client)),
+        ("traversal", lambda: _traversal_rows(client)),
+        ("drift", lambda: _drift_rows(client, tool_baseline)),
+    ]
     if mutation_watch:
-        for mf in detect_tool_mutation(client, tools_before, inbound_mark, issues_mark):
-            out.append({"check": mf.kind, "severity": mf.severity, "detail": mf.detail})
+        modules.append(("mutation", lambda: _mutation_rows(client, tools_before, inbound_mark, issues_mark)))
+
+    ran: list[str] = []
+    skipped: list[str] = []
+    for name, run in modules:
+        if name != "mutation" and checks not in ("all", name):
+            continue
+        budget = client.budget
+        if budget is not None and budget.exhausted:
+            skipped.append(name)
+            continue
+        out.extend(run())
+        ran.append(name)
 
     # A call the server suspended is not a call that came back clean. Every
     # probe above reads its verdict off a response body, and a suspended call
@@ -297,6 +348,14 @@ def _run_all_checks(
     # report or the scan quietly overstates its own coverage.
     for issue in client.enumeration_issues:
         out.append({"check": "enumeration_gap", "severity": issue.severity, "detail": issue.detail})
+
+    # One row, and it has to be specific. "Budget exhausted" on its own is a
+    # coverage note that tells an operator nothing; what did and did not run,
+    # and how much of the inventory was reached, is what turns a stopped scan
+    # into a statement about the target that can be acted on.
+    budget = client.budget
+    if budget is not None and budget.exhausted:
+        out.append(_budget_row(budget, ran, skipped, client.tools_probed, client.tools_seen))
 
     return out
 

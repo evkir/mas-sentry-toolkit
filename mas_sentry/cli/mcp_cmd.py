@@ -51,6 +51,11 @@ def mcp_scan(
         "--confirm-scope",
         help="Required for non-lab targets (anything outside localhost/.lab/.test/.local)",
     ),
+    budget: float = typer.Option(
+        600.0,
+        "--budget",
+        help="Wall-clock seconds for the whole scan; 0 disables. On exhaustion the scan stops and reports the gap",
+    ),
 ) -> None:
     """Scan an MCP server. Localhost/lab targets bypass --confirm-scope."""
     from mas_sentry.protocols.mcp.runtime import run_mcp_scan
@@ -64,6 +69,7 @@ def mcp_scan(
         out=out,
         scope_confirmed=confirm_scope,
         tool_baseline=tool_baseline,
+        budget_seconds=budget,
     )
     table = Table(title=f"MCP scan — {target}")
     table.add_column("Check")
