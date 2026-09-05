@@ -47,6 +47,7 @@ from typing import Any
 import httpx
 
 from .auth import AuthChallenge, parse_challenge
+from .errors import TargetUnreachable
 from .jsonrpc import JsonRpcRequest, JsonRpcResponse
 
 SESSION_HEADER = "Mcp-Session-Id"
@@ -378,10 +379,16 @@ class HttpSseTransport:
         if client is None:
             raise RuntimeError("Transport not open")
         deadline = time.monotonic() + self.config.deadline
-        with client.stream("POST", self.config.url, content=content, json=json_body, headers=headers) as streamed:
-            text, stop = _read_bounded(streamed, req.id, deadline)
-            kept = {k: v for k, v in streamed.headers.items() if k.lower() not in _DROPPED_HEADERS}
-            status = streamed.status_code
+        try:
+            with client.stream("POST", self.config.url, content=content, json=json_body, headers=headers) as streamed:
+                text, stop = _read_bounded(streamed, req.id, deadline)
+                kept = {k: v for k, v in streamed.headers.items() if k.lower() not in _DROPPED_HEADERS}
+                status = streamed.status_code
+        except httpx.HTTPError as exc:
+            # Translated here so the runtime never has to know which HTTP
+            # client this module happens to use, and so a refused connection
+            # reaches the report as a gap rather than as a traceback.
+            raise TargetUnreachable(str(exc) or type(exc).__name__) from exc
         return httpx.Response(status, headers=kept, content=text.encode()), stop
 
     def send(self, req: JsonRpcRequest) -> JsonRpcResponse:

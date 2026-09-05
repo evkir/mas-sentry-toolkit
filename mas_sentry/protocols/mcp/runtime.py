@@ -23,6 +23,7 @@ from .audit.tool_drift import detect_tool_drift
 from .audit.tool_mutation import detect_tool_mutation, listing_mark, notification_mark, snapshot_tools
 from .audit.tool_poisoning import detect_tool_poisoning
 from .client import McpClient, ScanBudget
+from .errors import TargetUnreachable
 from .fingerprint import fingerprint, known_cves_for
 from .transport_http import HttpConfig, open_http
 from .transport_stdio import StdioConfig, open_stdio
@@ -53,33 +54,41 @@ def run_mcp_scan(
     # every scan before this one was unbounded and that is the defect.
     budget = ScanBudget(seconds=budget_seconds) if budget_seconds > 0 else None
 
-    if scheme == "stdio":
-        with open_stdio(StdioConfig(command=command)) as t:
-            findings.extend(
-                _run_all_checks(
-                    McpClient(t, budget=budget), transport="stdio", checks=checks, tool_baseline=tool_baseline
-                )
-            )
-    elif scheme in ("http", "https"):
-        assert isinstance(command, str)  # CLI guarantees this for http(s)
-        with open_http(HttpConfig(url=command)) as t:
-            findings.extend(
-                _run_all_checks(
-                    McpClient(t, budget=budget), transport=scheme, checks=checks, tool_baseline=tool_baseline
-                )
-            )
-            if checks in ("all", "rebind"):
-                rb = test_dns_rebinding(command)
-                if rb.vulnerable:
-                    findings.append(
-                        {
-                            "check": "dns_rebind",
-                            "severity": "HIGH",
-                            "detail": f"Accepts Host={rb.accepted_host} Origin={rb.accepted_origin}",
-                        }
-                    )
-    else:
+    if scheme not in ("stdio", "http", "https"):
         raise ValueError(f"Unsupported scheme: {scheme}")
+
+    # Only the reaching of the target is guarded. A defect inside a check still
+    # raises, because turning every exception into "the target was unreachable"
+    # would file this scanner's own faults against whatever it was pointed at -
+    # the misattribution this row exists to prevent.
+    try:
+        if scheme == "stdio":
+            with open_stdio(StdioConfig(command=command)) as t:
+                findings.extend(
+                    _run_all_checks(
+                        McpClient(t, budget=budget), transport="stdio", checks=checks, tool_baseline=tool_baseline
+                    )
+                )
+        else:
+            assert isinstance(command, str)  # CLI guarantees this for http(s)
+            with open_http(HttpConfig(url=command)) as t:
+                findings.extend(
+                    _run_all_checks(
+                        McpClient(t, budget=budget), transport=scheme, checks=checks, tool_baseline=tool_baseline
+                    )
+                )
+                if checks in ("all", "rebind"):
+                    rb = test_dns_rebinding(command)
+                    if rb.vulnerable:
+                        findings.append(
+                            {
+                                "check": "dns_rebind",
+                                "severity": "HIGH",
+                                "detail": f"Accepts Host={rb.accepted_host} Origin={rb.accepted_origin}",
+                            }
+                        )
+    except TargetUnreachable as exc:
+        findings.append(_unreachable_row(target_label, str(exc)))
 
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(findings, indent=2, default=str))
@@ -234,6 +243,25 @@ def _mutation_rows(
         {"check": mf.kind, "severity": mf.severity, "detail": mf.detail}
         for mf in detect_tool_mutation(client, tools_before, inbound_mark, issues_mark)
     ]
+
+
+def _unreachable_row(target_label: str, reason: str) -> dict[str, Any]:
+    """The scan did not happen, said in the report rather than in a traceback.
+
+    Every other outcome of this command reaches a file. Until this row existed
+    an unreachable target reached nothing: the process died on the exception,
+    no report was written, and an operator piping a scan into `report convert`
+    got a broken pipeline that looks the same whether the target was down or
+    this scanner was. `mqtt scan` and `amqp scan` already answer this way.
+    """
+    return {
+        "check": "target_unreachable",
+        "severity": "MEDIUM",
+        "detail": (
+            f"{target_label} was not assessed: {reason}. No check ran, so this report is a record of a "
+            "scan that did not happen - a gap, not a clean result"
+        ),
+    }
 
 
 def _budget_row(budget: ScanBudget, ran: list[str], skipped: list[str], probed: set[str], seen: int) -> dict[str, Any]:

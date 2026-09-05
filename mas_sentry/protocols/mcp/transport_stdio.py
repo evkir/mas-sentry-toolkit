@@ -31,6 +31,7 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 from typing import Any
 
+from .errors import TargetUnreachable
 from .jsonrpc import JsonRpcRequest, JsonRpcResponse
 
 READ_CHUNK = 65536
@@ -97,15 +98,20 @@ class StdioTransport:
         # Pentest-tool note: we deliberately use list-form Popen (no shell=True)
         # to avoid laundering an injection in our OWN tooling. Server-side
         # config-injection RCE is what we DETECT, not what we ship.
-        self._proc = subprocess.Popen(  # noqa: S603
-            cmd,
-            stdin=subprocess.PIPE,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            env=self.config.env,
-            cwd=self.config.cwd,
-            bufsize=0,
-        )
+        try:
+            self._proc = subprocess.Popen(  # noqa: S603
+                cmd,
+                stdin=subprocess.PIPE,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                env=self.config.env,
+                cwd=self.config.cwd,
+                bufsize=0,
+            )
+        except OSError as exc:
+            # A command that is not on the path, or a directory where a binary
+            # was expected. The scan cannot start, and saying so is the report.
+            raise TargetUnreachable(str(exc)) from exc
         # A pipe nobody reads fills up, and a server whose stderr buffer is
         # full blocks on write and stops answering on stdout. Marking our end
         # non-blocking - which is what this used to do - reads nothing and

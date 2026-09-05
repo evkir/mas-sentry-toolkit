@@ -25,6 +25,7 @@ import time
 from dataclasses import dataclass, field
 from typing import Any, Protocol
 
+from .errors import HandshakeFailed
 from .jsonrpc import JsonRpcCodec, JsonRpcResponse
 
 
@@ -885,7 +886,7 @@ class McpClient:
         )
         resp = self.transport.send(req)
         if resp.is_error:
-            raise RuntimeError(f"initialize failed: {resp.error}")
+            raise HandshakeFailed(f"initialize failed: {resp.error}")
         result = resp.result or {}
         info = result.get("serverInfo", {})
         self.server = ServerInfo(

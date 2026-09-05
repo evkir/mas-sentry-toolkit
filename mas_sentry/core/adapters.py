@@ -113,12 +113,43 @@ _MCP_CHECK_TAGS = {
     # secret routes a credential through the client and into model context.
     "elicitation_secret_field": ["ASI09_Human_Agent_Trust", "CWE-522", "STRIDE_Information_Disclosure"],
 }
-# Deliberately absent from the table: fingerprint, enumeration_gap,
-# input_required, capability_required, auth_required, mutation_inconclusive,
-# app_surface and app_binding. None of them asserts a weakness - they report what the scan
-# saw and what it could not reach - so hanging a CWE on them would put
-# coverage notes into the same SARIF filters an operator uses to triage real
-# findings. Their bare check name is the whole tag list on purpose.
+# Checks that carry no taxonomy on purpose. None of them asserts a weakness -
+# they report what the scan saw, what it could not reach, and what it did not
+# get to - so hanging a CWE on one would put a coverage note into the same
+# SARIF filters an operator uses to triage real findings. Their bare check name
+# is the whole tag list.
+#
+# A set rather than a sentence, because the sentence could not be checked and
+# had already fallen behind the code: three keys added since it was written
+# were in neither the table above nor the list below, and nothing said so. A
+# key in neither is now a test failure, which is the only way this stays true.
+_MCP_UNTAGGED_CHECKS = frozenset(
+    {
+        "fingerprint",
+        "enumeration_gap",
+        "input_required",
+        "capability_required",
+        "auth_required",
+        "mutation_inconclusive",
+        "app_surface",
+        "app_binding",
+        # The target deferred the call to a task it was never asked for. A
+        # conformance defect with a real consequence, but the consequence lands
+        # in a client that does not understand tasks, not in this scan - and
+        # what this row says about the scan is that the probe did not run.
+        "task_undeclared",
+        # Bounds of ours, not facts about the target.
+        "scan_budget_exhausted",
+        "target_unreachable",
+        # Inventory movement that is worth reporting and is not, by itself, an
+        # attack: a tool that stopped being advertised, and the cross-run
+        # bookkeeping around a descriptor baseline.
+        "tool_withdrawn",
+        "tool_added",
+        "tool_removed",
+        "tool_baseline_captured",
+    }
+)
 
 
 def from_mcp_check(check_dict: dict[str, Any], target: str) -> Finding:

@@ -21,7 +21,7 @@ import httpx
 
 from mas_sentry.core.adapters import from_card_audit, from_probe_result
 from mas_sentry.core.audit_log import write as audit_write
-from mas_sentry.core.finding import Finding
+from mas_sentry.core.finding import Finding, Severity
 from mas_sentry.reporting.structured import write_json
 
 from .card_audit import audit_agent_card
@@ -63,23 +63,51 @@ def run_a2a_scan(
     audit_write({"action": "a2a_scan_start", "target": target, "active": active})
     findings: list[Finding] = []
 
-    with A2AClient(target, transport=transport, confirmed=scope_confirmed) as client:
-        card = client.discover()
-        findings.extend(from_card_audit(cf, target) for cf in audit_agent_card(card))
-        if active:
-            try:
-                findings.extend(_run_probes(client, target))
-            except A2AUnsupportedBindingError as exc:
-                # The card explicitly declares interfaces/transports and none
-                # is JSON-RPC - every probe would fail identically, so check
-                # once here instead of three times inside _run_probes, and
-                # keep the card_audit findings already collected above.
-                audit_write({"action": "a2a_probe_skip", "target": target, "reason": str(exc)})
+    try:
+        with A2AClient(target, transport=transport, confirmed=scope_confirmed) as client:
+            card = client.discover()
+            findings.extend(from_card_audit(cf, target) for cf in audit_agent_card(card))
+            if active:
+                try:
+                    findings.extend(_run_probes(client, target))
+                except A2AUnsupportedBindingError as exc:
+                    # The card explicitly declares interfaces/transports and none
+                    # is JSON-RPC - every probe would fail identically, so check
+                    # once here instead of three times inside _run_probes, and
+                    # keep the card_audit findings already collected above.
+                    audit_write({"action": "a2a_probe_skip", "target": target, "reason": str(exc)})
+    except httpx.HTTPError as exc:
+        # Only the card fetch is guarded: reaching the agent at all. A probe
+        # that fails is already handled inside _run_probes, and widening this
+        # would file a defect of ours against the endpoint.
+        findings.append(_unreachable(target, str(exc) or type(exc).__name__))
 
     out.parent.mkdir(parents=True, exist_ok=True)
     write_json(findings, target, out)
     audit_write({"action": "a2a_scan_done", "target": target, "findings": len(findings)})
     return findings
+
+
+def _unreachable(target: str, reason: str) -> Finding:
+    """The scan did not happen, recorded rather than raised.
+
+    An agent that refuses the connection used to end this command in a
+    traceback with no file written, so a pipeline could not tell a target that
+    was down from a scanner that had crashed. `mqtt scan` and `amqp scan`
+    already answer this way; the MCP scan now does too.
+    """
+    return Finding(
+        module="a2a.discovery",
+        title="Agent not assessed",
+        detail=(
+            f"{target} was not assessed: {reason}. No check ran, so this report is a record of a scan "
+            "that did not happen - a gap, not a clean result"
+        ),
+        severity=Severity.MEDIUM,
+        target=target,
+        tags=["a2a", "enumeration_gap"],
+        evidence={"reachable": False},
+    )
 
 
 def _run_probes(client: A2AClient, target: str) -> list[Finding]:
