@@ -477,6 +477,12 @@ class McpClient:
         # "stopped early" without them says nothing an operator can act on.
         self.tools_seen = 0
         self.tools_probed: set[str] = set()
+        # Every listing this scan has already walked, keyed by method. Ten
+        # auditors each enumerate the tools, and against a server that
+        # paginates that is ten walks of every page - 508 of the 55508 requests
+        # measured against a 5000-tool server were listing alone, spent
+        # re-reading an answer already in hand.
+        self._list_cache: dict[str, list[dict[str, Any]]] = {}
         self._next_id = 0
         self.server: ServerInfo | None = None
         self.enumeration_issues: list[EnumerationIssue] = []
@@ -515,8 +521,14 @@ class McpClient:
             )
         )
 
-    def _list_paged(self, method: str, key: str) -> list[dict[str, Any]]:
+    def _list_paged(self, method: str, key: str, refresh: bool = False) -> list[dict[str, Any]]:
         """Walk every page of a list method and return the raw entries.
+
+        Answered from cache after the first walk. `refresh` forces the wire,
+        and exists for exactly one reader: the mutation audit compares two
+        enumerations it performed itself, so a cached second one would make it
+        compare an answer with itself and agree every time. A detector that
+        cannot disagree is not a detector.
 
         MCP list results are paginated: a server answers with a slice and a
         `nextCursor`, and the client is expected to keep asking until the cursor
@@ -531,6 +543,14 @@ class McpClient:
         outcomes are recorded so a truncated inventory is never presented as a
         complete one.
         """
+        if not refresh and method in self._list_cache:
+            return self._list_cache[method]
+        items = self._walk_pages(method, key)
+        self._list_cache[method] = items
+        return items
+
+    def _walk_pages(self, method: str, key: str) -> list[dict[str, Any]]:
+        """The walk itself, with no opinion about caching."""
         items: list[dict[str, Any]] = []
         cursor: str | None = None
         seen: set[str] = set()
@@ -880,16 +900,29 @@ class McpClient:
         return self.server
 
     def list_tools(self) -> list[ToolDef]:
-        out: list[ToolDef] = []
-        for t in self._list_paged("tools/list", "tools"):
-            out.append(
-                ToolDef(
-                    name=t.get("name", ""),
-                    description=t.get("description", ""),
-                    input_schema=t.get("inputSchema", {}),
-                    raw=t,
-                )
+        """The inventory as this scan last read it, from cache after the first walk."""
+        return self._tool_defs(self._list_paged("tools/list", "tools"))
+
+    def relist_tools(self) -> list[ToolDef]:
+        """Read the inventory from the wire, whatever is already cached.
+
+        The only correct reader for the mutation audit, which exists to catch a
+        descriptor that changed between two enumerations. Nothing else should
+        call it: every other auditor wants the inventory the scan is working
+        from, and asking again just spends budget on an answer already held.
+        """
+        return self._tool_defs(self._list_paged("tools/list", "tools", refresh=True))
+
+    def _tool_defs(self, raw: list[dict[str, Any]]) -> list[ToolDef]:
+        out = [
+            ToolDef(
+                name=t.get("name", ""),
+                description=t.get("description", ""),
+                input_schema=t.get("inputSchema", {}),
+                raw=t,
             )
+            for t in raw
+        ]
         # Only a listing that produced something counts. A listing the budget
         # refused to send returns nothing, and overwriting the count with zero
         # would report the inventory as empty rather than as unread.

@@ -47,8 +47,14 @@ class MutationFinding:
 
 
 def snapshot_tools(client: McpClient) -> dict[str, str]:
-    """Digest every advertised tool descriptor as it stands right now."""
-    return build_tool_baseline(client.list_tools())
+    """Digest every advertised tool descriptor as it stands right now.
+
+    `relist_tools`, never `list_tools`. The cached reader hands back the
+    inventory this scan already walked, which would make the second snapshot a
+    copy of the first and every comparison below agree - silently, and against
+    every target, including the one mid rug-pull.
+    """
+    return build_tool_baseline(client.relist_tools())
 
 
 def notification_mark(client: McpClient) -> int:
