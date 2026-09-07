@@ -156,6 +156,10 @@ _MCP_UNTAGGED_CHECKS = frozenset(
         # The same surface left unread by a bound of ours rather than by the
         # target: the size cap, the fetch deadline or the scan budget.
         "auth_discovery_bounded",
+        # The refusal pointed off the target's origin. RFC 9728 allows it and
+        # real hosting platforms need it, so it asserts no weakness - it says
+        # where this scan declined to follow, and what it therefore did not read.
+        "auth_discovery_offhost",
         # Bounds of ours, not facts about the target.
         "scan_budget_exhausted",
         "target_unreachable",

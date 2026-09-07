@@ -14,6 +14,20 @@ internal address there would have MST reach into the operator's network on its
 behalf - so an issuer outside the scan's allowlist is reported as a finding
 about the target rather than followed as an instruction.
 
+The same reasoning binds the pointer itself. `resource_metadata` in a
+`WWW-Authenticate` header is an address the target writes, and RFC 9728 puts no
+origin restriction on it: Anthropic's connector documentation states outright
+that the document may live at any https location, which is how servers on
+Supabase Edge Functions, Cloudflare Workers and Lambda function URLs publish
+metadata at all when they cannot serve `/.well-known/*` at the root. An
+off-origin pointer is therefore a legitimate deployment and not a defect - but
+following one is still this scanner reaching into an address of the target's
+choosing, and the scope guard does not stop it, because a scan of any real
+server runs with `--confirm-scope` and the guard is a lab switch rather than an
+allowlist of the target. So an off-origin pointer is recorded and not
+requested, and discovery continues at the well-known locations on the target's
+own origin.
+
 What the audit asserts, and where each assertion comes from:
 
   Section 1.2   the resource identifier is a URL that uses the https scheme,
@@ -49,6 +63,7 @@ MAX_DOCUMENT_CHARS = 256 * 1024
 FETCH_DEADLINE = 15.0
 
 BOUNDED_CHECK = "auth_discovery_bounded"
+OFFHOST_CHECK = "auth_discovery_offhost"
 
 # Where cleartext is a deployment rather than a defect.
 _LOOPBACK_NAMES = frozenset({"localhost"})
@@ -226,6 +241,17 @@ def discovery_urls(target: str, pointer: str = "") -> list[str]:
     return unique
 
 
+def _same_origin(url: str, target: str) -> bool:
+    """Scheme, host and port, compared the way an origin is compared.
+
+    The port is part of it. A pointer differing only in port is a different
+    service on the same machine, which is exactly the shape an internal address
+    takes on a host we were asked to scan.
+    """
+    left, right = urlsplit(url), urlsplit(target)
+    return left.scheme == right.scheme and left.netloc.lower() == right.netloc.lower()
+
+
 def _same_resource(declared: str, scanned: str) -> bool:
     """Compare two resource identifiers the way Section 3.3 asks them to be compared.
 
@@ -292,8 +318,29 @@ def audit_protected_resource(
     gets no row: a check that fires on every target without OAuth is noise, and
     most MCP servers today have none.
     """
-    attempts = [fetcher.get(url) for url in discovery_urls(target, pointer)]
+    offhost = bool(pointer) and not _same_origin(pointer, target)
+    attempts = [fetcher.get(url) for url in discovery_urls(target, "" if offhost else pointer)]
     document, source = _read_document(attempts)
+
+    # Carried into every branch below. The scan looked somewhere other than
+    # where the server sent it, and a document read from the target's own
+    # origin is not necessarily the one a client would have read.
+    head: list[AuthFinding] = []
+    if offhost:
+        head.append(
+            AuthFinding(
+                check=OFFHOST_CHECK,
+                severity="INFO",
+                detail=(
+                    f"The refusal pointed at {pointer}, which is not on the origin of the URL this scan "
+                    f"called ({target}). RFC 9728 permits it and hosting platforms that cannot serve "
+                    "/.well-known/* at the root rely on it, so this is not a defect - but the address was "
+                    "written by the target, and following it would make this scanner fetch whatever the "
+                    "target names. It was not requested. Discovery continued at the well-known locations "
+                    "on the target's own origin, so what a client would read there is unassessed"
+                ),
+            )
+        )
 
     if document is None:
         tried = "; ".join(f"{a.url} -> {a.error or a.status}" for a in attempts)
@@ -303,6 +350,7 @@ def audit_protected_resource(
             # never refused could still have been publishing a document we
             # stopped reading.
             return [
+                *head,
                 AuthFinding(
                     check=BOUNDED_CHECK,
                     severity="MEDIUM",
@@ -312,11 +360,12 @@ def audit_protected_resource(
                         "deadline and the scan budget are all bounds of this scanner, and what the metadata "
                         "would have said is unknown rather than absent"
                     ),
-                )
+                ),
             ]
         if not refused:
-            return []
+            return head
         return [
+            *head,
             AuthFinding(
                 check="auth_discovery",
                 severity="MEDIUM",
@@ -325,10 +374,10 @@ def audit_protected_resource(
                     f"metadata (RFC 9728 Section 3). Tried: {tried}. A client cannot find the "
                     "authorization server from here, and nothing behind the boundary was assessed"
                 ),
-            )
+            ),
         ]
 
-    out: list[AuthFinding] = []
+    out: list[AuthFinding] = list(head)
     resource = document.get("resource")
     if not isinstance(resource, str) or not resource:
         out.append(

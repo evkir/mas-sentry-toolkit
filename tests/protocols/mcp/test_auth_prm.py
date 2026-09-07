@@ -58,9 +58,10 @@ def test_a_resource_identifier_without_a_path_only_has_the_root_form() -> None:
 
 
 def test_the_pointer_the_server_gave_is_tried_first() -> None:
+    """On the target's own origin, the pointer is what the server asked us to use."""
     fetcher = _Fetcher({})
-    audit_protected_resource(TARGET, "https://elsewhere.example.com/prm", fetcher, refused=True)
-    assert fetcher.asked[0] == "https://elsewhere.example.com/prm"
+    audit_protected_resource(TARGET, POINTER, fetcher, refused=True)
+    assert fetcher.asked[0] == POINTER
 
 
 def test_loopback_is_recognised_by_address_and_by_name() -> None:
@@ -328,3 +329,57 @@ def test_a_bounded_read_is_reported_even_when_the_server_never_refused() -> None
     """No 401 does not mean no document; it means we did not finish looking."""
     rows = audit_protected_resource(TARGET, POINTER, _BoundedFetcher(), refused=False)
     assert [r.check for r in rows] == ["auth_discovery_bounded"]
+
+
+def test_an_off_origin_pointer_is_recorded_and_not_requested() -> None:
+    """The address is the target's to write, so following it is ours to refuse.
+
+    Legitimate - RFC 9728 sets no origin restriction and hosting platforms that
+    cannot serve /.well-known/* at the root depend on it - so it is reported at
+    INFO and discovery carries on at the target's own well-known locations.
+    """
+    fetcher = _Fetcher({})
+    rows = audit_protected_resource(TARGET, "https://elsewhere.example.com/prm", fetcher, refused=True)
+    assert "https://elsewhere.example.com/prm" not in fetcher.asked
+    assert fetcher.asked == discovery_urls(TARGET)
+    assert rows[0].check == "auth_discovery_offhost"
+    assert rows[0].severity == "INFO"
+    assert [r.check for r in rows] == ["auth_discovery_offhost", "auth_discovery"]
+
+
+def test_the_off_origin_row_survives_a_document_found_on_the_target() -> None:
+    """Reading a document elsewhere does not make the unread one disappear."""
+    document = _clean_document()
+    fetcher = _Fetcher({discovery_urls(TARGET)[0]: document})
+    rows = audit_protected_resource(TARGET, "https://elsewhere.example.com/prm", fetcher, refused=True)
+    assert [r.check for r in rows] == ["auth_discovery_offhost"]
+
+
+def test_a_pointer_differing_only_in_port_is_off_origin() -> None:
+    """A different port is a different service on a host we were pointed at."""
+    target = "http://127.0.0.1:9810/mcp"
+    fetcher = _Fetcher({})
+    rows = audit_protected_resource(target, "http://127.0.0.1:9999/prm", fetcher, refused=True)
+    assert "http://127.0.0.1:9999/prm" not in fetcher.asked
+    assert rows[0].check == "auth_discovery_offhost"
+
+
+def test_a_confirmed_scope_does_not_open_the_pointer_to_any_address() -> None:
+    """The case the scope guard cannot cover, driven the way a real scan runs.
+
+    Every scan of a real server passes --confirm-scope, which makes the guard
+    return for any host at all. The unit test that pinned this used the default
+    HttpFetcher() - a configuration a real scan never has - so it stayed green
+    while the property it describes did not hold. Here the fetcher is built the
+    way the runtime builds it, and the refusal to follow has to come from the
+    origin policy.
+    """
+    listener, url = _serve(_SlowHandler)
+    _SlowHandler.hits = 0
+    try:
+        target = f"http://127.0.0.1:{listener.server_address[1] + 1}/mcp"
+        fetcher = HttpFetcher(timeout=1.0, deadline=1.0, scope_confirmed=True)
+        audit_protected_resource(target, url, fetcher, refused=True)
+    finally:
+        listener.shutdown()
+    assert _SlowHandler.hits == 0, "the scan fetched an address the target chose for it"
