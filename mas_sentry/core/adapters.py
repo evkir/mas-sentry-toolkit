@@ -112,6 +112,17 @@ _MCP_CHECK_TAGS = {
     # Form mode is specified for non-sensitive input, so a schema collecting a
     # secret routes a credential through the client and into model context.
     "elicitation_secret_field": ["ASI09_Human_Agent_Trust", "CWE-522", "STRIDE_Information_Disclosure"],
+    # RFC 9728 defines a resource identifier as an https URL and requires https
+    # of jwks_uri outright. A cleartext address in the discovery chain is where
+    # the token is read off the wire, whoever eventually carries it.
+    "auth_transport": ["ASI07_Insecure_Communication", "CWE-319", "STRIDE_Information_Disclosure"],
+    # Section 7.3 is titled Impersonation Attacks and turns on this exact
+    # comparison: a document whose `resource` does not bind to the URL the
+    # client called is one an attacker could have published about someone else.
+    "auth_resource_binding": ["ASI03_Identity_Abuse", "CWE-346", "STRIDE_Spoofing"],
+    # A bearer token in the query string is a credential in a place built to be
+    # logged, cached and forwarded.
+    "auth_bearer_methods": ["ASI07_Insecure_Communication", "CWE-598", "STRIDE_Information_Disclosure"],
 }
 # Checks that carry no taxonomy on purpose. None of them asserts a weakness -
 # they report what the scan saw, what it could not reach, and what it did not
@@ -138,6 +149,10 @@ _MCP_UNTAGGED_CHECKS = frozenset(
         # in a client that does not understand tasks, not in this scan - and
         # what this row says about the scan is that the probe did not run.
         "task_undeclared",
+        # The RFC 9728 chain broke before anything could be read off it. What
+        # lies behind the authorization boundary is unassessed, which is a
+        # statement about this scan.
+        "auth_discovery",
         # Bounds of ours, not facts about the target.
         "scan_budget_exhausted",
         "target_unreachable",

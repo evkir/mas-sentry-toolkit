@@ -12,6 +12,7 @@ from mas_sentry.core.audit_log import write as audit_write
 from mas_sentry.core.scope import assert_in_scope
 
 from .audit.apps import audit_apps
+from .audit.auth_prm import HttpFetcher, audit_protected_resource
 from .audit.dns_rebind import test_dns_rebinding
 from .audit.elicitation import audit_elicitations
 from .audit.header_desync import probe_header_desync
@@ -74,7 +75,12 @@ def run_mcp_scan(
             with open_http(HttpConfig(url=command)) as t:
                 findings.extend(
                     _run_all_checks(
-                        McpClient(t, budget=budget), transport=scheme, checks=checks, tool_baseline=tool_baseline
+                        McpClient(t, budget=budget),
+                        transport=scheme,
+                        checks=checks,
+                        tool_baseline=tool_baseline,
+                        target_url=command,
+                        scope_confirmed=scope_confirmed,
                     )
                 )
                 if checks in ("all", "rebind"):
@@ -280,8 +286,29 @@ def _budget_row(budget: ScanBudget, ran: list[str], skipped: list[str], probed: 
     }
 
 
+def _auth_rows(client: McpClient, target_url: str, scope_confirmed: bool) -> list[dict[str, Any]]:
+    """Audit the RFC 9728 chain the refusal pointed at.
+
+    Skipped without a URL, which is every stdio target: the discovery chain is
+    built by inserting a well-known path into an http(s) resource identifier,
+    and a subprocess has none.
+    """
+    if not target_url:
+        return []
+    challenge = getattr(client.transport, "auth_challenge", None)
+    pointer = challenge.resource_metadata if challenge is not None else ""
+    fetcher = HttpFetcher(scope_confirmed=scope_confirmed)
+    findings = audit_protected_resource(target_url, pointer, fetcher, refused=challenge is not None)
+    return [{"check": f.check, "severity": f.severity, "detail": f.detail} for f in findings]
+
+
 def _run_all_checks(
-    client: McpClient, transport: str, checks: str, tool_baseline: Path | None = None
+    client: McpClient,
+    transport: str,
+    checks: str,
+    tool_baseline: Path | None = None,
+    target_url: str = "",
+    scope_confirmed: bool = False,
 ) -> list[dict[str, Any]]:
     out: list[dict[str, Any]] = []
     fp = fingerprint(client, transport_name=transport)
@@ -315,6 +342,7 @@ def _run_all_checks(
         ("ssrf", lambda: _ssrf_rows(client)),
         ("traversal", lambda: _traversal_rows(client)),
         ("drift", lambda: _drift_rows(client, tool_baseline)),
+        ("auth", lambda: _auth_rows(client, target_url, scope_confirmed)),
     ]
     if mutation_watch:
         modules.append(("mutation", lambda: _mutation_rows(client, tools_before, inbound_mark, issues_mark)))

@@ -13,9 +13,14 @@ refusal, the pointer it carries, and the two metadata documents behind it.
 
 Environment:
     MAS_SENTRY_AUTH_PORT   port to bind (default 9810)
-    MAS_SENTRY_AUTH_BREAK  omit one thing, to pin the audit in both directions:
+    MAS_SENTRY_AUTH_BREAK  omit or spoil one thing, to pin the audit in both
+                           directions:
                            `challenge` drops the WWW-Authenticate header,
                            `prm` unmounts the protected resource metadata,
+                           `weak` publishes a document that is served correctly
+                           and says the wrong things - a resource identifier
+                           that is not this server, a cleartext issuer off
+                           loopback, and the query bearer method,
                            `pkce` drops S256 from the authorization server.
 """
 
@@ -25,7 +30,7 @@ import os
 
 import uvicorn
 from mcp.server.auth.routes import build_resource_metadata_url, create_protected_resource_routes
-from mcp.shared.auth import OAuthMetadata
+from mcp.shared.auth import OAuthMetadata, ProtectedResourceMetadata
 from pydantic import AnyHttpUrl
 from starlette.applications import Starlette
 from starlette.responses import JSONResponse, Response
@@ -67,12 +72,33 @@ async def as_metadata(request: object) -> JSONResponse:
     return JSONResponse(meta.model_dump(by_alias=True, mode="json", exclude_none=True))
 
 
+async def weak_resource_metadata(request: object) -> JSONResponse:
+    """A well-formed document that describes the wrong thing.
+
+    Built through the SDK's own metadata model rather than as hand-written
+    JSON, so the field names and serialisation stay the SDK's; only the values
+    are chosen here. The SDK's route builder hardcodes bearer_methods_supported
+    to ["header"] and fixes the resource to the server's own URL, so the three
+    conditions below cannot be reached through it.
+    """
+    meta = ProtectedResourceMetadata(
+        resource=AnyHttpUrl("http://elsewhere.example.com/mcp"),
+        authorization_servers=[AnyHttpUrl("http://as.example.com")],
+        bearer_methods_supported=["header", "query"],
+    )
+    return JSONResponse(meta.model_dump(by_alias=True, mode="json", exclude_none=True))
+
+
 def build_app() -> Starlette:
     routes = [
         Route("/mcp", endpoint=mcp_endpoint, methods=["GET", "POST"]),
         Route("/.well-known/oauth-authorization-server", endpoint=as_metadata, methods=["GET"]),
     ]
-    if BREAK != "prm":
+    if BREAK == "weak":
+        routes.append(
+            Route("/.well-known/oauth-protected-resource/mcp", endpoint=weak_resource_metadata, methods=["GET"])
+        )
+    elif BREAK != "prm":
         routes.extend(create_protected_resource_routes(resource_url=RESOURCE, authorization_servers=[ISSUER]))
     return Starlette(routes=routes)
 
