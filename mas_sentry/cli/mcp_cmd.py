@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 from __future__ import annotations
 
+import os
 import shlex
 from pathlib import Path
 
@@ -10,6 +11,31 @@ from rich.table import Table
 
 app = typer.Typer(no_args_is_help=True)
 console = Console()
+
+
+def _stdio_environment(assignments: list[str], passthrough: list[str]) -> dict[str, str] | None:
+    """Build the environment a stdio target is launched with.
+
+    None means the process environment is inherited, which is what every scan
+    did before these options existed. Returning it explicitly keeps the choice
+    visible at the call site rather than hiding it in a default argument.
+
+    A named variable that is not set is an error rather than an omission. The
+    operator asked for it because the server needs it, and launching without it
+    produces a target configured differently from the one they meant to scan -
+    which is the failure these options exist to remove, arriving quietly.
+    """
+    env: dict[str, str] = {}
+    for name in passthrough:
+        if name not in os.environ:
+            raise typer.BadParameter(f"--env-passthrough {name}: not set in this environment")
+        env[name] = os.environ[name]
+    for item in assignments:
+        key, sep, value = item.partition("=")
+        if not sep or not key:
+            raise typer.BadParameter(f"--env {item}: expected KEY=VALUE")
+        env[key] = value
+    return env or None
 
 
 def _parse_target(target: str) -> tuple[str, str | list[str]]:
@@ -56,11 +82,34 @@ def mcp_scan(
         "--budget",
         help="Wall-clock seconds for the whole scan; 0 disables. On exhaustion the scan stops and reports the gap",
     ),
+    env: list[str] = typer.Option(
+        [],
+        "--env",
+        "-e",
+        help="KEY=VALUE for a stdio target, repeatable. A real MCP server is launched from a client config "
+        "that sets API keys and paths this way, so without them the scan runs a differently configured target",
+    ),
+    env_passthrough: list[str] = typer.Option(
+        [],
+        "--env-passthrough",
+        help="Name of a variable to copy from this shell into a stdio target. Errors if it is not set",
+    ),
+    cwd: Path | None = typer.Option(
+        None,
+        "--cwd",
+        help="Working directory for a stdio target. Servers that resolve relative paths need the one their "
+        "client would give them",
+    ),
 ) -> None:
     """Scan an MCP server. Localhost/lab targets bypass --confirm-scope."""
     from mas_sentry.protocols.mcp.runtime import run_mcp_scan
 
     scheme, command = _parse_target(target)
+    stdio_env = _stdio_environment(list(env), list(env_passthrough))
+    if scheme != "stdio" and (stdio_env is not None or cwd is not None):
+        # Accepting them here would report a scan of a target launched the way
+        # the operator described, when nothing was launched at all.
+        raise typer.BadParameter("--env, --env-passthrough and --cwd apply to stdio:// targets only")
     findings = run_mcp_scan(
         scheme=scheme,
         command=command,
@@ -70,6 +119,8 @@ def mcp_scan(
         scope_confirmed=confirm_scope,
         tool_baseline=tool_baseline,
         budget_seconds=budget,
+        env=stdio_env,
+        cwd=str(cwd) if cwd is not None else None,
     )
     table = Table(title=f"MCP scan — {target}")
     table.add_column("Check")

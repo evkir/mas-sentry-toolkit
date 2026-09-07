@@ -45,7 +45,21 @@ def run_mcp_scan(
     scope_confirmed: bool,
     tool_baseline: Path | None = None,
     budget_seconds: float = DEFAULT_BUDGET_S,
+    env: dict[str, str] | None = None,
+    cwd: str | None = None,
 ) -> list[dict[str, Any]]:
+    """Scan one MCP target.
+
+    `env` and `cwd` describe how a stdio server is launched. StdioConfig has
+    carried both since it was written and this entry point passed neither, so
+    the product could only ever start a target with its own environment and its
+    own working directory - while a real MCP server is launched by a client
+    from a configuration that sets exactly these. A scan of a server that reads
+    an API key or resolves a relative path was a scan of a differently
+    configured process.
+    """
+    if scheme != "stdio" and (env is not None or cwd is not None):
+        raise ValueError("env and cwd describe a subprocess launch and apply to stdio targets only")
     _enforce_scope(scheme=scheme, command=command, confirmed=scope_confirmed)
     audit_write({"action": "mcp_scan_start", "target": target_label, "checks": checks})
 
@@ -64,7 +78,7 @@ def run_mcp_scan(
     # the misattribution this row exists to prevent.
     try:
         if scheme == "stdio":
-            with open_stdio(StdioConfig(command=command)) as t:
+            with open_stdio(StdioConfig(command=command, env=env, cwd=cwd)) as t:
                 findings.extend(
                     _run_all_checks(
                         McpClient(t, budget=budget), transport="stdio", checks=checks, tool_baseline=tool_baseline
