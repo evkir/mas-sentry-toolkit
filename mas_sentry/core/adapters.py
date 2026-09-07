@@ -153,6 +153,9 @@ _MCP_UNTAGGED_CHECKS = frozenset(
         # lies behind the authorization boundary is unassessed, which is a
         # statement about this scan.
         "auth_discovery",
+        # The same surface left unread by a bound of ours rather than by the
+        # target: the size cap, the fetch deadline or the scan budget.
+        "auth_discovery_bounded",
         # Bounds of ours, not facts about the target.
         "scan_budget_exhausted",
         "target_unreachable",

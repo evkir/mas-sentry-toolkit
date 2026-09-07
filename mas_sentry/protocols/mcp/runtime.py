@@ -297,7 +297,10 @@ def _auth_rows(client: McpClient, target_url: str, scope_confirmed: bool) -> lis
         return []
     challenge = getattr(client.transport, "auth_challenge", None)
     pointer = challenge.resource_metadata if challenge is not None else ""
-    fetcher = HttpFetcher(scope_confirmed=scope_confirmed)
+    # The budget is handed over because these three requests do not go through
+    # client.send and were therefore free: the module was skipped once the
+    # budget was gone, but the fetches it did make were spent off the books.
+    fetcher = HttpFetcher(scope_confirmed=scope_confirmed, budget=client.budget)
     findings = audit_protected_resource(target_url, pointer, fetcher, refused=challenge is not None)
     return [{"check": f.check, "severity": f.severity, "detail": f.detail} for f in findings]
 

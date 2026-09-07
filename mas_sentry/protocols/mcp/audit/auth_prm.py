@@ -30,6 +30,7 @@ from __future__ import annotations
 
 import ipaddress
 import json
+import time
 from dataclasses import dataclass
 from typing import Any, Protocol
 from urllib.parse import urlsplit, urlunsplit
@@ -40,18 +41,35 @@ WELL_KNOWN = "/.well-known/oauth-protected-resource"
 # cost us something, not a set of metadata parameters.
 MAX_DOCUMENT_CHARS = 256 * 1024
 
+# Wall clock for one metadata request, end to end. Separate from the httpx
+# timeout for the reason the transport already learned: httpx applies its
+# timeout between reads, so a server writing one byte at a time keeps every
+# read inside it and the request open indefinitely. Measured here too - a fetch
+# with timeout=2.0 was still running at 10.2s against a dribbling server.
+FETCH_DEADLINE = 15.0
+
+BOUNDED_CHECK = "auth_discovery_bounded"
+
 # Where cleartext is a deployment rather than a defect.
 _LOOPBACK_NAMES = frozenset({"localhost"})
 
 
 @dataclass(frozen=True, slots=True)
 class FetchResult:
-    """What came back from one metadata request, or why nothing did."""
+    """What came back from one metadata request, or why nothing did.
+
+    `bounded` separates the two ways a request can produce no document. The
+    target refusing, timing out or serving nothing is a fact about the target.
+    This scanner stopping - at its size cap, at its deadline, at the end of the
+    scan budget - is a fact about this scan, and reporting the second as the
+    first is a finding we invented.
+    """
 
     url: str
     status: int = 0
     text: str = ""
     error: str = ""
+    bounded: bool = False
 
     @property
     def ok(self) -> bool:
@@ -64,22 +82,65 @@ class Fetcher(Protocol):
     def get(self, url: str) -> FetchResult: ...
 
 
-class HttpFetcher:
-    """Reads metadata over HTTP, under the same bounds every other request has.
+class Budget(Protocol):
+    """The scan-wide clock, narrowed to the one call this module makes of it.
 
-    Its own deadline and cap rather than the transport's: these requests do not
-    go through the JSON-RPC client, and a metadata URL is written by the target
-    exactly like a tool argument is.
-
-    The scope guard is the SSRF answer from RFC 9728 Section 7.7. The address
-    came from the target, so it is checked against the same allowlist that
-    decides what this scanner is allowed to touch - a server naming an internal
-    host gets a refusal it can observe, not a request made on its behalf.
+    Structural rather than an import of ScanBudget: the budget lives beside the
+    JSON-RPC client, these requests do not go through it, and a Protocol keeps
+    the audit drivable without building a client at all.
     """
 
-    def __init__(self, timeout: float = 10.0, scope_confirmed: bool = False) -> None:
+    def spend(self, method: str) -> bool: ...
+
+
+def _read_bounded(response: Any, deadline: float, seconds: float) -> tuple[str, str]:
+    """Read one metadata body, stopping at the cap or the deadline.
+
+    Both bounds have to be applied while the body arrives. Slicing the finished
+    text at the cap - which is what this used to do - is a measurement taken
+    after the cost has been paid: a 20MiB answer was read into memory in full
+    and then cut to 256KiB, so the cap bounded the variable and not the host.
+    """
+    buf = ""
+    for chunk in response.iter_text():
+        buf += chunk
+        if len(buf) >= MAX_DOCUMENT_CHARS:
+            return (
+                buf[:MAX_DOCUMENT_CHARS],
+                f"stopped reading after {MAX_DOCUMENT_CHARS} characters; this is a scanner bound",
+            )
+        if time.monotonic() >= deadline:
+            return buf, f"stopped waiting after {seconds}s; this is a scanner bound"
+    return buf, ""
+
+
+class HttpFetcher:
+    """Reads metadata over HTTP, under bounds of its own.
+
+    These requests do not go through the JSON-RPC client, so nothing the
+    transport enforces applies to them: the deadline, the size cap and the scan
+    budget are all wired up here or they do not exist. A metadata URL is
+    written by the target exactly like a tool argument is, and the first URL
+    tried is the one the target put in its own WWW-Authenticate header.
+
+    The scope guard answers RFC 9728 Section 7.7 only for a scan pointed at the
+    lab. It is a lab/not-lab switch rather than an allowlist of the target, so
+    a scan of any real server passes `scope_confirmed=True` and the guard stops
+    refusing anything - which is what the origin policy, not this class, has to
+    deal with.
+    """
+
+    def __init__(
+        self,
+        timeout: float = 10.0,
+        scope_confirmed: bool = False,
+        deadline: float = FETCH_DEADLINE,
+        budget: Budget | None = None,
+    ) -> None:
         self.timeout = timeout
         self.scope_confirmed = scope_confirmed
+        self.deadline = deadline
+        self.budget = budget
 
     def get(self, url: str) -> FetchResult:
         import httpx
@@ -91,11 +152,21 @@ class HttpFetcher:
             assert_in_scope(host, confirmed=self.scope_confirmed)
         except ScopeViolation:
             return FetchResult(url=url, error="outside the scan allowlist; not fetched")
+        if self.budget is not None and not self.budget.spend(f"GET {url}"):
+            return FetchResult(url=url, error="the scan budget ran out before this request", bounded=True)
+        stop_at = time.monotonic() + self.deadline
         try:
-            r = httpx.get(url, timeout=self.timeout, follow_redirects=False)
+            with (
+                httpx.Client(timeout=self.timeout, follow_redirects=False) as client,
+                client.stream("GET", url) as response,
+            ):
+                text, bound = _read_bounded(response, stop_at, self.deadline)
+                status = response.status_code
         except httpx.HTTPError as exc:
             return FetchResult(url=url, error=str(exc) or type(exc).__name__)
-        return FetchResult(url=url, status=r.status_code, text=r.text[: MAX_DOCUMENT_CHARS + 1])
+        if bound:
+            return FetchResult(url=url, status=status, text=text, error=bound, bounded=True)
+        return FetchResult(url=url, status=status, text=text)
 
 
 @dataclass(frozen=True, slots=True)
@@ -225,9 +296,26 @@ def audit_protected_resource(
     document, source = _read_document(attempts)
 
     if document is None:
+        tried = "; ".join(f"{a.url} -> {a.error or a.status}" for a in attempts)
+        if any(a.bounded for a in attempts):
+            # Reported whether or not the server demanded a token. A read this
+            # scan cut short is a hole in what it covered, and a server that
+            # never refused could still have been publishing a document we
+            # stopped reading.
+            return [
+                AuthFinding(
+                    check=BOUNDED_CHECK,
+                    severity="MEDIUM",
+                    detail=(
+                        f"The discovery chain was not read to the end because this scan stopped reading it. "
+                        f"Tried: {tried}. Nothing here is a defect in the target: the size cap, the fetch "
+                        "deadline and the scan budget are all bounds of this scanner, and what the metadata "
+                        "would have said is unknown rather than absent"
+                    ),
+                )
+            ]
         if not refused:
             return []
-        tried = "; ".join(f"{a.url} -> {a.error or a.status}" for a in attempts)
         return [
             AuthFinding(
                 check="auth_discovery",
