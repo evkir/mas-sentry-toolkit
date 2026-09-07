@@ -8,6 +8,12 @@ hand, and a weakness added without an entry there ships as a SARIF result with
 no CWE, invisible to the filters an operator triages with. Nothing said so
 until this module: the exemption list was a comment, and three keys added after
 it was written appeared in neither it nor the table.
+
+The collector reads source rather than importing, so it has to know every shape
+a key is written in. It knew two of them. The auth module writes its keys as a
+dataclass field - `check="auth_discovery"` - and all four of them were invisible
+here from the day they landed: they reached the taxonomy because they were
+registered by hand, not because anything would have failed if they had not been.
 """
 
 from __future__ import annotations
@@ -28,6 +34,7 @@ AUDIT_PACKAGE = f"{MCP_PACKAGE}.audit"
 # key nobody registered is exactly the key no import would reach.
 _ROW_KEY = re.compile(r'"check":\s*"([a-z_]+)"')
 _FINDING_KIND = re.compile(r'kind="([a-z_]+)"')
+_FINDING_CHECK = re.compile(r'check="([a-z_]+)"')
 
 
 def _source_root() -> Path:
@@ -41,7 +48,9 @@ def emitted_check_keys() -> set[str]:
     keys.update(_ROW_KEY.findall((root / "runtime.py").read_text()))
     audit = importlib.import_module(AUDIT_PACKAGE)
     for path in (root / "audit").glob("*.py"):
-        keys.update(_FINDING_KIND.findall(path.read_text()))
+        source = path.read_text()
+        keys.update(_FINDING_KIND.findall(source))
+        keys.update(_FINDING_CHECK.findall(source))
     for info in pkgutil.iter_modules(audit.__path__):
         module = importlib.import_module(f"{AUDIT_PACKAGE}.{info.name}")
         for name in dir(module):
@@ -56,7 +65,16 @@ def emitted_check_keys() -> set[str]:
 def test_the_scan_emits_the_keys_this_module_thinks_it_does() -> None:
     """A cheap sanity check on the collector before anything is asserted with it."""
     keys = emitted_check_keys()
-    for expected in ("ssrf", "tool_poisoning", "task_undeclared", "scan_budget_exhausted", "target_unreachable"):
+    for expected in (
+        "ssrf",
+        "tool_poisoning",
+        "task_undeclared",
+        "scan_budget_exhausted",
+        "target_unreachable",
+        # The third shape. Absent from this list, the collector went blind to a
+        # whole module and said nothing.
+        "auth_discovery",
+    ):
         assert expected in keys, f"the collector missed {expected}; it can no longer speak for the surface"
 
 
