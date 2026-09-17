@@ -209,8 +209,13 @@ def _split_findings(hints: list[CacheHint]) -> list[CachingFinding]:
     return out
 
 
-def _positive_ttl(hint: CacheHint) -> int:
-    """The declared lifetime, or 0 for anything that is not a usable number."""
+def positive_ttl(hint: CacheHint) -> int:
+    """The declared lifetime, or 0 for anything that is not a usable number.
+
+    Public because the instructions audit asks the same question of the discover
+    hint, and a second copy of this rule would be a second place to get the
+    bool-is-not-an-int case wrong.
+    """
     ttl = hint.ttl_ms
     if isinstance(ttl, bool) or not isinstance(ttl, int) or ttl <= 0:
         return 0
@@ -229,16 +234,16 @@ def _announces_change(capabilities: dict[str, Any], method: str) -> bool:
 
 def _shared_window(hint: CacheHint) -> bool:
     """Public is the permission; a lifetime above zero is what makes it usable."""
-    return hint.scope_present and hint.cache_scope == "public" and _positive_ttl(hint) > 0
+    return hint.scope_present and hint.cache_scope == "public" and positive_ttl(hint) > 0
 
 
 def _exposure_findings(client: McpClient, hints: list[CacheHint]) -> list[CachingFinding]:
     """What the declaration permits, as opposed to whether it is well formed."""
-    shared = [f"{_where(hint)} for {_positive_ttl(hint) // 1000}s" for hint in hints if _shared_window(hint)]
+    shared = [f"{_where(hint)} for {positive_ttl(hint) // 1000}s" for hint in hints if _shared_window(hint)]
     capabilities = client.server.capabilities if client.server is not None else {}
     unannounced: dict[str, tuple[str, int]] = {}
     for hint in hints:
-        ttl = _positive_ttl(hint)
+        ttl = positive_ttl(hint)
         if ttl < LONG_TTL_MS or _announces_change(capabilities, hint.method):
             continue
         where = _where(hint)

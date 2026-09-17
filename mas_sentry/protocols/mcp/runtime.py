@@ -18,6 +18,7 @@ from .audit.caching import audit_caching
 from .audit.dns_rebind import test_dns_rebinding
 from .audit.elicitation import audit_elicitations
 from .audit.header_desync import probe_header_desync
+from .audit.instructions import audit_instructions
 from .audit.path_traversal import probe_arg_injection, probe_path_traversal
 from .audit.resource_content import audit_resource_content, audit_resource_templates
 from .audit.ssrf import probe_ssrf
@@ -485,6 +486,12 @@ def _run_all_checks(
     # when the budget is gone - there is no request left to refuse.
     for cf in audit_caching(client):
         out.append({"check": cf.check, "severity": cf.severity, "detail": cf.detail})
+
+    # The server's own prose, which a host puts into model context before any
+    # tool descriptor. Collected since the modern route landed and read by
+    # nothing until now.
+    for inf in audit_instructions(client):
+        out.append({"check": inf.check, "severity": inf.severity, "detail": inf.detail})
 
     # Same class of hole, arriving on the error path instead: the server would
     # have asked this client to act, found no declaration for it and refused.

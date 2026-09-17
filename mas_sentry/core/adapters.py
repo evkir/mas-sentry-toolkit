@@ -137,6 +137,21 @@ _MCP_CHECK_TAGS = {
     # which a move would reach nobody, having published no channel to announce
     # one. CWE-672 for acting on an answer past the point it can be trusted.
     "cache_stale_window": ["ASI04_Supply_Chain", "CWE-672", "STRIDE_Tampering"],
+    # Prose telling the assistant to keep something from the person it acts
+    # for. The weakness is against the human in the loop: the directive is
+    # delivered where they cannot read it, so they cannot refuse it.
+    "instructions_concealment": ["ASI09_Human_Agent_Trust", "CWE-451", "STRIDE_Spoofing"],
+    # Same class as tool_poisoning, in the one string that is not a tool
+    # descriptor and enters context ahead of every one of them.
+    "instructions_injection": ["ASI01_Goal_Hijack", "CWE-1427", "STRIDE_Tampering", "AML.T0051"],
+    # A standing cost on every turn of the conversation, set by the target and
+    # paid by the host without being asked.
+    "instructions_oversized": ["ASI02_Tool_Misuse", "CWE-400", "STRIDE_Denial_Of_Service"],
+    # Server-authored prose plus permission for a shared cache to hand it to
+    # someone else: the combination the 2026 advisories against the caching SEP
+    # are about. Tampering, because what arrives in the second context is text
+    # neither that person nor their host asked this server for.
+    "instructions_shared_cache": ["ASI01_Goal_Hijack", "CWE-524", "STRIDE_Tampering"],
 }
 # Checks that carry no taxonomy on purpose. None of them asserts a weakness -
 # they report what the scan saw, what it could not reach, and what it did not
@@ -181,6 +196,9 @@ _MCP_UNTAGGED_CHECKS = frozenset(
         # client-side decision - reject the listing or pick a default - not a
         # weakness in the target's data handling.
         "cache_scope_invalid",
+        # The instructions string exists and is this long. Surface, not
+        # weakness: what it says is assessed by the rows that follow it.
+        "server_instructions",
         # How a stdio target was started: the variable names it received and
         # the directory it ran in. Coverage, not weakness - a server behaves
         # differently under a launch other than its client's, and that is what
