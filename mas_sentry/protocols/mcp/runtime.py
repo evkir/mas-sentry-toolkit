@@ -14,6 +14,7 @@ from mas_sentry.core.scope import assert_in_scope
 
 from .audit.apps import audit_apps
 from .audit.auth_prm import HttpFetcher, audit_protected_resource
+from .audit.caching import audit_caching
 from .audit.dns_rebind import test_dns_rebinding
 from .audit.elicitation import audit_elicitations
 from .audit.header_desync import probe_header_desync
@@ -478,6 +479,12 @@ def _run_all_checks(
     # and never answered.
     for ef in audit_elicitations(client):
         out.append({"check": ef.check, "severity": ef.severity, "detail": ef.detail})
+
+    # What the target said about the shelf life of its own answers. Read off
+    # values that rode in with the listings, so it sends nothing and runs even
+    # when the budget is gone - there is no request left to refuse.
+    for cf in audit_caching(client):
+        out.append({"check": cf.check, "severity": cf.severity, "detail": cf.detail})
 
     # Same class of hole, arriving on the error path instead: the server would
     # have asked this client to act, found no declaration for it and refused.

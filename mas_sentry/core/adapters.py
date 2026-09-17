@@ -123,6 +123,11 @@ _MCP_CHECK_TAGS = {
     # A bearer token in the query string is a credential in a place built to be
     # logged, cached and forwarded.
     "auth_bearer_methods": ["ASI07_Insecure_Communication", "CWE-598", "STRIDE_Information_Disclosure"],
+    # SEP-2549 requires one cacheScope across every page of one listing. Two
+    # scopes inside one walk is the target contradicting itself about who may
+    # be served its inventory, which is an access-control decision made on
+    # inconsistent data rather than a freshness slip.
+    "cache_scope_split": ["ASI07_Insecure_Communication", "CWE-524", "STRIDE_Information_Disclosure"],
 }
 # Checks that carry no taxonomy on purpose. None of them asserts a weakness -
 # they report what the scan saw, what it could not reach, and what it did not
@@ -156,6 +161,17 @@ _MCP_UNTAGGED_CHECKS = frozenset(
         # The same surface left unread by a bound of ours rather than by the
         # target: the size cap, the fetch deadline or the scan budget.
         "auth_discovery_bounded",
+        # The freshness fields a 2026-07-28 answer is required to carry, and
+        # did not. A conformance note about a declaration: no data moved, and
+        # a client lands on the same value the SEP tells it to assume.
+        "cache_ttl_missing",
+        # A ttlMs outside the range the SEP defines, reported as sent. Same
+        # class: the server misstated a number, the client corrects it by rule.
+        "cache_ttl_invalid",
+        # A cacheScope outside the two the SEP defines. What follows is a
+        # client-side decision - reject the listing or pick a default - not a
+        # weakness in the target's data handling.
+        "cache_scope_invalid",
         # How a stdio target was started: the variable names it received and
         # the directory it ran in. Coverage, not weakness - a server behaves
         # differently under a launch other than its client's, and that is what
