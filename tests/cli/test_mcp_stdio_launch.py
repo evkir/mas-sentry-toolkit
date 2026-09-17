@@ -14,7 +14,7 @@ from typer.testing import CliRunner
 
 from mas_sentry.cli import app
 from mas_sentry.cli.mcp_cmd import _stdio_environment
-from mas_sentry.protocols.mcp.runtime import run_mcp_scan
+from mas_sentry.protocols.mcp.runtime import run_mcp_scan, stdio_launch_env
 
 runner = CliRunner()
 
@@ -160,7 +160,7 @@ def test_the_cli_refuses_env_for_an_http_target(tmp_path: Path) -> None:
     assert result.exit_code != 0
     # Rich wraps the error into a panel, so a longer phrase would be split
     # across borders wherever the terminal width falls.
-    assert "apply to stdio://" in " ".join(result.output.split())
+    assert "stdio:// targets only" in " ".join(result.output.split())
     assert not (tmp_path / "o.json").exists(), "a report was written for a scan that never ran"
 
 
@@ -189,3 +189,84 @@ def test_the_cli_carries_the_environment_into_the_scan(server: Path, tmp_path: P
     assert result.exit_code == 0, result.output
     rows = json.loads(out.read_text())
     assert "mark=via-cli" in _fingerprint(rows)
+
+
+def test_the_default_launch_does_not_hand_the_target_this_shell(server: Path, tmp_path: Path, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    """`env=None` in Popen means inheritance, and inheritance is the wrong default.
+
+    The target is a process this scan was pointed at because nobody trusts it.
+    Handing it every variable the operator holds - cloud credentials, tokens,
+    keys for unrelated systems - is a cost no part of scanning requires, and a
+    server that wanted them only had to be scanned once.
+    """
+    monkeypatch.setenv("MST_LAB_SECRET", "operator-token")
+    findings = run_mcp_scan(
+        scheme="stdio",
+        command=[sys.executable, str(server)],
+        target_label="stdio://server",
+        checks="fingerprint",
+        out=tmp_path / "out.json",
+        scope_confirmed=False,
+        budget_seconds=30.0,
+    )
+    assert "leak=no" in _fingerprint(findings)
+
+
+def test_inheritance_remains_available_as_a_choice(server: Path, tmp_path: Path, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    """Pinned in both directions: a server needing the shell can still be scanned."""
+    monkeypatch.setenv("MST_LAB_SECRET", "operator-token")
+    findings = run_mcp_scan(
+        scheme="stdio",
+        command=[sys.executable, str(server)],
+        target_label="stdio://server",
+        checks="fingerprint",
+        out=tmp_path / "out.json",
+        scope_confirmed=False,
+        budget_seconds=30.0,
+        inherit_env=True,
+    )
+    assert "leak=yes" in _fingerprint(findings)
+
+
+def test_the_report_names_the_variables_and_never_their_values(server: Path, tmp_path: Path) -> None:
+    """The row exists so a reader can tell which launch produced the findings.
+
+    Values are what makes that launch worth recording and what must not be in
+    a file people mail around, so the row carries names only.
+    """
+    findings = run_mcp_scan(
+        scheme="stdio",
+        command=[sys.executable, str(server)],
+        target_label="stdio://server",
+        checks="fingerprint",
+        out=tmp_path / "out.json",
+        scope_confirmed=False,
+        budget_seconds=30.0,
+        env={"MST_LAB_MARK": "recorded", "MST_LAB_TOKEN": "sk-not-in-the-report"},
+        cwd=str(tmp_path),
+    )
+    row = next(f for f in findings if f["check"] == "stdio_launch")
+    assert "MST_LAB_TOKEN" in row["detail"]
+    assert "sk-not-in-the-report" not in row["detail"]
+    assert str(tmp_path) in row["detail"]
+
+
+def test_a_target_that_never_started_is_not_described_as_launched(tmp_path: Path) -> None:
+    """A row about how the process was started, for a process there was not."""
+    findings = run_mcp_scan(
+        scheme="stdio",
+        command=["mst-no-such-binary"],
+        target_label="stdio://mst-no-such-binary",
+        checks="fingerprint",
+        out=tmp_path / "out.json",
+        scope_confirmed=False,
+        budget_seconds=30.0,
+    )
+    assert [f["check"] for f in findings] == ["target_unreachable"]
+
+
+def test_the_baseline_carries_what_a_process_needs_to_run() -> None:
+    """A launch without PATH cannot resolve the command it was given."""
+    env = stdio_launch_env(None, inherit=False)
+    assert "PATH" in env
+    assert "MST_LAB_ABSENT" not in env

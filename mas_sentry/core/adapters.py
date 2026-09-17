@@ -156,6 +156,11 @@ _MCP_UNTAGGED_CHECKS = frozenset(
         # The same surface left unread by a bound of ours rather than by the
         # target: the size cap, the fetch deadline or the scan budget.
         "auth_discovery_bounded",
+        # How a stdio target was started: the variable names it received and
+        # the directory it ran in. Coverage, not weakness - a server behaves
+        # differently under a launch other than its client's, and that is what
+        # this row lets a reader see.
+        "stdio_launch",
         # The refusal pointed off the target's origin. RFC 9728 allows it and
         # real hosting platforms need it, so it asserts no weakness - it says
         # where this scan declined to follow, and what it therefore did not read.

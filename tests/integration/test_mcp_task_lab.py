@@ -36,19 +36,16 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 RIG = REPO_ROOT / "lab" / "mcp" / "task_server.py"
 
 
-def _scan(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, break_mode: str) -> list[dict[str, Any]]:
+def _scan(tmp_path: Path, break_mode: str) -> list[dict[str, Any]]:
     """Run the product's own scan entry point against the rig in one mode.
 
-    The rig is launched by path rather than as `-m lab.mcp.task_server`, and
-    the mode arrives through the inherited environment. `run_mcp_scan` builds
-    its StdioConfig with neither `env` nor `cwd`, so a rig that needed either
-    could not be reached from the entry point the product actually ships - and
-    a test that reached it another way would be exercising a path no operator
-    has.
+    The mode is passed as `env` rather than exported into this process. The
+    scan no longer hands a target the environment it happens to be holding, so
+    a rig configured by variable has to be configured the way an operator
+    configures a real server - which is the same path `--env` takes.
     """
     from mas_sentry.protocols.mcp.runtime import run_mcp_scan
 
-    monkeypatch.setenv("MAS_SENTRY_TASK_BREAK", break_mode)
     return run_mcp_scan(
         scheme="stdio",
         command=[sys.executable, str(RIG)],
@@ -56,6 +53,7 @@ def _scan(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, break_mode: str) -> l
         checks="all",
         out=tmp_path / f"task-{break_mode or 'clean'}.json",
         scope_confirmed=False,
+        env={"MAS_SENTRY_TASK_BREAK": break_mode},
     )
 
 
@@ -63,10 +61,8 @@ def _checks(rows: list[dict[str, Any]]) -> list[str]:
     return [r["check"] for r in rows]
 
 
-def test_a_task_returned_to_a_client_that_never_asked_is_reported(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    rows = _scan(tmp_path, monkeypatch, "undeclared")
+def test_a_task_returned_to_a_client_that_never_asked_is_reported(tmp_path: Path) -> None:
+    rows = _scan(tmp_path, "undeclared")
     deferred = [r for r in rows if r["check"] == "task_undeclared"]
     assert len(deferred) == 1
     assert deferred[0]["severity"] == "MEDIUM"
@@ -76,27 +72,23 @@ def test_a_task_returned_to_a_client_that_never_asked_is_reported(
     assert "did not run" in detail
 
 
-def test_the_report_on_disk_carries_the_row(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_the_report_on_disk_carries_the_row(tmp_path: Path) -> None:
     """The gap has to survive to the artifact, not just to the return value."""
     import json
 
-    _scan(tmp_path, monkeypatch, "undeclared")
+    _scan(tmp_path, "undeclared")
     written = json.loads((tmp_path / "task-undeclared.json").read_text())
     assert any(r["check"] == "task_undeclared" for r in written)
 
 
-def test_a_conformant_server_that_runs_the_tool_produces_no_row(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    rows = _scan(tmp_path, monkeypatch, "")
+def test_a_conformant_server_that_runs_the_tool_produces_no_row(tmp_path: Path) -> None:
+    rows = _scan(tmp_path, "")
     assert "task_undeclared" not in _checks(rows)
 
 
-def test_a_conformant_server_that_refuses_is_a_capability_gap_not_a_task(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_a_conformant_server_that_refuses_is_a_capability_gap_not_a_task(tmp_path: Path) -> None:
     """-32021 is the other legal answer, and it is already a different finding."""
-    rows = _scan(tmp_path, monkeypatch, "refuse")
+    rows = _scan(tmp_path, "refuse")
     assert "task_undeclared" not in _checks(rows)
     gaps = [r for r in rows if r["check"] == "capability_required"]
     assert len(gaps) == 1

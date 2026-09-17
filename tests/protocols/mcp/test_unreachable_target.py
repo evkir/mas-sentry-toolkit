@@ -62,10 +62,16 @@ def test_a_command_that_is_not_there_is_reported_not_raised(tmp_path: Path) -> N
 
 
 def test_a_process_that_exits_during_the_handshake_is_reported(tmp_path: Path) -> None:
-    """The handshake path: something ran, and stopped before saying anything."""
-    row = _only_row(_scan(tmp_path, "stdio", ["false"], "exited"))
-    assert row["check"] == "target_unreachable"
-    assert "initialize" in str(row["detail"])
+    """The handshake path: something ran, and stopped before saying anything.
+
+    Two rows here rather than one. The process did start, so the record of what
+    it was started with stands - and is the first thing to read when a server
+    dies on launch, because the usual reason is a variable it needed and did
+    not get.
+    """
+    rows = _scan(tmp_path, "stdio", ["false"], "exited")
+    assert [r["check"] for r in rows] == ["stdio_launch", "target_unreachable"]
+    assert "initialize" in str(rows[-1]["detail"])
 
 
 def test_the_gap_reaches_the_file_and_not_only_the_return_value(tmp_path: Path) -> None:

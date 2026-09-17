@@ -94,6 +94,12 @@ def mcp_scan(
         "--env-passthrough",
         help="Name of a variable to copy from this shell into a stdio target. Errors if it is not set",
     ),
+    inherit_env: bool = typer.Option(
+        False,
+        "--inherit-env",
+        help="Hand the stdio target every variable in this shell. Off by default: a scanned server is not "
+        "trusted, and the default launch gives it a baseline plus what --env named",
+    ),
     cwd: Path | None = typer.Option(
         None,
         "--cwd",
@@ -106,10 +112,10 @@ def mcp_scan(
 
     scheme, command = _parse_target(target)
     stdio_env = _stdio_environment(list(env), list(env_passthrough))
-    if scheme != "stdio" and (stdio_env is not None or cwd is not None):
+    if scheme != "stdio" and (stdio_env is not None or cwd is not None or inherit_env):
         # Accepting them here would report a scan of a target launched the way
         # the operator described, when nothing was launched at all.
-        raise typer.BadParameter("--env, --env-passthrough and --cwd apply to stdio:// targets only")
+        raise typer.BadParameter("--env, --env-passthrough, --inherit-env and --cwd apply to stdio:// targets only")
     findings = run_mcp_scan(
         scheme=scheme,
         command=command,
@@ -121,6 +127,7 @@ def mcp_scan(
         budget_seconds=budget,
         env=stdio_env,
         cwd=str(cwd) if cwd is not None else None,
+        inherit_env=inherit_env,
     )
     table = Table(title=f"MCP scan — {target}")
     table.add_column("Check")

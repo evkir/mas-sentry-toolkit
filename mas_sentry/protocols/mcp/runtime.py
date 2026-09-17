@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import json
+import os
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any
@@ -35,6 +36,65 @@ from .transport_stdio import StdioConfig, open_stdio
 # that never fires is decoration; one that fires on an honest target is noise.
 DEFAULT_BUDGET_S = 600.0
 
+# What a subprocess needs to start at all, and nothing that identifies the
+# operator. PATH resolves the interpreter or the launcher the command names;
+# HOME is where npm, npx and pip keep their caches, and a server denied it
+# fails on its first module load rather than on anything this scan did. The
+# Windows four are the same requirement on that platform: a process without
+# SystemRoot cannot open a socket there.
+_LAUNCH_BASELINE = (
+    "PATH",
+    "HOME",
+    "LANG",
+    "LC_ALL",
+    "TMPDIR",
+    "SystemRoot",
+    "COMSPEC",
+    "PATHEXT",
+    "APPDATA",
+)
+
+STDIO_LAUNCH_CHECK = "stdio_launch"
+
+
+def stdio_launch_env(named: dict[str, str] | None, inherit: bool) -> dict[str, str]:
+    """The environment a stdio target is started with.
+
+    Inheritance is not the default any more. `env=None` in Popen hands the
+    child every variable this process holds, which for a scanner means handing
+    a target it was pointed at because it is not trusted whatever the operator
+    has in their shell - cloud credentials, tokens, keys for unrelated systems.
+    Nothing about scanning a server requires that, and a server that wanted it
+    only had to be scanned once.
+
+    So the baseline is what a process needs to run, plus exactly what the
+    operator named. `inherit` restores the old behaviour for someone who
+    decides they want it, as a choice that appears in the report rather than as
+    a default nobody sees.
+    """
+    base = dict(os.environ) if inherit else {k: os.environ[k] for k in _LAUNCH_BASELINE if k in os.environ}
+    base.update(named or {})
+    return base
+
+
+def _launch_row(env: dict[str, str], cwd: str | None, inherit: bool) -> dict[str, Any]:
+    """What the target was started with, by name.
+
+    Names only. The values are the reason this row exists, and a report
+    carrying an API key is worse than no report at all.
+    """
+    source = "this shell, inherited in full" if inherit else "a launch baseline plus what was named"
+    where = cwd or "the directory this scan ran from"
+    return {
+        "check": STDIO_LAUNCH_CHECK,
+        "severity": "INFO",
+        "detail": (
+            f"The target was started from {where} with {len(env)} environment variables ({source}): "
+            f"{', '.join(sorted(env))}. A server reading a variable that is not here behaves differently "
+            "under this scan than under the client that normally launches it"
+        ),
+    }
+
 
 def run_mcp_scan(
     scheme: str,
@@ -47,6 +107,7 @@ def run_mcp_scan(
     budget_seconds: float = DEFAULT_BUDGET_S,
     env: dict[str, str] | None = None,
     cwd: str | None = None,
+    inherit_env: bool = False,
 ) -> list[dict[str, Any]]:
     """Scan one MCP target.
 
@@ -57,9 +118,13 @@ def run_mcp_scan(
     from a configuration that sets exactly these. A scan of a server that reads
     an API key or resolves a relative path was a scan of a differently
     configured process.
+
+    `env=None` is a launch baseline rather than inheritance; see
+    stdio_launch_env. `inherit_env` asks for the whole of this shell and says
+    so in the report.
     """
-    if scheme != "stdio" and (env is not None or cwd is not None):
-        raise ValueError("env and cwd describe a subprocess launch and apply to stdio targets only")
+    if scheme != "stdio" and (env is not None or cwd is not None or inherit_env):
+        raise ValueError("env, cwd and inherit_env describe a subprocess launch and apply to stdio targets only")
     _enforce_scope(scheme=scheme, command=command, confirmed=scope_confirmed)
     audit_write({"action": "mcp_scan_start", "target": target_label, "checks": checks})
 
@@ -78,7 +143,12 @@ def run_mcp_scan(
     # the misattribution this row exists to prevent.
     try:
         if scheme == "stdio":
-            with open_stdio(StdioConfig(command=command, env=env, cwd=cwd)) as t:
+            launch_env = stdio_launch_env(env, inherit_env)
+            with open_stdio(StdioConfig(command=command, env=launch_env, cwd=cwd)) as t:
+                # Recorded once the process is up. A target that never started
+                # was not started with anything, and saying otherwise would put
+                # a launch that did not happen above the row explaining why.
+                findings.append(_launch_row(launch_env, cwd, inherit_env))
                 findings.extend(
                     _run_all_checks(
                         McpClient(t, budget=budget), transport="stdio", checks=checks, tool_baseline=tool_baseline

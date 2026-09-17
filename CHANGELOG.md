@@ -70,6 +70,20 @@
   A bare `elicitation: {}` reads as form support to the reference SDK and a
   url-only object does not, so the modes are named explicitly.
 
+### Changed
+- **Breaking.** A stdio target is no longer launched with the environment of
+  the process that scanned it. `env=None` in `subprocess.Popen` means
+  inheritance, so every stdio scan handed the server under audit whatever the
+  operator's shell held - cloud credentials, tokens, keys for unrelated
+  systems. The launch now carries a baseline of what a process needs to start
+  (`PATH`, `HOME`, `LANG`, `LC_ALL`, `TMPDIR`, and the Windows equivalents)
+  plus exactly what `--env KEY=VALUE` and `--env-passthrough NAME` named.
+  `--inherit-env` restores the previous behaviour as a stated choice. A server
+  that needs a variable and is scanned without it now fails visibly instead of
+  being scanned as a differently configured process, and a `stdio_launch` row
+  records the variable names - never their values - and the working directory
+  the target ran in.
+
 ### Removed
 - `exploits/mqtt_fuzzer.py`. Run against a live broker every case it sends -
   null byte, newline, unicode, traversal and SQL metacharacters in topic names,
