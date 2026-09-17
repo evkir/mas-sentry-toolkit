@@ -337,6 +337,38 @@ class ScanBudget:
         return True
 
 
+_ABSENT = object()
+
+
+@dataclass(frozen=True, slots=True)
+class CacheHint:
+    """The SEP-2549 freshness fields carried by one page of one listing.
+
+    Recorded per page because the SEP makes each page independently cacheable
+    and lets the values differ between them, while requiring the scope to be
+    the same across every page of one request. A single merged number would
+    erase exactly the disagreement worth reporting.
+
+    Absent and zero are different facts and are kept apart. A server that sends
+    `ttlMs: 0` has said "immediately stale", which is legitimate and is what
+    every reference SDK sends by default; one that sends no field at all has
+    skipped a MUST, and a client reading it falls back to 0 by a rule rather
+    than by the server's statement. Collapsing the two would report conformant
+    servers and silent ones identically.
+
+    Costs nothing on the wire: these values arrive inside answers the
+    enumeration already asked for.
+    """
+
+    method: str
+    walk: int
+    page: int
+    ttl_ms: Any = None
+    cache_scope: Any = None
+    ttl_present: bool = False
+    scope_present: bool = False
+
+
 @dataclass(frozen=True, slots=True)
 class DeferredTask:
     """One call the server answered with a task handle instead of a result.
@@ -499,6 +531,9 @@ class McpClient:
         self.elicitations: list[ElicitationRequest] = []
         # Calls the server deferred to a task instead of answering. See DeferredTask.
         self.deferred_tasks: list[DeferredTask] = []
+        # SEP-2549 freshness fields, one entry per listing page. See CacheHint.
+        self.cache_hints: list[CacheHint] = []
+        self._walks: dict[str, int] = {}
 
     def _record_issue(self, method: str, error: dict[str, Any] | None) -> None:
         """Remember a listing that failed, once per method.
@@ -555,13 +590,16 @@ class McpClient:
         items: list[dict[str, Any]] = []
         cursor: str | None = None
         seen: set[str] = set()
-        for _ in range(MAX_LIST_PAGES):
+        walk = self._walks.get(method, 0)
+        self._walks[method] = walk + 1
+        for index in range(MAX_LIST_PAGES):
             params: dict[str, Any] = {} if cursor is None else {"cursor": cursor}
             resp = self.send(method, params)
             if resp.is_error:
                 self._record_issue(method, resp.error)
                 return items
             result = resp.result if isinstance(resp.result, dict) else {}
+            self._record_cache_hint(method, walk, index, result)
             page = result.get(key)
             if isinstance(page, list):
                 items.extend(entry for entry in page if isinstance(entry, dict))
@@ -575,6 +613,28 @@ class McpClient:
             cursor = nxt
         self._record_issue(method, {"message": f"pagination did not terminate within {MAX_LIST_PAGES} pages"})
         return items
+
+    def _record_cache_hint(self, method: str, walk: int, page: int, result: dict[str, Any]) -> None:
+        """Keep what the page said about its own freshness, exactly as sent.
+
+        Nothing is normalised here. A negative TTL, a string where a number
+        belongs, a scope the SEP does not define - each is a fact about the
+        target, and a reader that repaired them would leave the audit with
+        nothing to find.
+        """
+        ttl = result.get("ttlMs", _ABSENT)
+        scope = result.get("cacheScope", _ABSENT)
+        self.cache_hints.append(
+            CacheHint(
+                method=method,
+                walk=walk,
+                page=page,
+                ttl_ms=None if ttl is _ABSENT else ttl,
+                cache_scope=None if scope is _ABSENT else scope,
+                ttl_present=ttl is not _ABSENT,
+                scope_present=scope is not _ABSENT,
+            )
+        )
 
     def _id(self) -> int:
         self._next_id += 1
