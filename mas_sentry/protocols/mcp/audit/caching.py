@@ -46,6 +46,15 @@ written to stay quiet against a conformant default:
 `server/discover` is left out of the second one on purpose: the protocol gives
 it no change notification at all, so every long-lived discover would produce a
 row that says more about the SEP than about the target.
+
+A declared `listChanged` closes the stale window here, and that is a boundary
+rather than a belief. Measured against the reference SDK, a server declares the
+capability on every section and then rewrites a descriptor mid-scan announcing
+nothing, so the declaration states intent and guarantees no notification. The
+pairing is still the right one for this module: firing on a declared channel
+would fire on every server built with that SDK. The broken promise is reported
+where it can be proven - `tool_mutation` sees the descriptor move and marks the
+row `announced=False`.
 """
 
 from __future__ import annotations

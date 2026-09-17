@@ -14,9 +14,11 @@ swap on.
 
 The trigger here is re-enumeration, not a notification. That is a correction
 made against a live target rather than a design choice: the reference SDK's
-`remove_tool`/`add_tool` emit nothing and the server advertises
-`tools.listChanged: false`, so a server can rewrite its whole inventory in
-silence. A detector waiting to be told would never fire, and an attacker has
+`remove_tool`/`add_tool` emit nothing, while the same server advertises
+`tools.listChanged: true`, so a server can rewrite its whole inventory in
+silence with the channel for announcing it declared and unused. The declared
+capability was read as a promise here until the rig was measured; it is a
+statement of intent. A detector waiting to be told would never fire, and an attacker has
 every reason not to tell. Announcements are still read, because a server that
 announces and a server that hides are not equally suspicious - but they are
 read as evidence about the finding, never as the reason to look.
