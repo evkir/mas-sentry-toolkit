@@ -2,6 +2,63 @@
 
 ## [Unreleased]
 
+### Added
+- SEP-2549 caching is audited. The freshness fields every 2026-07-28 answer
+  carries have been collected since the previous release and read by nothing;
+  `audit/caching.py` is the reader, and it sends no request - every value rode
+  in with a listing the enumeration had already asked for, pinned by a test on
+  the transport request counter. Four conformance rows: `cache_ttl_missing` and
+  `cache_ttl_invalid` (LOW, values reported as sent, because a repaired value
+  leaves nothing to see), `cache_scope_invalid` (LOW, the shape a merging proxy
+  emits and the one a strict client rejects a whole listing over) and
+  `cache_scope_split` (MEDIUM, two scopes inside one listing walk, where a false
+  positive is not available because the pages compared came from a single walk
+  MST performed). Two exposure rows: `cache_public_window` (MEDIUM, `public`
+  paired with a lifetime above zero, which is a standing permission for a shared
+  cache to serve one caller's answer to another) and `cache_stale_window`
+  (MEDIUM, a listing dated more than an hour ahead while the server declares no
+  `listChanged`). Calibrated so a conformant default is silent: a bare `public`
+  is what go-sdk stamps on generated results and earns no row, and the whole
+  module stays quiet against a target that never spoke the revision carrying the
+  fields.
+- The server `instructions` string is audited. It is the one piece of
+  server-authored prose a host places in model context before any tool
+  descriptor, it was captured on both routes and read by nothing, and it is the
+  field the 2026 advisories against the caching SEP are about.
+  `server_instructions` records the surface (INFO); `instructions_concealment`
+  (MEDIUM) reports a directive not to disclose, not to relay or not to ask;
+  `instructions_injection` (MEDIUM, HIGH when the text is hidden from human
+  review) applies the shared IPI primitive; `instructions_oversized` (LOW)
+  reports a standing per-turn cost; `instructions_shared_cache` (HIGH) reports
+  the advisory combination - this prose plus a discover result marked
+  `cacheScope: public` with a lifetime. Calibrated against a field survey of
+  8235 reachable public servers rather than against a proof of concept: the
+  literal override template appears in none of them, so nothing here looks for
+  it, while a concealment directive requires a human addressee because a bare
+  "do not mention X" is ordinary developer guidance.
+- `MCP_LAB_CACHE_BREAK` serves `tools/list` in pages that disagree about
+  caching, and `MCP_LAB_INSTRUCTIONS=hostile` gives the rig prose in the shape
+  the survey found. Both new audits are now exercised against the reference SDK
+  on a real wire, including the case that asserts a conformant server produces
+  no caching row at all.
+
+### Changed
+- Cache hints are recorded for the two cacheable results that are not paginated
+  listings. SEP-2549 puts `ttlMs`/`cacheScope` on six results; four are the
+  listings, already recorded page by page, while `server/discover` and
+  `resources/read` produced no row at all. A read is keyed by the resource it
+  returned, and an answer that failed records nothing - filing an absent field
+  for a call that errored would report MST own failed request as a conformance
+  fact about the target.
+- Two places in this repository stated that the reference MCP server advertises
+  `tools.listChanged: false`. Measured against the live SDK, it declares
+  `listChanged: true` on tools, prompts and resources, plus `subscribe` on
+  resources, and then rewrites a descriptor mid-scan announcing nothing. The
+  claims are corrected, and `cache_stale_window` now says plainly that a
+  declared channel closing the row is a boundary rather than a belief: the
+  broken promise is reported where it can be proven, by `tool_mutation` with
+  `announced=False`.
+
 ## [0.9.0] - 2026-09-17 - MCP Apps and RFC 9728 auth audits, a scan budget, and bounds on everything this scanner sends
 
 ### Added
