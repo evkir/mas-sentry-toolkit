@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-09-17 - MCP Apps and RFC 9728 auth audits, a scan budget, and bounds on everything this scanner sends
+
 ### Added
 - MCP Apps (SEP-1865) is audited: `app_ui_reach`, `app_html_reach`,
   `app_html_channel` and `app_permissions`, all tagged ASI09, plus `app_surface`
