@@ -28,14 +28,30 @@ What is reported, and why each is a fact rather than a guess:
   available here - the disagreement is between two answers the target sent
   itself, within one walk this client performed.
 
-Nothing in this module asserts that data leaked. Whether a declaration opens a
-window an attacker can stand in is a separate question from whether it
-conforms, and it is asked elsewhere.
+Two further rows are about exposure rather than conformance, and both are
+written to stay quiet against a conformant default:
+
+- `cacheScope: "public"` with a ttl above zero. Public alone is what go-sdk
+  stamps on generated results and means nothing on its own; public with a
+  lifetime is the combination a shared gateway reads as permission to hand
+  this answer to a user who never asked the server for it. Zero closes the
+  window, which is why the pair is required.
+- a listing dated further ahead than an hour while the server declares no
+  change notification for it. The server asked clients to hold the inventory
+  and kept no way to say it moved, so a descriptor swapped inside that window
+  reaches a client that has no reason to look again. Where the server does
+  declare `listChanged` (or `subscribe`, for a read) there is a channel and no
+  row.
+
+`server/discover` is left out of the second one on purpose: the protocol gives
+it no change notification at all, so every long-lived discover would produce a
+row that says more about the SEP than about the target.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Any
 
 from ..client import CacheHint, McpClient
 
@@ -47,8 +63,27 @@ TTL_MISSING_CHECK = "cache_ttl_missing"
 TTL_INVALID_CHECK = "cache_ttl_invalid"
 SCOPE_INVALID_CHECK = "cache_scope_invalid"
 SCOPE_SPLIT_CHECK = "cache_scope_split"
+PUBLIC_WINDOW_CHECK = "cache_public_window"
+STALE_WINDOW_CHECK = "cache_stale_window"
 
 VALID_SCOPES = ("public", "private")
+
+# An hour. Chosen as an order of magnitude rather than measured: it is longer
+# than an agent session, so an inventory dated past it is one a client will act
+# on for the whole of its working life without asking again. A shorter bound
+# would fire on every server that caches sensibly.
+LONG_TTL_MS = 3_600_000
+
+# The capability that gives a client a reason to look again, per method. A
+# listing has listChanged; a read has subscribe. server/discover has neither,
+# and is absent from this table because the protocol gives it none.
+CHANGE_CHANNELS = {
+    "tools/list": ("tools", "listChanged"),
+    "prompts/list": ("prompts", "listChanged"),
+    "resources/list": ("resources", "listChanged"),
+    "resources/templates/list": ("resources", "listChanged"),
+    "resources/read": ("resources", "subscribe"),
+}
 
 
 @dataclass(frozen=True, slots=True)
@@ -174,6 +209,72 @@ def _split_findings(hints: list[CacheHint]) -> list[CachingFinding]:
     return out
 
 
+def _positive_ttl(hint: CacheHint) -> int:
+    """The declared lifetime, or 0 for anything that is not a usable number."""
+    ttl = hint.ttl_ms
+    if isinstance(ttl, bool) or not isinstance(ttl, int) or ttl <= 0:
+        return 0
+    return ttl
+
+
+def _announces_change(capabilities: dict[str, Any], method: str) -> bool:
+    """True when the server declared a way to tell a client the answer moved."""
+    channel = CHANGE_CHANNELS.get(method)
+    if channel is None:
+        return True
+    section, flag = channel
+    declared = capabilities.get(section)
+    return isinstance(declared, dict) and declared.get(flag) is True
+
+
+def _shared_window(hint: CacheHint) -> bool:
+    """Public is the permission; a lifetime above zero is what makes it usable."""
+    return hint.scope_present and hint.cache_scope == "public" and _positive_ttl(hint) > 0
+
+
+def _exposure_findings(client: McpClient, hints: list[CacheHint]) -> list[CachingFinding]:
+    """What the declaration permits, as opposed to whether it is well formed."""
+    shared = [f"{_where(hint)} for {_positive_ttl(hint) // 1000}s" for hint in hints if _shared_window(hint)]
+    capabilities = client.server.capabilities if client.server is not None else {}
+    unannounced: dict[str, tuple[str, int]] = {}
+    for hint in hints:
+        ttl = _positive_ttl(hint)
+        if ttl < LONG_TTL_MS or _announces_change(capabilities, hint.method):
+            continue
+        where = _where(hint)
+        _, seen = unannounced.get(where, (hint.method, 0))
+        unannounced[where] = (hint.method, max(seen, ttl))
+
+    out: list[CachingFinding] = []
+    if shared:
+        out.append(
+            CachingFinding(
+                PUBLIC_WINDOW_CHECK,
+                "MEDIUM",
+                (
+                    f"cacheScope public with a lifetime above zero: {', '.join(sorted(set(shared))[:6])}. A "
+                    "shared cache in front of this server may serve the stored answer to a user who never "
+                    "asked for it, for the whole of that window. The scan was unauthenticated, so what the "
+                    "answer contains for an authenticated caller is unknown - the permission is the finding"
+                ),
+            )
+        )
+    for where, (method, ttl) in sorted(unannounced.items()):
+        section, flag = CHANGE_CHANNELS[method]
+        out.append(
+            CachingFinding(
+                STALE_WINDOW_CHECK,
+                "MEDIUM",
+                (
+                    f"{where} is dated {ttl // 1000}s ahead while the server declares no {section}.{flag}. A "
+                    "client is asked to hold this answer with no channel to be told it moved, so a descriptor "
+                    "swapped inside the window reaches it with nothing prompting a second look"
+                ),
+            )
+        )
+    return out
+
+
 def audit_caching(client: McpClient) -> list[CachingFinding]:
     """Read the freshness declaration this scan already collected.
 
@@ -184,4 +285,4 @@ def audit_caching(client: McpClient) -> list[CachingFinding]:
     if not _declares_caching(client) or not client.cache_hints:
         return []
     hints = list(client.cache_hints)
-    return _ttl_findings(hints) + _scope_findings(hints)
+    return _ttl_findings(hints) + _scope_findings(hints) + _exposure_findings(client, hints)

@@ -11,8 +11,11 @@ from __future__ import annotations
 from typing import Any
 
 from mas_sentry.protocols.mcp.audit.caching import (
+    LONG_TTL_MS,
+    PUBLIC_WINDOW_CHECK,
     SCOPE_INVALID_CHECK,
     SCOPE_SPLIT_CHECK,
+    STALE_WINDOW_CHECK,
     TTL_INVALID_CHECK,
     TTL_MISSING_CHECK,
     audit_caching,
@@ -182,3 +185,56 @@ def test_the_row_reaches_the_report() -> None:
     client = _client([{"tools": [_tool("a")], "ttlMs": -1, "cacheScope": "private"}])
     rows = _run_all_checks(client, transport="http", checks="all")
     assert TTL_INVALID_CHECK in {row["check"] for row in rows}
+
+
+def test_public_alone_is_not_a_finding() -> None:
+    """go-sdk stamps public with ttlMs 0 on generated results; zero closes the window."""
+    client = _client([{"tools": [_tool("a")], "ttlMs": 0, "cacheScope": "public"}])
+    assert PUBLIC_WINDOW_CHECK not in _checks(client)
+
+
+def test_public_with_a_lifetime_is_a_standing_permission() -> None:
+    """A shared cache may hand the stored answer to a caller who never asked for it."""
+    client = _client([{"tools": [_tool("a")], "ttlMs": 120000, "cacheScope": "public"}])
+    findings = [f for f in audit_caching(client) if f.check == PUBLIC_WINDOW_CHECK]
+    assert len(findings) == 1
+    assert findings[0].severity == "MEDIUM"
+    assert "120s" in findings[0].detail
+
+
+def test_private_with_a_lifetime_is_not_shared() -> None:
+    """Private is the SDK default and forbids exactly the sharing this row is about."""
+    client = _client([{"tools": [_tool("a")], "ttlMs": LONG_TTL_MS, "cacheScope": "private"}])
+    assert PUBLIC_WINDOW_CHECK not in _checks(client)
+
+
+def test_a_long_lived_listing_without_a_change_channel() -> None:
+    """The server asked clients to hold the inventory and kept no way to say it moved."""
+    client = _client([{"tools": [_tool("a")], "ttlMs": LONG_TTL_MS, "cacheScope": "private"}])
+    findings = [f for f in audit_caching(client) if f.check == STALE_WINDOW_CHECK]
+    assert len(findings) == 1
+    assert "tools.listChanged" in findings[0].detail
+
+
+def test_a_declared_change_channel_closes_the_window() -> None:
+    """listChanged is the reason to look again, so the window is not unannounced."""
+    client = _client(
+        [{"tools": [_tool("a")], "ttlMs": LONG_TTL_MS, "cacheScope": "private"}],
+        discover={**_MODERN_DISCOVER, "capabilities": {"tools": {"listChanged": True}}},
+    )
+    assert STALE_WINDOW_CHECK not in _checks(client)
+
+
+def test_a_short_lived_listing_is_left_alone() -> None:
+    """A server that caches sensibly is not a server with a defect."""
+    client = _client([{"tools": [_tool("a")], "ttlMs": LONG_TTL_MS - 1, "cacheScope": "private"}])
+    assert STALE_WINDOW_CHECK not in _checks(client)
+
+
+def test_discover_is_not_asked_for_a_channel_the_protocol_lacks() -> None:
+    """There is no notification for instructions, so every long discover would fire."""
+    client = _client(
+        [{"tools": [_tool("a")], "ttlMs": 0, "cacheScope": "private"}],
+        discover={**_MODERN_DISCOVER, "ttlMs": LONG_TTL_MS * 24},
+    )
+    assert STALE_WINDOW_CHECK not in _checks(client)

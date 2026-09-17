@@ -128,6 +128,15 @@ _MCP_CHECK_TAGS = {
     # be served its inventory, which is an access-control decision made on
     # inconsistent data rather than a freshness slip.
     "cache_scope_split": ["ASI07_Insecure_Communication", "CWE-524", "STRIDE_Information_Disclosure"],
+    # A public scope with a lifetime is a standing permission for a shared
+    # cache to hand one caller's answer to another. The weakness is the cache
+    # holding what it was told it may share, not the transport it rode in on.
+    "cache_public_window": ["ASI07_Insecure_Communication", "CWE-524", "STRIDE_Information_Disclosure"],
+    # The same class as tool_mutation seen from the other end: instead of
+    # catching the descriptor move, this is the server declaring a window in
+    # which a move would reach nobody, having published no channel to announce
+    # one. CWE-672 for acting on an answer past the point it can be trusted.
+    "cache_stale_window": ["ASI04_Supply_Chain", "CWE-672", "STRIDE_Tampering"],
 }
 # Checks that carry no taxonomy on purpose. None of them asserts a weakness -
 # they report what the scan saw, what it could not reach, and what it did not
