@@ -339,6 +339,11 @@ class ScanBudget:
 
 _ABSENT = object()
 
+# The two cacheable results that are not paginated listings, so the walk never
+# sees them and they are recorded from `send` instead. `resources/templates/list`
+# is a listing and belongs to the other set.
+UNPAGED_CACHEABLE_METHODS = frozenset({DISCOVER_METHOD, "resources/read"})
+
 
 @dataclass(frozen=True, slots=True)
 class CacheHint:
@@ -358,6 +363,11 @@ class CacheHint:
 
     Costs nothing on the wire: these values arrive inside answers the
     enumeration already asked for.
+
+    `subject` names what the answer was about where the method alone does not
+    say it. Six methods carry these fields and only four are listings; a read
+    is keyed by the resource it returned, so a server that dates one resource
+    differently from another stays two facts rather than becoming one.
     """
 
     method: str
@@ -367,6 +377,7 @@ class CacheHint:
     cache_scope: Any = None
     ttl_present: bool = False
     scope_present: bool = False
+    subject: str = ""
 
 
 @dataclass(frozen=True, slots=True)
@@ -614,7 +625,7 @@ class McpClient:
         self._record_issue(method, {"message": f"pagination did not terminate within {MAX_LIST_PAGES} pages"})
         return items
 
-    def _record_cache_hint(self, method: str, walk: int, page: int, result: dict[str, Any]) -> None:
+    def _record_cache_hint(self, method: str, walk: int, page: int, result: dict[str, Any], subject: str = "") -> None:
         """Keep what the page said about its own freshness, exactly as sent.
 
         Nothing is normalised here. A negative TTL, a string where a number
@@ -633,8 +644,30 @@ class McpClient:
                 cache_scope=None if scope is _ABSENT else scope,
                 ttl_present=ttl is not _ABSENT,
                 scope_present=scope is not _ABSENT,
+                subject=subject,
             )
         )
+
+    def _record_unpaged_hint(self, method: str, subject: str, resp: JsonRpcResponse) -> None:
+        """Keep the freshness fields of a cacheable answer that is not a listing.
+
+        SEP-2549 puts `ttlMs`/`cacheScope` on six results. Four of them are the
+        paginated listings, recorded page by page inside the walk. The other
+        two - `server/discover` and `resources/read` - are single answers sent
+        from here, and were not recorded at all: a third of the surface the SEP
+        defines produced no row, while the responses carrying it were already
+        in hand. `server/discover` is the one that matters most, because it is
+        the answer that carries `instructions`.
+
+        Nothing extra is sent. A failed call records nothing: an error result
+        states no freshness, and inventing an absent field for it would file
+        our own failed request as a conformance fact about the target.
+        """
+        if resp.is_error or not isinstance(resp.result, dict):
+            return
+        walk = self._walks.get(method, 0)
+        self._walks[method] = walk + 1
+        self._record_cache_hint(method, walk, 0, resp.result, subject=subject)
 
     def _id(self) -> int:
         self._next_id += 1
@@ -846,9 +879,17 @@ class McpClient:
             name = params.get("name")
             if isinstance(name, str):
                 self.tools_probed.add(name)
+        # Read before the envelope rewrites `params`, and kept short: this is
+        # an address the target published, not content it returned.
+        subject = ""
+        if method in UNPAGED_CACHEABLE_METHODS and isinstance(params, dict):
+            uri = params.get("uri")
+            subject = uri[:200] if isinstance(uri, str) else ""
         if self.is_modern:
             params = self.envelope(params)
         resp = self.transport.send(JsonRpcCodec.request(method, params, req_id=self._id()))
+        if method in UNPAGED_CACHEABLE_METHODS:
+            self._record_unpaged_hint(method, subject, resp)
         self._note_input_required(method, resp)
         self._note_deferred_task(method, resp)
         self._note_capability_gap(method, resp)

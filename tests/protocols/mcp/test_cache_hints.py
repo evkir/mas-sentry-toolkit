@@ -129,3 +129,94 @@ def test_a_cached_listing_does_not_invent_a_walk() -> None:
     client.list_tools()
 
     assert len([h for h in client.cache_hints if h.method == "tools/list"]) == 1
+
+
+class _ScriptedTransport:
+    """Answers each method from a script and counts what went out."""
+
+    def __init__(self, answers: dict[str, Any]) -> None:
+        self.answers = answers
+        self.sent: list[str] = []
+
+    def send(self, req: JsonRpcRequest) -> JsonRpcResponse:
+        if req.id is None:
+            return JsonRpcResponse(id=None)
+        self.sent.append(req.method)
+        answer = self.answers.get(req.method)
+        if answer is None:
+            return JsonRpcResponse(id=req.id, error={"code": -32601, "message": "method not found"})
+        return JsonRpcResponse(id=req.id, result=answer)
+
+
+def test_discover_carries_its_own_freshness_fields() -> None:
+    """The result that carries `instructions` is cacheable, and was recorded nowhere.
+
+    SEP-2549 lists `server/discover` among the six cacheable results. It is not
+    a listing, so the paginated walk never sees it; before this it produced no
+    hint at all, which is the one answer where a shared cache serving it to a
+    second user has the server's own prose in it.
+    """
+    transport = _ScriptedTransport(
+        {
+            "server/discover": {
+                "protocolVersion": "2026-07-28",
+                "capabilities": {},
+                "instructions": "use the notes tool first",
+                "ttlMs": 3600000,
+                "cacheScope": "public",
+            }
+        }
+    )
+    client = McpClient(transport)
+    client.connect()
+
+    hints = [h for h in client.cache_hints if h.method == "server/discover"]
+    assert len(hints) == 1
+    assert (hints[0].ttl_ms, hints[0].cache_scope) == (3600000, "public")
+    assert hints[0].ttl_present and hints[0].scope_present
+    assert hints[0].subject == ""
+
+
+def test_a_read_is_keyed_by_the_resource_it_returned() -> None:
+    """Two reads are two facts: a server may date one resource unlike another."""
+    transport = _ScriptedTransport(
+        {
+            "server/discover": {"protocolVersion": "2026-07-28", "capabilities": {}},
+            "resources/read": {"contents": [], "ttlMs": 60000, "cacheScope": "private"},
+        }
+    )
+    client = McpClient(transport)
+    client.connect()
+    client.send("resources/read", {"uri": "file://lab/policy"})
+    client.send("resources/read", {"uri": "file://lab/other"})
+
+    reads = [h for h in client.cache_hints if h.method == "resources/read"]
+    assert [(h.walk, h.subject) for h in reads] == [
+        (0, "file://lab/policy"),
+        (1, "file://lab/other"),
+    ]
+
+
+def test_a_refused_read_states_no_freshness() -> None:
+    """An error result says nothing about caching, and our own failure is not a finding."""
+    transport = _ScriptedTransport({"server/discover": {"protocolVersion": "2026-07-28", "capabilities": {}}})
+    client = McpClient(transport)
+    client.connect()
+    client.send("resources/read", {"uri": "file://missing"})
+
+    assert [h.method for h in client.cache_hints] == ["server/discover"]
+
+
+def test_capture_sends_nothing_extra() -> None:
+    """The values ride in answers already asked for; recording them costs no request."""
+    transport = _ScriptedTransport(
+        {
+            "server/discover": {"protocolVersion": "2026-07-28", "capabilities": {}, "ttlMs": 0},
+            "resources/read": {"contents": [], "ttlMs": 0},
+        }
+    )
+    client = McpClient(transport)
+    client.connect()
+    client.send("resources/read", {"uri": "file://lab/policy"})
+
+    assert transport.sent == ["server/discover", "resources/read"]
