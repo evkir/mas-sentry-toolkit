@@ -1060,9 +1060,19 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
-## [0.9.0] - 2025-05-11
+## Pre-pivot history
 
-### Added
+The numbering below belongs to the 2025 tool this repository grew out of,
+before the pivot to agentic MAS security restarted the line at 0.2.0. It is
+kept because the work happened, and demoted to third-level headings because it
+is not part of the released line: the 2025 tree reached 0.9.0 and 1.0.0, and
+leaving those as release sections means the version a tag publishes today
+collides with a section written sixteen months earlier - a reader of the new
+0.9.0 would find the old one first.
+
+### [0.9.0] - 2025-05-11
+
+#### Added
 - Core Engine + CLI (5 commands: scan, abfp, report, probe, graph)
 - MQTT Analyzer — anonymous auth, wildcard topics, retained message poisoning
 - AMQP Analyzer — vhost enumeration, credential brute-force detection
@@ -1080,11 +1090,11 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Type aliases and typed helpers (core/types.py)
 - Coverage badge generator script
 
-### Fixed
+#### Fixed
 - numpy version pin for Python 3.13 compatibility
 - pydantic version pin for Python 3.13 compatibility
 
-### Infrastructure
+#### Infrastructure
 - pytest-cov integration with 70% threshold
 - pyproject.toml with mypy + ruff config
 - SECURITY.md vulnerability disclosure policy
@@ -1092,17 +1102,17 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
-## [0.1.0] - 2025-04-01
+### [0.1.0] - 2025-04-01
 
-### Added
+#### Added
 - Initial project scaffold
 - Basic MQTT connection probe
 
 ---
 
-## [1.0.0] - 2025-05-13
+### [1.0.0] - 2025-05-13
 
-### Added
+#### Added
 - CVSS v3.1 calculator for MAS vulnerability scoring
 - IoT attack tree scenarios (AT-001, AT-002)
 - ROS2/DDS threat catalog (4 scenarios)
@@ -1112,12 +1122,12 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Attack scenario usage examples
 - STRIDE mapper tests, CVSS tests, aggregator tests
 
-### Changed
+#### Changed
 - stride.py rewritten with threat_id, cvss_score fields
 - stride_mapper.py aligned with test expectations
 - numpy and pydantic version pins fixed for Python 3.13+
 
-### Tests
+#### Tests
 - 116 commits, 100+ tests passing
 - CI green on Python 3.10 / 3.11 / 3.12
 
