@@ -15,7 +15,11 @@ of how sound its motivating threat is.
 
 from __future__ import annotations
 
+import base64
+import binascii
+import json
 from dataclasses import dataclass, field
+from urllib.parse import urlsplit
 
 from mas_sentry.core.injection_scan import scan_routing_hijack, scan_string
 
@@ -44,6 +48,42 @@ _MISSING_AUTH_TAGS = ["ASI03_Identity_Abuse", "CWE-306", "STRIDE_Spoofing"]
 _SKILL_SURFACE_TAGS = ["ASI02_Tool_Misuse", "CWE-272", "STRIDE_Elevation_Of_Privilege"]
 # Absent card signature -> client cannot verify origin or detect tampering.
 _UNSIGNED_CARD_TAGS = ["ASI03_Identity_Abuse", "CWE-347", "STRIDE_Spoofing"]
+# A declared signature whose header cannot carry verification -> same spoofing
+# outcome as no signature at all, so the same ASI/STRIDE pair with CWE-347.
+_SIG_UNVERIFIABLE_TAGS = ["ASI03_Identity_Abuse", "CWE-347", "STRIDE_Spoofing"]
+# Algorithm that cannot prove origin to a third party (symmetric or unknown).
+_SIG_ALG_TAGS = ["ASI03_Identity_Abuse", "CWE-327", "STRIDE_Spoofing"]
+# jku points a verifier at a key source outside the card's own origin.
+_SIG_JKU_TAGS = ["ASI03_Identity_Abuse", "CWE-346", "STRIDE_Spoofing"]
+
+# Algorithms that let a party holding only the public key verify the card.
+# A symmetric alg (HS*) is deliberately absent: verifying an HS signature
+# requires the same secret that produced it, so a publicly fetched card signed
+# that way proves origin to nobody who did not already share the key.
+_ASYMMETRIC_ALGS = frozenset(
+    {
+        "RS256",
+        "RS384",
+        "RS512",
+        "PS256",
+        "PS384",
+        "PS512",
+        "ES256",
+        "ES256K",
+        "ES384",
+        "ES512",
+        "EdDSA",
+        "Ed25519",
+        "Ed448",
+    }
+)
+# Only this many signature entries are inspected. A card is attacker-supplied
+# input; without a bound, a hostile card carrying thousands of malformed
+# entries turns one audit into thousands of report rows.
+_MAX_SIGNATURES_INSPECTED = 8
+# Header values are echoed back into the report, so they are truncated to a
+# window rather than relayed whole.
+_SIG_VALUE_WINDOW = 32
 # Sole declared scheme type is a bare API key -> weakest of the five v1.0
 # scheme types, no built-in rotation/expiry, no stronger alternative offered.
 _WEAK_SCHEME_TAGS = ["ASI03_Identity_Abuse", "CWE-798", "STRIDE_Spoofing"]
@@ -109,6 +149,7 @@ def audit_agent_card(card: AgentCard) -> list[CardFinding]:
         )
 
     out.extend(_check_signature_absence(card))
+    out.extend(_check_signature_headers(card))
     out.extend(_scan_card_poisoning(card))
     out.extend(_scan_routing_hijack(card))
     out.extend(_check_insecure_transport(card))
@@ -139,6 +180,192 @@ def _check_signature_absence(card: AgentCard) -> list[CardFinding]:
             )
         ]
     return []
+
+
+def _decode_protected(value: object) -> dict | None:
+    """Decode a signature's base64url `protected` header into its JSON object.
+
+    Returns None when the field is absent, is not a string, does not decode as
+    base64url, or does not decode to a JSON object. The caller reports that as
+    a malformed entry rather than guessing what the publisher meant.
+    """
+    if not isinstance(value, str) or not value:
+        return None
+    try:
+        raw = base64.urlsafe_b64decode(value + "=" * (-len(value) % 4))
+    except (binascii.Error, ValueError):
+        return None
+    try:
+        decoded = json.loads(raw)
+    except (UnicodeDecodeError, ValueError):
+        return None
+    return decoded if isinstance(decoded, dict) else None
+
+
+def _window(value: object) -> str:
+    """Render an untrusted header value, truncated to a fixed window."""
+    text = str(value)
+    if len(text) > _SIG_VALUE_WINDOW:
+        return text[:_SIG_VALUE_WINDOW] + "..."
+    return text
+
+
+def _check_signature_headers(card: AgentCard) -> list[CardFinding]:
+    """Audit the JWS protected header of each AgentCardSignature on the card.
+
+    A2A v1.0 (spec section 8.4.2) defines signatures[] as RFC 7515 JWS over the
+    RFC 8785 canonical card. Until this check existed the audit asked only
+    whether signatures[] was non-empty, so a card declaring alg=none - or
+    pointing its verifier at a key set on a domain the publisher does not
+    control - passed as signed. That reading is worse than no check: a spoofed
+    card scored better than an honest unsigned one.
+
+    This is a header audit, not a verification. No key is fetched (a jku is
+    reported, never requested - the same outbound-request class closed for
+    MCP auth metadata), the signature bytes are not checked against any key,
+    and the JCS canonicalization of the payload is not recomputed. A card with
+    a flawless header over a garbage signature clears this check. Verifying
+    requires the publisher's key and belongs to the client, not to a passive
+    scan; the boundary is named here rather than implied.
+
+    `typ` is deliberately not checked. The spec asks for "JOSE", but PyJWT -
+    which the reference Python SDK signs through - stamps typ="JWT" whenever
+    the caller does not set it explicitly, so flagging the absence of "JOSE"
+    would fire on a conformant reference signature (verified by signing with
+    the live library, not read off the spec).
+    """
+    signatures = card.raw.get("signatures")
+    if not isinstance(signatures, list) or not signatures:
+        return []
+
+    out: list[CardFinding] = []
+    card_host = urlsplit((card.url or "").strip()).hostname
+    for index, entry in enumerate(signatures[:_MAX_SIGNATURES_INSPECTED]):
+        where = f"signatures[{index}]"
+        header = _decode_protected(entry.get("protected")) if isinstance(entry, dict) else None
+        if header is None:
+            out.append(
+                CardFinding(
+                    severity="LOW",
+                    title=f"AgentCard {where} carries no decodable protected header",
+                    detail=(
+                        "The protected member is absent, is not a base64url string, or does not "
+                        "decode to a JSON object; no client can determine how this card was signed "
+                        "(A2A v1.0 section 8.4.2, RFC 7515)"
+                    ),
+                    tags=list(_SIG_UNVERIFIABLE_TAGS),
+                )
+            )
+            continue
+        out.extend(_check_signature_alg(header, where))
+        out.extend(_check_signature_kid(header, where))
+        out.extend(_check_signature_jku(header, where, card_host))
+    return out
+
+
+def _check_signature_alg(header: dict, where: str) -> list[CardFinding]:
+    """Report a signing algorithm that cannot establish the card's origin."""
+    alg = header.get("alg")
+    if not isinstance(alg, str) or not alg.strip():
+        return [
+            CardFinding(
+                severity="HIGH",
+                title=f"AgentCard {where} omits the signing algorithm",
+                detail=(
+                    "The protected header carries no alg, which RFC 7515 requires; the signature "
+                    "cannot be verified and the card's claimed origin rests on nothing"
+                ),
+                tags=list(_SIG_UNVERIFIABLE_TAGS),
+            )
+        ]
+    if alg.strip().lower() == "none":
+        return [
+            CardFinding(
+                severity="HIGH",
+                title=f"AgentCard {where} declares alg=none",
+                detail=(
+                    "The card advertises a signature computed with no algorithm, so the signature "
+                    "value proves nothing; any party can republish this card under the claimed "
+                    "provider's name and it still presents as signed"
+                ),
+                tags=list(_SIG_UNVERIFIABLE_TAGS),
+            )
+        ]
+    if alg not in _ASYMMETRIC_ALGS:
+        return [
+            CardFinding(
+                severity="MEDIUM",
+                title=f"AgentCard {where} signed with a non-verifiable algorithm",
+                detail=(
+                    f"alg={_window(alg)} is not one of the asymmetric algorithms a third party can "
+                    "verify from a public key; a symmetric or unrecognized algorithm on a publicly "
+                    "fetched card cannot prove the card came from its claimed provider"
+                ),
+                tags=list(_SIG_ALG_TAGS),
+            )
+        ]
+    return []
+
+
+def _check_signature_kid(header: dict, where: str) -> list[CardFinding]:
+    """Report a protected header with no key identifier."""
+    kid = header.get("kid")
+    if isinstance(kid, str) and kid.strip():
+        return []
+    return [
+        CardFinding(
+            severity="LOW",
+            title=f"AgentCard {where} carries no key identifier",
+            detail=(
+                "kid is absent from the protected header, so a verifier holding more than one "
+                "publisher key cannot tell which one to use; A2A v1.0 requires it and the "
+                "reference SDK's ProtectedHeader type does too"
+            ),
+            tags=list(_SIG_UNVERIFIABLE_TAGS),
+        )
+    ]
+
+
+def _check_signature_jku(header: dict, where: str, card_host: str | None) -> list[CardFinding]:
+    """Report a jku that sends the verifier somewhere other than the card's origin.
+
+    The jku is reported, never fetched. Resolving it is an outbound request to
+    an address the target chose, which is the request class this scanner does
+    not make on a target's say-so.
+    """
+    jku = header.get("jku")
+    if not isinstance(jku, str) or not jku.strip():
+        return []
+    parts = urlsplit(jku.strip())
+    out: list[CardFinding] = []
+    if parts.scheme.lower() != "https":
+        out.append(
+            CardFinding(
+                severity="MEDIUM",
+                title=f"AgentCard {where} points jku at a non-HTTPS key set",
+                detail=(
+                    f"jku scheme is {_window(parts.scheme or '(none)')}; a verifier following it "
+                    "fetches the signing keys over a channel an on-path attacker can rewrite, "
+                    "which defeats the signature it was about to check"
+                ),
+                tags=list(_SIG_JKU_TAGS),
+            )
+        )
+    jku_host = parts.hostname
+    if card_host and jku_host and jku_host.lower() != card_host.lower():
+        out.append(
+            CardFinding(
+                severity="MEDIUM",
+                title=f"AgentCard {where} points jku at another origin",
+                detail=(
+                    f"jku host {_window(jku_host)} differs from the card origin {_window(card_host)}; "
+                    "a client that honours it verifies the card against keys published by whoever "
+                    "controls that host, so tampering with the card only requires controlling it"
+                ),
+                tags=list(_SIG_JKU_TAGS),
+            )
+        )
+    return out
 
 
 def _check_no_auth(card: AgentCard) -> list[CardFinding]:

@@ -11,6 +11,9 @@ from mas_sentry.core.adapters import from_probe_result
 from mas_sentry.core.finding import Severity
 from mas_sentry.protocols.a2a import A2AClient, A2ARpcError, A2AUnsupportedBindingError, AgentCard, TaskState
 from mas_sentry.protocols.a2a.card_audit import (
+    _MAX_SIGNATURES_INSPECTED as MAX_SIGNATURES_INSPECTED,
+)
+from mas_sentry.protocols.a2a.card_audit import (
     LARGE_SKILL_THRESHOLD,
     CardFinding,
     audit_agent_card,
@@ -33,6 +36,52 @@ from mas_sentry.protocols.a2a.probes import (
 )
 
 # ─────────────── card_audit ───────────────
+
+# Protected headers below are the literal base64url strings PyJWT emitted for
+# each shape, generated with the reference signing stack rather than written by
+# hand. Decoded contents are named beside each one.
+# {"alg":"ES256","kid":"card-2026","typ":"JOSE"} - fully conformant.
+_SIG_CONFORMANT = "eyJhbGciOiJFUzI1NiIsImtpZCI6ImNhcmQtMjAyNiIsInR5cCI6IkpPU0UifQ"
+# Same, but typ="JWT" - what PyJWT stamps when the signer does not set typ.
+_SIG_TYP_JWT = "eyJhbGciOiJFUzI1NiIsImtpZCI6ImNhcmQtMjAyNiIsInR5cCI6IkpXVCJ9"
+# {"alg":"ES256","typ":"JOSE"} - no kid.
+_SIG_NO_KID = "eyJhbGciOiJFUzI1NiIsInR5cCI6IkpPU0UifQ"
+# {"alg":"HS256",...} - symmetric, unverifiable by a third party.
+_SIG_HS256 = "eyJhbGciOiJIUzI1NiIsImtpZCI6ImNhcmQtMjAyNiIsInR5cCI6IkpPU0UifQ"
+# {"alg":"none",...} - PyJWT will emit this, with an empty signature.
+_SIG_ALG_NONE = "eyJhbGciOiJub25lIiwia2lkIjoiY2FyZC0yMDI2IiwidHlwIjoiSk9TRSJ9"
+# {"kid":"card-2026","typ":"JOSE"} - no alg at all; PyJWT cannot produce this,
+# so it is hand-built: only a non-reference publisher or a rewrite yields it.
+_SIG_NO_ALG = "eyJraWQiOiAiY2FyZC0yMDI2IiwgInR5cCI6ICJKT1NFIn0"
+# ...,"jku":"https://cdn.attacker.test/keys.json" - key set off the card origin.
+_SIG_JKU_OFFSITE = (
+    "eyJhbGciOiJFUzI1NiIsImprdSI6Imh0dHBzOi8vY2RuLmF0dGFja2VyLnRlc3Qva2V5cy5qc29uIiwia2lkIjoiY2FyZC0yMDI2Iiw"
+    "idHlwIjoiSk9TRSJ9"
+)
+# ...,"jku":"http://agent.example/keys.json" - same origin, cleartext.
+_SIG_JKU_HTTP = (
+    "eyJhbGciOiJFUzI1NiIsImprdSI6Imh0dHA6Ly9hZ2VudC5leGFtcGxlL2tleXMuanNvbiIsImtpZCI6ImNhcmQtMjAyNiIsInR5cCI6IkpPU0UifQ"
+)
+# ...,"jku":"https://agent.example/.well-known/jwks.json" - same origin, HTTPS.
+_SIG_JKU_SAME = (
+    "eyJhbGciOiJFUzI1NiIsImprdSI6Imh0dHBzOi8vYWdlbnQuZXhhbXBsZS8ud2VsbC1rbm93bi9qd2tzLmpzb24iLCJraWQiOiJjYXJk"
+    "LTIwMjYiLCJ0eXAiOiJKT1NFIn0"
+)
+# base64url of the JSON string "just-a-string" - decodes, but not to an object.
+_SIG_NOT_OBJECT = "Imp1c3QtYS1zdHJpbmci"
+
+_SIGNED_CARD_URL = "https://agent.example"
+
+
+def _signed_card(*protected: str, url: str = _SIGNED_CARD_URL) -> AgentCard:
+    """A card that is clean except for the signature headers under test."""
+    return AgentCard(
+        name="x",
+        description="",
+        url=url,
+        authentication={"schemes": ["bearer"]},
+        raw={"signatures": [{"protected": value, "signature": "abc"} for value in protected]},
+    )
 
 
 def test_card_no_auth_flagged() -> None:
@@ -222,7 +271,7 @@ def test_card_signed_not_flagged() -> None:
         description="",
         url="",
         authentication={"schemes": ["bearer"]},
-        raw={"signatures": [{"protected": "eyJhbGciOiJFZERTQSJ9", "signature": "abc"}]},
+        raw={"signatures": [{"protected": _SIG_CONFORMANT, "signature": "abc"}]},
     )
     findings = audit_agent_card(card)
     assert not any("is not signed" in f.title.lower() for f in findings)
@@ -233,6 +282,182 @@ def test_card_empty_signatures_list_flagged() -> None:
     card = AgentCard(name="x", description="", url="", authentication={"schemes": ["bearer"]}, raw={"signatures": []})
     findings = audit_agent_card(card)
     assert any("is not signed" in f.title.lower() for f in findings)
+
+
+def test_card_signature_conformant_header_silent() -> None:
+    """The calibration gate: a correctly signed card yields zero signature rows.
+
+    Worth more than any positive case here. If the reference signing shape
+    trips this audit, every signed agent in the field becomes a finding and
+    the check is noise no operator can clear.
+    """
+    findings = audit_agent_card(_signed_card(_SIG_CONFORMANT))
+    assert not [f for f in findings if "signatures[" in f.title]
+
+
+def test_card_signature_typ_jwt_not_flagged() -> None:
+    """typ="JWT" is what PyJWT stamps by default, so it cannot be a finding.
+
+    The spec asks for "JOSE", but the reference Python SDK signs through PyJWT,
+    which fills typ itself when the signer leaves it out. Flagging this would
+    report a conformant signature as defective.
+    """
+    findings = audit_agent_card(_signed_card(_SIG_TYP_JWT))
+    assert not [f for f in findings if "signatures[" in f.title]
+
+
+def test_card_signature_alg_none_flagged_high() -> None:
+    findings = audit_agent_card(_signed_card(_SIG_ALG_NONE))
+    matched = [f for f in findings if "alg=none" in f.title]
+    assert len(matched) == 1
+    assert matched[0].severity == "HIGH"
+    assert "CWE-347" in matched[0].tags
+
+
+def test_card_signature_missing_alg_flagged_high() -> None:
+    """No alg at all is a distinct fact from alg=none, and reported as such."""
+    findings = audit_agent_card(_signed_card(_SIG_NO_ALG))
+    matched = [f for f in findings if "omits the signing algorithm" in f.title]
+    assert len(matched) == 1
+    assert matched[0].severity == "HIGH"
+    assert not [f for f in findings if "alg=none" in f.title]
+
+
+def test_card_signature_symmetric_alg_flagged_medium() -> None:
+    """HS256 proves origin only to a party that already holds the secret."""
+    findings = audit_agent_card(_signed_card(_SIG_HS256))
+    matched = [f for f in findings if "non-verifiable algorithm" in f.title]
+    assert len(matched) == 1
+    assert matched[0].severity == "MEDIUM"
+    assert "HS256" in matched[0].detail
+
+
+def test_card_signature_missing_kid_flagged_low() -> None:
+    findings = audit_agent_card(_signed_card(_SIG_NO_KID))
+    matched = [f for f in findings if "no key identifier" in f.title]
+    assert len(matched) == 1
+    assert matched[0].severity == "LOW"
+
+
+def test_card_signature_jku_offsite_flagged() -> None:
+    findings = audit_agent_card(_signed_card(_SIG_JKU_OFFSITE))
+    matched = [f for f in findings if "jku at another origin" in f.title]
+    assert len(matched) == 1
+    assert matched[0].severity == "MEDIUM"
+    assert "cdn.attacker.test" in matched[0].detail
+    assert "CWE-346" in matched[0].tags
+
+
+def test_card_signature_jku_cleartext_flagged() -> None:
+    """Same origin, but an on-path attacker can swap the key set in transit."""
+    findings = audit_agent_card(_signed_card(_SIG_JKU_HTTP))
+    assert [f for f in findings if "non-HTTPS key set" in f.title]
+    assert not [f for f in findings if "jku at another origin" in f.title]
+
+
+def test_card_signature_jku_same_origin_https_silent() -> None:
+    findings = audit_agent_card(_signed_card(_SIG_JKU_SAME))
+    assert not [f for f in findings if "signatures[" in f.title]
+
+
+def test_card_signature_jku_not_compared_without_card_origin() -> None:
+    """With no resolvable card host there is nothing to compare jku against.
+
+    Reporting an off-origin key set here would record our own missing context
+    as a fact about the target. The scheme check still applies - it needs no
+    card origin.
+    """
+    findings = audit_agent_card(_signed_card(_SIG_JKU_OFFSITE, url=""))
+    assert not [f for f in findings if "jku at another origin" in f.title]
+
+
+def test_card_signature_undecodable_protected_flagged() -> None:
+    card = AgentCard(
+        name="x",
+        description="",
+        url=_SIGNED_CARD_URL,
+        authentication={"schemes": ["bearer"]},
+        raw={"signatures": [{"protected": "!!!not-base64!!!", "signature": "abc"}]},
+    )
+    matched = [f for f in audit_agent_card(card) if "no decodable protected header" in f.title]
+    assert len(matched) == 1
+
+
+def test_card_signature_protected_decoding_to_non_object_flagged() -> None:
+    """Valid base64url of valid JSON that is not an object is still unusable."""
+    matched = [f for f in audit_agent_card(_signed_card(_SIG_NOT_OBJECT)) if "no decodable" in f.title]
+    assert len(matched) == 1
+
+
+def test_card_signature_protected_decoding_to_non_json_flagged() -> None:
+    """Base64url that decodes cleanly but carries no JSON is still unusable.
+
+    Two distinct ways to fail after the base64 layer: bytes that are not JSON,
+    and bytes that are not even UTF-8. Both are the publisher's, not ours.
+    """
+    not_json = "dGhpcyBkZWNvZGVzIGJ1dCBpcyBub3QgSlNPTiB7ew"
+    not_utf8 = "__4AYmFk"
+    for protected in (not_json, not_utf8):
+        matched = [f for f in audit_agent_card(_signed_card(protected)) if "no decodable" in f.title]
+        assert len(matched) == 1
+
+
+def test_card_signature_entry_without_protected_flagged() -> None:
+    card = AgentCard(
+        name="x",
+        description="",
+        url=_SIGNED_CARD_URL,
+        authentication={"schemes": ["bearer"]},
+        raw={"signatures": [{"signature": "abc"}]},
+    )
+    assert [f for f in audit_agent_card(card) if "no decodable protected header" in f.title]
+
+
+def test_card_signature_non_dict_entry_flagged() -> None:
+    """A signatures[] holding a bare string is malformed, not absent."""
+    card = AgentCard(
+        name="x",
+        description="",
+        url=_SIGNED_CARD_URL,
+        authentication={"schemes": ["bearer"]},
+        raw={"signatures": ["not-an-object"]},
+    )
+    findings = audit_agent_card(card)
+    assert [f for f in findings if "no decodable protected header" in f.title]
+    assert not [f for f in findings if "is not signed" in f.title.lower()]
+
+
+def test_card_signature_findings_are_indexed_per_entry() -> None:
+    """Two bad entries are two findings, each naming which one it describes."""
+    findings = audit_agent_card(_signed_card(_SIG_ALG_NONE, _SIG_NO_KID))
+    assert [f for f in findings if "signatures[0]" in f.title and "alg=none" in f.title]
+    assert [f for f in findings if "signatures[1]" in f.title and "no key identifier" in f.title]
+
+
+def test_card_signature_inspection_is_bounded() -> None:
+    """A hostile card cannot turn one audit into an unbounded report.
+
+    Every entry here is defective; only the inspected window is reported.
+    """
+    card = _signed_card(*([_SIG_ALG_NONE] * (MAX_SIGNATURES_INSPECTED + 5)))
+    matched = [f for f in audit_agent_card(card) if "alg=none" in f.title]
+    assert len(matched) == MAX_SIGNATURES_INSPECTED
+
+
+def test_card_signature_header_value_is_windowed() -> None:
+    """An attacker-supplied alg is echoed as a window, not relayed whole."""
+    protected = base64.urlsafe_b64encode(json.dumps({"alg": "A" * 500, "kid": "k"}).encode()).decode().rstrip("=")
+    matched = [f for f in audit_agent_card(_signed_card(protected)) if "non-verifiable algorithm" in f.title]
+    assert len(matched) == 1
+    assert "A" * 500 not in matched[0].detail
+    assert "..." in matched[0].detail
+
+
+def test_card_unsigned_check_unaffected_by_header_audit() -> None:
+    """An unsigned card still reports absence and nothing about headers."""
+    findings = audit_agent_card(AgentCard(name="x", description="", url=_SIGNED_CARD_URL))
+    assert [f for f in findings if "is not signed" in f.title.lower()]
+    assert not [f for f in findings if "signatures[" in f.title]
 
 
 def test_card_clean_no_findings() -> None:
@@ -247,7 +472,7 @@ def test_card_clean_no_findings() -> None:
     raw = {
         "securitySchemes": {"oauth2": {"type": "oauth2"}},
         "securityRequirements": [{"schemes": {"oauth2": ["read"]}}],
-        "signatures": [{"protected": "eyJhbGciOiJFZERTQSJ9", "signature": "abc"}],
+        "signatures": [{"protected": _SIG_CONFORMANT, "signature": "abc"}],
     }
     card = AgentCard(
         name="x",

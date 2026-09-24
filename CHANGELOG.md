@@ -3,6 +3,26 @@
 ## [Unreleased]
 
 ### Added
+- The protected header of every A2A AgentCardSignature is audited. A2A v1.0
+  made signed cards the trust anchor for decentralized agent discovery, and the
+  card audit asked only whether `signatures[]` was non-empty - so a card
+  declaring `alg=none`, or pointing its verifier at a key set on a domain the
+  publisher does not control, scored better than an honest unsigned card.
+  Decoding the base64url header yields five rows: `alg=none` and a missing
+  `alg` (HIGH, distinct facts and reported separately), an algorithm outside
+  the asymmetric set (MEDIUM - a symmetric signature on a publicly fetched card
+  proves origin only to whoever already shares the secret), an absent `kid`
+  (LOW) and a `jku` that is cleartext or off the card's own origin (MEDIUM).
+  The `jku` is reported, never fetched: resolving a URL the target chose is the
+  outbound-request class this scanner does not perform on a target's say-so.
+  `typ` is deliberately unchecked - the spec asks for `JOSE`, but PyJWT, which
+  the reference Python SDK signs through, stamps `JWT` whenever the signer
+  leaves it out, so the check would fire on a conformant signature. This is a
+  header audit, not verification: no key is fetched, the signature bytes are
+  not checked and the JCS canonicalization is not recomputed, so a flawless
+  header over a garbage signature clears it. A conformant reference-signed card
+  yields zero rows, and inspection is bounded to the first eight entries so a
+  hostile card cannot turn one audit into an unbounded report.
 - SEP-2549 caching is audited. The freshness fields every 2026-07-28 answer
   carries have been collected since the previous release and read by nothing;
   `audit/caching.py` is the reader, and it sends no request - every value rode
