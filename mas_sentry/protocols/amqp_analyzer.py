@@ -4,12 +4,13 @@ import urllib.error
 import urllib.request
 from typing import Any
 
-from rich.console import Console
 from rich.table import Table
+
+from mas_sentry.core.console import make_console
 
 from .base import BaseProtocolAnalyzer, CapturedMessage
 
-console = Console()
+console = make_console()
 
 
 class AMQPAnalyzer(BaseProtocolAnalyzer):

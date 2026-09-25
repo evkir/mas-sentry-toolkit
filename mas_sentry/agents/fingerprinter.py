@@ -8,13 +8,14 @@ import math
 import time
 
 import paho.mqtt.client as mqtt
-from rich.console import Console
 from rich.table import Table
+
+from mas_sentry.core.console import make_console
 
 from .abfp_models import AgentFingerprint, MessageEvent, PayloadMetrics, TimingMetrics, TopicProfile
 from .payload_analyzer import detect_encoding, shannon_entropy
 
-console = Console()
+console = make_console()
 
 
 class ABFPFingerprinter:

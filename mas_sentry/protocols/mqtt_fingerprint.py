@@ -4,13 +4,13 @@ import time
 from typing import Any
 
 import paho.mqtt.client as mqtt
-from rich.console import Console
 from rich.panel import Panel
 
+from mas_sentry.core.console import make_console
 from mas_sentry.core.scope import assert_in_scope
 from mas_sentry.protocols.mqtt_connect import BrokerUnreachable, await_connack
 
-console = Console()
+console = make_console()
 
 
 class MQTTBrokerFingerprinter:

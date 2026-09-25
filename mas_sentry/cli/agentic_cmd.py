@@ -6,14 +6,15 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 import typer
-from rich.console import Console
 from rich.table import Table
+
+from mas_sentry.core.console import make_console
 
 if TYPE_CHECKING:
     from mas_sentry.agentic.tool_misuse import ToolInventoryEntry
 
 app = typer.Typer(no_args_is_help=True)
-console = Console()
+console = make_console()
 
 
 @app.command("scan")

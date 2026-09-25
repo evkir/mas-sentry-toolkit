@@ -4,12 +4,13 @@ from __future__ import annotations
 from pathlib import Path
 
 import typer
-from rich.console import Console
 from rich.table import Table
 
+from mas_sentry.core.console import make_console
+
 app = typer.Typer(no_args_is_help=True)
-console = Console()
-err_console = Console(stderr=True)
+console = make_console()
+err_console = make_console(stderr=True)
 
 
 @app.command("scan")

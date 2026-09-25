@@ -11,7 +11,8 @@ from typing import Any
 from urllib.parse import urlparse
 
 import paho.mqtt.client as mqtt
-from rich.console import Console
+
+from mas_sentry.core.console import make_console
 
 from .baseline import BaselineCollector
 from .cascade import BlastRadius, blast_radius
@@ -33,7 +34,7 @@ from .scoring import DimensionScore
 from .snapshot import AgentDigest, ScanSnapshot, build_snapshot
 from .topic_graph import TopicGraphBuilder
 
-console = Console()
+console = make_console()
 
 
 @dataclass(frozen=True, slots=True)

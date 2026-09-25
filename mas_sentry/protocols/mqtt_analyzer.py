@@ -3,12 +3,13 @@ import time
 from datetime import UTC, datetime
 
 import paho.mqtt.client as mqtt
-from rich.console import Console
 from rich.table import Table
+
+from mas_sentry.core.console import make_console
 
 from .base import BaseProtocolAnalyzer, CapturedMessage
 
-console = Console()
+console = make_console()
 
 
 class MQTTAnalyzer(BaseProtocolAnalyzer):

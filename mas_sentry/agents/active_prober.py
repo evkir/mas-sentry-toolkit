@@ -11,12 +11,12 @@ import uuid
 from dataclasses import dataclass
 
 import paho.mqtt.client as mqtt
-from rich.console import Console
 from rich.table import Table
 
+from mas_sentry.core.console import make_console
 from mas_sentry.core.scope import assert_in_scope
 
-console = Console()
+console = make_console()
 
 
 @dataclass

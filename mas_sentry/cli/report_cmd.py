@@ -6,12 +6,12 @@ from pathlib import Path
 from typing import Any
 
 import typer
-from rich.console import Console
 
 from mas_sentry.agents.abfp.coordination import CoordinationSignal
 from mas_sentry.agents.abfp.injection_propagation import PropagationFinding
 from mas_sentry.agents.abfp.scoring import Severity as AbfpSeverity
 from mas_sentry.core.adapters import from_coordination_signal, from_mcp_check, from_propagation_finding
+from mas_sentry.core.console import make_console
 from mas_sentry.core.finding import Finding, Severity
 from mas_sentry.reporting.markdown import render_markdown
 from mas_sentry.reporting.sarif import write_sarif
@@ -19,7 +19,7 @@ from mas_sentry.reporting.structured import write_json, write_junit
 from mas_sentry.reporting.unified_html import render_unified_html
 
 app = typer.Typer(no_args_is_help=True)
-console = Console()
+console = make_console()
 
 _VALID_FORMATS = {"html", "md", "json", "junit", "sarif"}
 

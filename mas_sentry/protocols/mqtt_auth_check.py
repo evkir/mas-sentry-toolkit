@@ -3,14 +3,14 @@ import contextlib
 import time
 
 import paho.mqtt.client as mqtt
-from rich.console import Console
 
+from mas_sentry.core.console import make_console
 from mas_sentry.core.scope import assert_in_scope
 from mas_sentry.protocols.mqtt_connect import BrokerUnreachable
 
 __all__ = ["BrokerUnreachable", "MQTTAuthChecker"]
 
-console = Console()
+console = make_console()
 
 
 class MQTTAuthChecker:

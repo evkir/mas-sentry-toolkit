@@ -7,11 +7,12 @@ import shutil
 import sys
 
 import typer
-from rich.console import Console
 from rich.table import Table
 
+from mas_sentry.core.console import make_console
+
 app = typer.Typer()
-console = Console()
+console = make_console()
 
 # Runtime deps mirrored from pyproject [project].dependencies.
 _DEPS = [
