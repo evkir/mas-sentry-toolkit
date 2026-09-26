@@ -87,6 +87,11 @@ successful publish, and clears what it planted - reporting a LOW finding if the
 clear did not take. `--payload` sends a body of your choosing instead of an
 inert marker; what that body does is yours to own.
 
+`mcp audit-source` reads source instead of the wire. The STDIO command-injection
+class lives in how a server assembles its child-process command, which no live
+scan can observe, so this one takes `--path` to a directory or file and writes
+`reports/mcp-source.json`.
+
 Active probes and non-lab targets need `--confirm-scope` (or
 `MAS_SENTRY_SCOPE_CONFIRMED=1`). Anything on `localhost`, `.lab`, `.test` or
 `.local` is treated as a lab target and runs without it.
