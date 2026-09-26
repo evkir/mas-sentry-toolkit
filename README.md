@@ -50,7 +50,7 @@ tags are left off where no clean match exists.
 | Area | Module | Covers |
 |---|---|---|
 | MCP | `protocols/mcp/` | STDIO and streamable HTTP on both the 2026-07-28 and 2025-06-18 routes, tool poisoning, SSRF, path traversal, resource and template content, tool drift and rug-pull, DNS rebinding, header/body desync, SEP-2549 cache-freshness conformance, the elicitation consent surface, the MCP Apps UI surface, STDIO source audit |
-| A2A | `protocols/a2a/` | AgentCard audit, card poisoning and routing-hijack, active probes, delegation-mesh escalation and recursion |
+| A2A | `protocols/a2a/` | AgentCard audit, signature protected-header audit (`alg=none`, symmetric alg, off-origin `jku`), card poisoning and routing-hijack, active probes, delegation-mesh escalation and recursion |
 | MQTT | `protocols/mqtt_*.py`, `exploits/` | Broker auth posture, $SYS exposure, topic inventory, retained-payload injection and beacons; write-side attacks confirmed by reading them back (`mqtt exploit`) |
 | AMQP | `protocols/amqp_*.py` | RabbitMQ management API: default accounts, topology exposure, message-tracing taps that copy every traced message into a queue |
 | ABFP | `agents/abfp/` | Behavioral fingerprinting, rogue-agent scoring, injection propagation, coordination side-channel |
