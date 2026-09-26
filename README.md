@@ -65,6 +65,19 @@ pipx install mas-sentry-toolkit
 mas-sentry doctor
 ```
 
+Requires Python 3.11 or newer. Full documentation, including the methodology
+notes and the per-module reference, is at
+<https://evkir.github.io/mas-sentry-toolkit/>.
+
+From source, with the test suite and the lab targets:
+
+```bash
+git clone https://github.com/evkir/mas-sentry-toolkit
+cd mas-sentry-toolkit
+pip install -e '.[dev,lab]'
+pytest
+```
+
 ## Commands
 
 ```bash
