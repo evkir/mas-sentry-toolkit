@@ -83,7 +83,7 @@ pytest
 ```bash
 mas-sentry mcp scan     --target http://127.0.0.1:9800/mcp
 mas-sentry mcp scan     --target 'stdio://python3 ./server.py'
-mas-sentry mcp audit-source --path ./server_src
+mas-sentry mcp audit-source  --path lab/vuln-mcp
 mas-sentry a2a scan     --target http://127.0.0.1:9700
 mas-sentry a2a mesh     --manifest mesh.json
 mas-sentry mqtt scan    --target mqtt://localhost:1883 --duration 20
