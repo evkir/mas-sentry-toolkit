@@ -118,6 +118,46 @@ def test_auditor_reports_a_site_once_not_once_per_pattern(tmp_path: Path):
     assert len(findings) == 1
 
 
+def test_auditor_reports_a_site_once_when_two_patterns_cover_it(tmp_path: Path):
+    """Deduplication by starting line, which the per-line break used to give.
+
+    Scanning the whole file lets several patterns reach the same site, so
+    without this a single call would be reported once per pattern that
+    happens to cover it.
+    """
+    f = tmp_path / "bad.py"
+    f.write_text("os.system(cmd); subprocess.run(argv, shell=True)\n")
+    findings = StdioConfigAuditor().scan_path(f)
+    assert len(findings) == 1
+    assert "subprocess" in findings[0].pattern
+
+
+def test_auditor_quotes_a_match_on_a_file_with_no_trailing_newline(tmp_path: Path):
+    """The last line of a file that does not end in one is still a whole line."""
+    f = tmp_path / "tail.py"
+    f.write_text("x = 1\nos.system(payload)")
+    findings = StdioConfigAuditor().scan_path(f)
+    assert len(findings) == 1
+    assert findings[0].line == 2
+    assert findings[0].snippet == "os.system(payload)"
+
+
+def test_auditor_does_not_count_an_entry_it_could_not_read(tmp_path: Path):
+    """scanned_files is the enumeration signal, so it counts files read.
+
+    A directory named like a source file matches the glob and then fails to
+    open. Counting it would inflate the one number that separates "the tree
+    is clean" from "nothing was read", which is the distinction a caller
+    reports an enumeration gap on.
+    """
+    (tmp_path / "weird.py").mkdir()
+    (tmp_path / "ok.py").write_text("os.system(z)\n")
+    auditor = StdioConfigAuditor()
+    findings = auditor.scan_path(tmp_path)
+    assert len(findings) == 1
+    assert auditor.scanned_files == 1
+
+
 # ---- config_inject: active probe ------------------------------------------
 
 
