@@ -49,6 +49,75 @@ def test_auditor_scans_directory(tmp_path: Path):
     assert len(findings) == 1
 
 
+def test_auditor_flags_a_subprocess_call_split_across_lines(tmp_path: Path):
+    """The formatted form of the call, which is the form that gets written."""
+    f = tmp_path / "bad.py"
+    f.write_text(
+        "def run_tool(args):\n"
+        "    r = subprocess.run(\n"
+        '        args["cmd"],\n'
+        "        shell=True,\n"
+        "        capture_output=True,\n"
+        "    )\n"
+        "    return r\n"
+    )
+    findings = StdioConfigAuditor().scan_path(f)
+    assert len(findings) == 1
+    assert findings[0].line == 2
+    assert "subprocess.run(" in findings[0].snippet
+    assert "shell=True" in findings[0].snippet
+
+
+def test_auditor_flags_stdio_server_parameters_split_across_lines(tmp_path: Path):
+    """The construct this module is named for, in its canonical layout.
+
+    A single-line StdioServerParameters(command=...) is not something a
+    formatter leaves behind, so matching only that form meant the primary
+    pattern could not fire on real code.
+    """
+    f = tmp_path / "launch.py"
+    f.write_text('params = StdioServerParameters(\n    command=user_cfg["cmd"],\n    args=["--port", "9000"],\n)\n')
+    findings = StdioConfigAuditor().scan_path(f)
+    assert len(findings) == 1
+    assert findings[0].line == 1
+
+
+def test_auditor_flags_the_lab_server_this_repo_ships(tmp_path: Path):
+    """Regression against the live form, not a fixture written to match.
+
+    lab/vuln-mcp/server.py is the vulnerable target the README points at.
+    It scanned clean while the detector read one line at a time, so the
+    documented demonstration of this class demonstrated nothing.
+    """
+    server = Path(__file__).resolve().parents[3] / "lab" / "vuln-mcp" / "server.py"
+    assert server.is_file(), f"lab server missing: {server}"
+    findings = StdioConfigAuditor().scan_path(server)
+    assert findings, "the repo's own vulnerable server must not scan clean"
+    assert any("shell=True" in f.snippet for f in findings)
+
+
+def test_auditor_does_not_pair_a_call_with_a_keyword_past_its_own_parenthesis(tmp_path: Path):
+    """A closing parenthesis ends the call, and the scan has to agree."""
+    f = tmp_path / "ok.py"
+    f.write_text("subprocess.run(safe_argv)\nsettings = dict(shell=True)\n")
+    assert StdioConfigAuditor().scan_path(f) == []
+
+
+def test_auditor_span_cap_stops_a_runaway_match(tmp_path: Path):
+    """Beyond the cap the opening and the keyword are no longer one call."""
+    f = tmp_path / "far.py"
+    filler = "".join(f"    x{i} = {i}\n" for i in range(120))
+    f.write_text("subprocess.run(\n" + filler + "    shell=True\n")
+    assert StdioConfigAuditor().scan_path(f) == []
+
+
+def test_auditor_reports_a_site_once_not_once_per_pattern(tmp_path: Path):
+    f = tmp_path / "bad.py"
+    f.write_text('os.system(f"run {user_input}")\n')
+    findings = StdioConfigAuditor().scan_path(f)
+    assert len(findings) == 1
+
+
 # ---- config_inject: active probe ------------------------------------------
 
 
