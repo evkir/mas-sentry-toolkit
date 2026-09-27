@@ -15,19 +15,25 @@ if TYPE_CHECKING:
 
 app = typer.Typer(no_args_is_help=True)
 console = make_console()
+err_console = make_console(stderr=True)
 
 
 @app.command("scan")
 def agentic_scan(
     target: str = typer.Option(..., "--target", "-t", help="Logical name or URL of agent system"),
-    asi: str = typer.Option("all", "--asi", help="all|asi01|asi02|...|asi10"),
-    tools_file: Path | None = typer.Option(None, "--tools-file", help="JSON: list of {name, description}"),
+    asi: str = typer.Option("all", "--asi", help="all, asi02, asi03, asi04, or a module name"),
+    tools_file: Path | None = typer.Option(None, "--tools-file", exists=True, help="JSON: list of {name, description}"),
     token: str | None = typer.Option(None, "--token", help="JWT to audit (ASI03)"),
-    requirements: Path | None = typer.Option(None, "--requirements", help="requirements.txt"),
+    requirements: Path | None = typer.Option(None, "--requirements", exists=True, help="requirements.txt"),
     out: Path = typer.Option(Path("reports/agentic.json"), "--out", "-o"),
 ) -> None:
-    """Static agentic scan. The live ASI01/ASI06 probes need a transport."""
-    from mas_sentry.agentic.run import run_static_scan
+    """Static agentic scan. The live ASI01/ASI06 probes need a transport.
+
+    Exits 2 when no module ran. A report from a scan that checked nothing
+    is byte-identical to a clean one, and what a caller reads is the exit
+    code, so the empty run has to be the loud case.
+    """
+    from mas_sentry.agentic.run import no_coverage_reason, run_static_scan
 
     ctx = {
         "target": target,
@@ -36,7 +42,12 @@ def agentic_scan(
         "requirements_path": requirements,
         "selected": asi,
     }
-    findings = run_static_scan(ctx)
+    run = run_static_scan(ctx)
+    if not run.modules_ran:
+        err_console.print(no_coverage_reason(asi))
+        raise typer.Exit(2)
+
+    findings = run.findings
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps([f.to_dict() for f in findings], indent=2, default=str))
 

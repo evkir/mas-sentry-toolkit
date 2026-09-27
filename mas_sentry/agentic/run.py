@@ -12,8 +12,7 @@ from pathlib import Path
 from typing import Any
 
 from mas_sentry.core.adapters import from_agentic
-from mas_sentry.core.finding import Finding
-from mas_sentry.core.threat_engine import UnifiedThreatEngine
+from mas_sentry.core.threat_engine import EngineRun, UnifiedThreatEngine
 
 from . import (
     action_audit,
@@ -26,7 +25,14 @@ from . import (
 from .base import AsiCategory
 
 
-def run_static_scan(ctx: dict[str, Any]) -> list[Finding]:
+def run_static_scan(ctx: dict[str, Any]) -> EngineRun:
+    """Run the wired static modules and return the run, not just its findings.
+
+    The run carries modules_ran, which is the only thing separating
+    "nothing was wrong" from "nothing was checked". Returning the findings
+    alone collapsed those two into the same empty list, and every caller
+    reported the second as the first.
+    """
     engine = UnifiedThreatEngine()
     target = ctx.get("target", "<unknown>")
 
@@ -69,8 +75,7 @@ def run_static_scan(ctx: dict[str, Any]) -> list[Finding]:
         )
 
     selected = _select(ctx.get("selected", "all"), engine.modules.keys())
-    run = engine.run(target=target, ctx=ctx, selected=selected)
-    return run.findings
+    return engine.run(target=target, ctx=ctx, selected=selected)
 
 
 # The --asi selector is a category number, but the module names no longer
@@ -105,3 +110,41 @@ def _select(asi: str, available: Any) -> list[str] | None:
         for module in available
         if module == wanted or _MODULE_CATEGORY.get(module, "").lower().startswith(wanted)
     ]
+
+
+# What feeds each wired module. Only the first three have a CLI option; the
+# rest are wired for library callers that already hold the object. The value
+# is prose rather than a flag alone so the message can say which is which.
+_MODULE_INPUT = {
+    "tool_misuse": "--tools-file",
+    "identity_abuse": "--token",
+    "supply_chain": "--requirements",
+    "cascade": "a call graph, which this command cannot supply",
+    "action_audit": "an action log, which this command cannot supply",
+    "trust_exploit": "an agent response, which this command cannot supply",
+}
+
+
+def no_coverage_reason(asi: str) -> str:
+    """Say why a selector ran nothing, so the caller is not told it ran clean.
+
+    Resolved against every wired module rather than the registered ones,
+    because the useful distinction is between a category this scan knows and
+    was not given the input for, and one it does not implement at all. Both
+    produce an empty selection, and only the first is worth a flag name.
+    """
+    wanted = asi.lower().strip()
+    if wanted in ("all", ""):
+        return (
+            "no check ran: --asi all selects every wired module and none of them was "
+            "given its input. Pass --requirements, --tools-file or --token."
+        )
+    modules = _select(wanted, _MODULE_CATEGORY.keys()) or []
+    if not modules:
+        return (
+            f"no check ran: --asi {asi} matches no module this command wires. "
+            "The README ASI table says where each category is covered."
+        )
+    names = ", ".join(modules)
+    inputs = ", ".join(dict.fromkeys(_MODULE_INPUT[m] for m in modules))
+    return f"no check ran: --asi {asi} selects {names}, and its input was not given ({inputs})."
