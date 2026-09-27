@@ -106,8 +106,8 @@ scan can observe, so this one takes `--path` to a directory or file and writes
 `reports/mcp-source.json`.
 
 Active probes and non-lab targets need `--confirm-scope` (or
-`MAS_SENTRY_SCOPE_CONFIRMED=1`). Anything on `localhost`, `.lab`, `.test` or
-`.local` is treated as a lab target and runs without it.
+`MAS_SENTRY_SCOPE_CONFIRMED=1`). Anything on `localhost`, `127.0.0.1`, `::1`,
+`.lab`, `.test` or `.local` is treated as a lab target and runs without it.
 
 The mesh manifest is `{"agents": [{"id", "url"}], "edges": [["from_id", "to_id"]]}`.
 
@@ -178,11 +178,11 @@ reach, then use `evidence` to reproduce before you report anything onward.
 | ASI02 | Tool Misuse & Exploitation | `agentic/tool_misuse.py` |
 | ASI03 | Identity & Privilege Abuse | `agentic/identity_abuse.py` |
 | ASI04 | Agentic Supply Chain | `agentic/supply_chain.py` |
-| ASI05 | Unexpected Code Execution | `mcp audit-source` (`mcp/audit/stdio_rce.py`) |
+| ASI05 | Unexpected Code Execution | `mcp audit-source` (`protocols/mcp/audit/stdio_rce.py`) |
 | ASI06 | Memory & Context Poisoning | `agentic/memory_poisoning.py` |
 | ASI07 | Insecure Inter-Agent Communication | ABFP `coordination`, A2A `mesh` |
 | ASI08 | Cascading Failures | `agentic/cascade.py` |
-| ASI09 | Human-Agent Trust Exploitation | `agentic/trust_exploit.py`, `mcp/audit/elicitation.py`, `mcp/audit/apps.py` |
+| ASI09 | Human-Agent Trust Exploitation | `agentic/trust_exploit.py`, `protocols/mcp/audit/elicitation.py`, `protocols/mcp/audit/apps.py` |
 | ASI10 | Rogue Agents | `agentic/rogue_agent.py` (ties to ABFP) |
 
 Two detectors sit outside the published list, which dropped both categories
