@@ -8,6 +8,7 @@ on:
       - requirements.txt
       - requirements-lock.txt
       - .github/workflows/supply-chain.yml
+      - mas_sentry/agentic/**
   pull_request:
     branches: [main]
   schedule:
@@ -52,8 +53,8 @@ jobs:
       - name: Audit locked dependencies
         run: pip-audit -r requirements-lock.txt
 
-  dogfood-asi08:
-    name: Self-audit (mas-sentry ASI08)
+  dogfood-supply-chain:
+    name: Self-audit (mas-sentry supply chain)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -71,26 +72,26 @@ jobs:
           mas-sentry agentic scan \
             --target self-audit \
             --requirements requirements-lock.txt \
-            --asi asi08 \
-            --out reports/self-asi08.json
+            --asi supply_chain \
+            --out reports/self-audit-supply-chain.json
       - name: Gate on findings
         run: |
-          python - reports/self-asi08.json <<'EOF'
+          python - reports/self-audit-supply-chain.json <<'EOF'
           import json, sys, pathlib
           findings = json.loads(pathlib.Path(sys.argv[1]).read_text())
           if findings:
-              print(f"::error::ASI08 self-audit found {len(findings)} finding(s)")
+              print(f"::error::supply-chain self-audit found {len(findings)} finding(s)")
               for f in findings:
                   print(f"  - [{f['severity']}] {f['title']}")
               sys.exit(1)
-          print("ASI08 self-audit clean: 0 findings")
+          print("supply-chain self-audit clean: 0 findings")
           EOF
       - name: Upload self-audit report
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: self-asi08-report
-          path: reports/self-asi08.json
+          name: self-audit-supply-chain-report
+          path: reports/self-audit-supply-chain.json
 
   dependency-review:
     name: Dependency review
