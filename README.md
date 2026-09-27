@@ -219,7 +219,7 @@ Use only on systems you own or have written authorization to test. Active
 modules require explicit scope confirmation and append to
 `~/.mas-sentry/audit.jsonl`. See [SECURITY.md](SECURITY.md).
 
-The author accept no liability for misuse of this software or
+The author accepts no liability for misuse of this software or
 for damage arising from its use. Operating within applicable law and an
 authorized scope is the user's responsibility.
 

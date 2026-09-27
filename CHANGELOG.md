@@ -79,6 +79,66 @@
   broken promise is reported where it can be proven, by `tool_mutation` with
   `announced=False`.
 
+- **Breaking.** `agentic scan` exits 2 when no module ran, and writes no
+  report. It used to write an empty report and exit 0 whenever nothing was
+  selected or nothing was fed, which is the artifact a genuinely clean scan
+  produces: seven of the ten published numbers select a module this command
+  cannot supply an input for, and a missing `--requirements` file, a missing
+  `--tools-file` and a bare invocation all landed there too. Paths that do
+  not exist are now rejected by the parser. `run_static_scan` returns the
+  `EngineRun` rather than its findings, so `modules_ran` - the difference
+  between nothing being wrong and nothing being checked - reaches the caller.
+  The report JSON is unchanged: an empty run is a fault in the invocation,
+  not a property of the target, and recording our own gap as a finding would
+  put a fabricated row in a report about someone else's system.
+- **Breaking.** `mcp audit-source` matches across lines. Its patterns describe
+  calls that every formatter splits over several lines - `StdioServerParameters(`
+  on one, `command=` on the next - while the scan read one line at a time, so
+  a call opening and its dangerous argument were two unrelated pieces of text
+  and the primary sink this detector is named for could not fire on formatted
+  code at all. `lab/vuln-mcp/server.py`, the vulnerable server this repository
+  ships and the README points the command at, scanned clean; it now reports
+  its shelled `subprocess.run`. Every fixture in the suite was a single-line
+  call, so the suite agreed with the detector about a form that does not
+  occur; the lab server is now a regression case. Spans are capped while
+  matching so an unbalanced parenthesis cannot pair an opening with a keyword
+  far below, a closing parenthesis still ends a call, and one finding is
+  reported per starting line. Snippets quote whole lines from the start of the
+  match through the end of its last, so a match that stops mid-line no longer
+  drops the argument that made it a finding - targets audited before this will
+  report sites that used to be missed.
+
+### Fixed
+- The supply-chain dogfood job audited nothing for six weeks. Renumbering the
+  ASI categories in August moved supply chain from ASI08 to ASI04, and the
+  workflow kept passing `--asi asi08`, which is cascading failure - a module
+  this job gives no call graph. Every other consumer of the renumbering was
+  updated; this one was missed, and the scan reporting exit 0 for a run in
+  which nothing executed is what kept it quiet. The selector is now the module
+  name, because the number is the part that rots and it rotted here first. The
+  report and artifact are renamed off the number for the same reason, and
+  `mas_sentry/agentic/**` joins the push paths, so a change to the audit this
+  job runs re-runs the job that dogfoods it.
+- Scan output written under `reports/` is ignored by default. The curated
+  reports the docs link to are listed back in by name, so a new one has to be
+  added deliberately - which fails at `git add` rather than quietly committing
+  someone's scan of a live target.
+
+### Security
+- `anyio` is pinned to 4.14.2 in `requirements-lock.txt`, clearing
+  GHSA-82r6-8w77-94w6 / CVE-2026-63374 (critical: IDNA 2003 host encoding in
+  `TLSStream` lets a hijacked connection present a legitimate certificate for
+  the IDNA 2003 form of an internationalized domain), GHSA-5p39-cfhj-2xmp /
+  CVE-2026-64847 (a process-pool worker wedges on an undrained stderr pipe)
+  and GHSA-3w57-8xmc-8v26 / CVE-2026-63349 (`extra_groups` dropped by
+  `open_process`). None is reachable from a scan - the runtime never imports
+  `anyio`, every httpx call in the product is synchronous and the `mcp` and
+  `a2a` SDKs are lab-only - but the lockfile ships to users, and their
+  `pip-audit` reports what ours did. Only `anyio` moves: a full re-lock pulls
+  `numpy` 2.5, `scipy` 1.18 and `networkx` 3.7, all of which require Python
+  3.12 while `requires-python` is 3.11, and the hash-verified install is
+  exercised on 3.12 only, so that breakage would land with every job green.
+
 ## [0.9.0] - 2026-09-17 - MCP Apps and RFC 9728 auth audits, a scan budget, and bounds on everything this scanner sends
 
 ### Added

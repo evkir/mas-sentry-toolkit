@@ -6,7 +6,6 @@ dist/
 build/
 .env
 *.log
-reports/output/
 .DS_Store
 .idea/
 *.pcap
@@ -16,5 +15,13 @@ site/
 coverage.xml
 .pytest_cache/
 
-# transient lab scenario run artifacts (curated demo/self-supply reports stay tracked)
-reports/lab_*.json
+# Everything this toolkit writes under reports/ is a run artifact, including
+# scans of live targets. The curated reports the docs link to are listed back
+# in by name: a new one has to be added here, which fails at `git add` rather
+# than committing someone's scan by accident.
+reports/*
+!reports/SELF-AUDIT.md
+!reports/demo_report.html
+!reports/demo_report.json
+!reports/live_demo_abfp.json
+!reports/self-supply.json
