@@ -8,16 +8,11 @@
   "schedule": [
     "before 6am on monday"
   ],
+  "constraints": {
+    "python": ">=3.11"
+  },
+  "constraintsFiltering": "strict",
   "packageRules": [
-    {
-      "matchUpdateTypes": [
-        "minor",
-        "patch"
-      ],
-      "matchCurrentVersion": "!/^0/",
-      "automerge": true,
-      "automergeType": "branch"
-    },
     {
       "matchPackageNames": [
         "/^paho-mqtt/",
@@ -34,6 +29,20 @@
         "/^bandit/"
       ],
       "groupName": "dev tooling"
+    },
+    {
+      "matchPackageNames": [
+        "/^pytest/",
+        "/^ruff/",
+        "/^mypy/",
+        "/^bandit/"
+      ],
+      "matchUpdateTypes": [
+        "minor",
+        "patch"
+      ],
+      "matchCurrentVersion": "!/^0/",
+      "automerge": true
     }
   ],
   "vulnerabilityAlerts": {
