@@ -133,6 +133,28 @@
   report sites that used to be missed.
 
 ### Fixed
+- The lockfile is installed on every interpreter it claims to support. The
+  hash-verified install ran on 3.12 alone while `requires-python` promises
+  3.11, and the matrix that does cover 3.11 installs `-e ".[dev]"` and
+  resolves fresh, so nothing in CI had ever installed `requirements-lock.txt`
+  on the floor this package advertises. A refresh that raised that floor -
+  numpy 2.5, scipy 1.18 and networkx 3.7 each require 3.12 - would have landed
+  with every job green and broken every 3.11 install. The job now runs 3.11
+  through 3.14, which the current pins all satisfy.
+- The dependency bot can no longer raise the Python floor, and no longer
+  automerges runtime dependencies. The config had never run: no App is
+  installed here, no Dependency Dashboard issue exists and the bot has opened
+  no pull request in this repository, which is why the anyio CVEs waited to be
+  lifted by hand while `vulnerabilityAlerts` sat enabled. Switching it on as
+  written would have been worse than leaving it off - Renovate applies no
+  language constraints by default, `pip_requirements` matches the hashed
+  lockfile and has understood hashes since 21.17.0, and numpy crossing from
+  2.4 into 2.5 is a minor update, which a blanket rule automerged.
+  `constraints.python` and strict filtering now declare the floor and the
+  lockfile matrix enforces it, because filtering is unreliable for
+  requirements files and a declaration is not a guarantee. Branch automerge is
+  dropped, since a `renovate/*` branch triggers no check in this repository at
+  all, and automerge is limited to the dev tooling group on non-zero minors.
 - The supply-chain dogfood job audited nothing for six weeks. Renumbering the
   ASI categories in August moved supply chain from ASI08 to ASI04, and the
   workflow kept passing `--asi asi08`, which is cascading failure - a module
