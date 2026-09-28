@@ -29,9 +29,10 @@ def agentic_scan(
 ) -> None:
     """Static agentic scan. The live ASI01/ASI06 probes need a transport.
 
-    Exits 2 when no module ran. A report from a scan that checked nothing
-    is byte-identical to a clean one, and what a caller reads is the exit
-    code, so the empty run has to be the loud case.
+    Exits 2 when no module ran, and when any selected module raised. A report
+    from a scan that checked nothing is byte-identical to a clean one, and one
+    from a scan that stopped halfway is byte-identical to a complete one. What
+    a caller reads is the exit code, so both have to be the loud case.
     """
     from mas_sentry.agentic.run import no_coverage_reason, run_static_scan
 
@@ -43,6 +44,27 @@ def agentic_scan(
         "selected": asi,
     }
     run = run_static_scan(ctx)
+
+    # The crash check comes first on purpose. A module that raised leaves
+    # modules_ran empty just as an unfed one does, and no_coverage_reason
+    # would then tell the operator to pass the flag they already passed,
+    # burying the fault that actually stopped the scan.
+    if run.errors:
+        for entry in run.errors:
+            err_console.print(
+                f"module {entry['module']} raised: {entry['error']}",
+                markup=False,
+                soft_wrap=True,
+            )
+        selected_count = len(run.errors) + len(run.modules_ran)
+        err_console.print(
+            f"scan incomplete: {len(run.errors)} of {selected_count} selected module(s) raised, "
+            "so no report is written",
+            markup=False,
+            soft_wrap=True,
+        )
+        raise typer.Exit(2)
+
     if not run.modules_ran:
         err_console.print(no_coverage_reason(asi))
         raise typer.Exit(2)

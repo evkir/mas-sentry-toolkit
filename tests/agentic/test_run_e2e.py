@@ -231,6 +231,89 @@ def test_cli_runs_the_fed_category_and_refuses_the_rest(selector: str, tmp_path:
     assert "no check ran" in _seen(result)
 
 
+# --------------- a crash is not cleanliness ---------------
+
+
+def _explode(*_a: object, **_k: object) -> list:
+    raise RuntimeError("lockfile parser exploded")
+
+
+def test_cli_exits_two_when_a_module_raises(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """A detector that died leaves no report behind and names itself."""
+    from mas_sentry.agentic import supply_chain
+
+    monkeypatch.setattr(supply_chain, "audit_supply_chain", _explode)
+    req = tmp_path / "requirements.txt"
+    req.write_text("requests\n")
+    out = tmp_path / "o.json"
+    result = runner.invoke(
+        app,
+        ["agentic", "scan", "-t", "lab", "--asi", "supply_chain", "--requirements", str(req), "--out", str(out)],
+    )
+    assert result.exit_code == 2
+    assert not out.exists(), "a scan that did not finish must not leave a report behind"
+    seen = _seen(result)
+    assert "supply_chain" in seen
+    assert "lockfile parser exploded" in seen
+
+
+def test_cli_does_not_blame_missing_input_for_a_crash(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """The only selected module raised, so modules_ran is empty either way.
+
+    Calling that a coverage gap would tell the operator to pass --requirements
+    they did pass, and hide the exception that is the real fault.
+    """
+    from mas_sentry.agentic import supply_chain
+
+    monkeypatch.setattr(supply_chain, "audit_supply_chain", _explode)
+    req = tmp_path / "requirements.txt"
+    req.write_text("requests\n")
+    out = tmp_path / "o.json"
+    result = runner.invoke(
+        app,
+        ["agentic", "scan", "-t", "lab", "--asi", "supply_chain", "--requirements", str(req), "--out", str(out)],
+    )
+    assert result.exit_code == 2
+    seen = _seen(result)
+    assert "no check ran" not in seen
+    assert "scan incomplete" in seen
+
+
+def test_cli_withholds_the_report_when_one_of_two_modules_raises(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A half-finished report is byte-identical to a complete one."""
+    from mas_sentry.agentic import supply_chain
+
+    monkeypatch.setattr(supply_chain, "audit_supply_chain", _explode)
+    req = tmp_path / "requirements.txt"
+    req.write_text("requests\n")
+    tools = tmp_path / "tools.json"
+    tools.write_text(json.dumps([{"name": "run_shell", "description": "Run a shell command"}]))
+    out = tmp_path / "o.json"
+    result = runner.invoke(
+        app,
+        [
+            "agentic",
+            "scan",
+            "-t",
+            "lab",
+            "--asi",
+            "all",
+            "--requirements",
+            str(req),
+            "--tools-file",
+            str(tools),
+            "--out",
+            str(out),
+        ],
+    )
+    assert result.exit_code == 2
+    assert not out.exists()
+    seen = _seen(result)
+    assert "1 of 2" in seen, "the count has to say how much of the scan was lost"
+
+
 def test_cli_exits_two_when_no_input_was_given(tmp_path: Path) -> None:
     out = tmp_path / "o.json"
     result = runner.invoke(app, ["agentic", "scan", "-t", "lab", "--out", str(out)])
