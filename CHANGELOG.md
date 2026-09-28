@@ -68,7 +68,7 @@
   listings, already recorded page by page, while `server/discover` and
   `resources/read` produced no row at all. A read is keyed by the resource it
   returned, and an answer that failed records nothing - filing an absent field
-  for a call that errored would report MST own failed request as a conformance
+  for a call that errored would report MST's own failed request as a conformance
   fact about the target.
 - Two places in this repository stated that the reference MCP server advertises
   `tools.listChanged: false`. Measured against the live SDK, it declares
@@ -91,6 +91,30 @@
   The report JSON is unchanged: an empty run is a fault in the invocation,
   not a property of the target, and recording our own gap as a finding would
   put a fabricated row in a report about someone else's system.
+- **Breaking.** `agentic scan` exits 2 when a selected module raised, naming
+  each module and its exception, and writes no report. The engine has always
+  collected those exceptions and nothing ever read them, so a detector that
+  died contributed no findings and no mention of itself: the report was
+  written and the exit code was 0, byte-identical to a scan that found
+  nothing wrong. This repository's own supply-chain job is that caller - it
+  gates on the findings file and prints `supply-chain self-audit clean: 0
+  findings`, which is the sentence a crashed module produced word for word.
+  A half-finished report claims a completeness it does not have, the same way
+  an empty one claimed a cleanliness it had not checked, so neither is
+  written. The crash is reported before the coverage gap, because a module
+  that raised leaves `modules_ran` empty exactly as an unfed one does, and
+  the coverage reason would otherwise tell the operator to pass the flag they
+  had just passed. The report JSON is unchanged: a detector of ours that died
+  is a fault in this tool, not a property of the target.
+- **Breaking.** `EngineRun.modules_ran` lists only the modules whose body
+  finished. It was appended before the module ran, so one that raised was
+  counted anyway, and that field is what separates nothing being wrong from
+  nothing being checked - the distinction the `agentic scan` gate is built
+  on, and the one the crash path walked straight past: every module in a run
+  failing still left a non-empty `modules_ran`, an empty findings list and
+  exit 0. Findings a module yielded before it died are kept, because they
+  were really observed, but the module itself lands in `errors` instead.
+  Callers reading the field as a count of attempts have to read `errors` too.
 - **Breaking.** `mcp audit-source` matches across lines. Its patterns describe
   calls that every formatter splits over several lines - `StdioServerParameters(`
   on one, `command=` on the next - while the scan read one line at a time, so
