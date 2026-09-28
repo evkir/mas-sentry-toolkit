@@ -20,13 +20,23 @@ permissions:
 
 jobs:
   lockfile-integrity:
-    name: Lockfile hash-verified install
+    name: Lockfile hash-verified install (py${{ matrix.python-version }})
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # Every interpreter requires-python admits. The lockfile is what ships
+        # to users, and it was verified on 3.12 alone while pyproject promised
+        # 3.11, so a pin that raised the floor installed cleanly here and broke
+        # every 3.11 user with this job green. The networkx pin excludes 3.14.1
+        # exactly; if setup-python ever resolves that patch, the failure is the
+        # pin saying so, not anything this repository changed.
+        python-version: ["3.11", "3.12", "3.13", "3.14"]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
+          python-version: ${{ matrix.python-version }}
           cache: pip
       - name: Install runtime deps with enforced hashes
         run: |
