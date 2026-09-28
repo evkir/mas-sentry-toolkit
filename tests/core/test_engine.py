@@ -2,6 +2,7 @@
 """Unit tests for core.finding, core.threat_engine, and core.adapters."""
 
 import json
+from collections.abc import Iterator
 
 from mas_sentry.agentic.base import AgenticFinding, AsiCategory
 from mas_sentry.agents.abfp.injection_propagation import PropagationFinding
@@ -117,6 +118,50 @@ def test_engine_traceback_opt_in() -> None:
     run = engine.run(target="lab", ctx={})
     assert "traceback" in run.errors[0]
     assert "RuntimeError" in run.errors[0]["traceback"]
+
+
+def test_engine_crashed_module_is_not_counted_as_ran() -> None:
+    """A module that raised checked nothing, so it does not claim to have run."""
+
+    def boom(_ctx: dict) -> list[Finding]:
+        raise RuntimeError("detector exploded")
+
+    engine = UnifiedThreatEngine()
+    engine.register("ok", lambda ctx: [_f("good")])
+    engine.register("boom", boom)
+    run = engine.run(target="lab", ctx={})
+    assert run.modules_ran == ["ok"]
+    assert [e["module"] for e in run.errors] == ["boom"]
+
+
+def test_engine_every_module_crashed_leaves_modules_ran_empty() -> None:
+    """The case the agentic exit-2 gate reads: nothing completed, nothing claimed."""
+
+    def boom(_ctx: dict) -> list[Finding]:
+        raise RuntimeError("down")
+
+    engine = UnifiedThreatEngine()
+    engine.register("a", boom)
+    engine.register("b", boom)
+    run = engine.run(target="lab", ctx={})
+    assert run.modules_ran == []
+    assert run.findings == []
+    assert len(run.errors) == 2
+
+
+def test_engine_keeps_findings_yielded_before_a_crash() -> None:
+    """Partial output is a real observation, but not a completed check."""
+
+    def half(_ctx: dict) -> Iterator[Finding]:
+        yield _f("seen-before-the-crash")
+        raise RuntimeError("died mid-stream")
+
+    engine = UnifiedThreatEngine()
+    engine.register("half", half)
+    run = engine.run(target="lab", ctx={})
+    assert [f.title for f in run.findings] == ["seen-before-the-crash"]
+    assert run.modules_ran == []
+    assert run.errors[0]["module"] == "half"
 
 
 def test_engine_selected_filter_and_not_registered() -> None:

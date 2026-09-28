@@ -50,6 +50,16 @@ class UnifiedThreatEngine:
         ctx: dict[str, Any],
         selected: list[str] | None = None,
     ) -> EngineRun:
+        """Run the selected modules and record which of them completed.
+
+        modules_ran carries only the modules whose body finished without
+        raising. A module that raised is recorded in errors instead: a caller
+        reads modules_ran to tell "nothing was wrong" from "nothing was
+        checked", and crediting a module for having been attempted collapses
+        those two back into one. Findings yielded before a raise are kept,
+        because they are real observations, but partial output is not a
+        completed check.
+        """
         run = EngineRun(target=target)
         names = list(self.modules.keys()) if selected is None else selected
         seen: set[str] = set()
@@ -58,7 +68,6 @@ class UnifiedThreatEngine:
             if not fn:
                 run.errors.append({"module": n, "error": "not_registered"})
                 continue
-            run.modules_ran.append(n)
             try:
                 for f in fn(ctx):
                     h = _hash_finding(f)
@@ -71,6 +80,8 @@ class UnifiedThreatEngine:
                 if self.include_traceback:
                     entry["traceback"] = traceback.format_exc()
                 run.errors.append(entry)
+            else:
+                run.modules_ran.append(n)
         return run
 
 
