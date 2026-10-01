@@ -8,5 +8,18 @@ so it has its own package.
 """
 
 from .discovery import HostConfig, locate, present, supported_hosts
+from .inventory import EnvEntry, InputDecl, Inventory, ServerEntry, ValueShape, read, shape_of
 
-__all__ = ["HostConfig", "locate", "present", "supported_hosts"]
+__all__ = [
+    "EnvEntry",
+    "HostConfig",
+    "InputDecl",
+    "Inventory",
+    "ServerEntry",
+    "ValueShape",
+    "locate",
+    "present",
+    "read",
+    "shape_of",
+    "supported_hosts",
+]
