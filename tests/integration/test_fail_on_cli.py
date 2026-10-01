@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from typing import Any
 
 import pytest
 import typer
@@ -60,11 +61,34 @@ def _audit(tmp_path: Path, *extra: str) -> tuple[int, str]:
     return result.exit_code, result.output
 
 
+def _resolve(path: tuple[str, ...]) -> Any:
+    """The command object one CLI path refers to.
+
+    Typed as Any rather than click.Command: typer does not install click as a
+    dependency of this project, so importing it for an annotation would make the
+    suite fail to collect wherever only the declared dependencies are present -
+    which is every clean install, including CI.
+    """
+    cmd: Any = typer.main.get_command(app)
+    for part in path:
+        cmd = cmd.commands[part]
+    return cmd
+
+
 @pytest.mark.parametrize("path", _every_command(), ids=lambda p: " ".join(p))
 def test_every_scanning_command_offers_the_gate(path: tuple[str, ...]) -> None:
-    result = runner.invoke(app, [*path, "--help"])
-    assert result.exit_code == 0, result.output
-    offered = "--fail-on" in result.output
+    """Asked of the command's parameters, not of its rendered help.
+
+    `--help` output is not a stable string. Rich forces colour when it detects
+    GitHub Actions, and it styles each segment of an option name separately, so
+    `--fail-on` arrives as `-`, `-fail` and `-on` wrapped in escape sequences
+    and no substring search finds it - which is how this test passed on two
+    developer machines and failed on all four CI interpreters at once. The
+    option either exists on the command or it does not, and that is the question
+    worth asking.
+    """
+    options = {opt for param in _resolve(path).params for opt in param.opts}
+    offered = "--fail-on" in options
     if path in _NOT_SCANS:
         assert not offered, f"{' '.join(path)} assesses no target and should not offer a gate"
     else:
