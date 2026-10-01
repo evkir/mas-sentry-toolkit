@@ -9,6 +9,7 @@ so it has its own package.
 
 from .discovery import HostConfig, locate, present, supported_hosts
 from .inventory import EnvEntry, InputDecl, Inventory, ServerEntry, ValueShape, read, shape_of
+from .runtime import findings_for, run_host_audit
 
 __all__ = [
     "EnvEntry",
@@ -17,9 +18,11 @@ __all__ = [
     "Inventory",
     "ServerEntry",
     "ValueShape",
+    "findings_for",
     "locate",
     "present",
     "read",
+    "run_host_audit",
     "shape_of",
     "supported_hosts",
 ]
