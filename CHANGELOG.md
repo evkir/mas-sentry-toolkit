@@ -3,6 +3,88 @@
 ## [Unreleased]
 
 ### Added
+- The agent host is audited. `mas-sentry host audit` locates the configs that
+  launch MCP servers on the operator's own machine and reports what they
+  declare. A large share of the 2026 CVE corpus lands there rather than on a
+  scanned server - a repository-local config overriding the user's and
+  redirecting a launch with the key the user configured (CVE-2026-21852), a hook
+  arriving with a checkout (CVE-2025-59536), a config a second writer rewrites
+  after the user approved it (CVE-2025-54136), a path canonicalising somewhere
+  other than where it appears to (CVE-2026-50549) - and none of it is observable
+  from the far end of a connection, so none of it belongs behind a flag on `mcp
+  scan`. The command is top-level because the posture already spans more than
+  MCP, and moving it later would break a published CLI.
+
+  Twelve documented paths are located per platform across two scopes: Claude
+  Code (`~/.claude.json`, user and repository `settings.json`, the local
+  override), Claude Desktop, Cursor, Windsurf, VS Code, and the portable
+  `.mcp.json` at a repository root, which more than one host honours - so a
+  single committed file is read by whichever of them the next operator runs.
+  Four dialects are normalised into one inventory: VS Code keys the server map
+  on `servers`, every other host on `mcpServers`; Cursor requires `type` on a
+  local server and marks a remote one by the presence of `url`; Claude Desktop
+  states neither. Symlink detection canonicalises the anchor on both sides,
+  because a home directory that is itself a link is ordinary and counting it
+  would mark every config below as redirected.
+
+  The inventory decides nothing and keeps no value. A missing `type` is recorded
+  as missing rather than inferred from the presence of a command, because the
+  distance between what a config declares and what a host does with it is where
+  these findings will live; a server declaring both `command` and `url` stays
+  recorded as declaring both. Each value is recorded as a shape - literal, a
+  substitution reference, a mix of the two, empty - with the reference names and
+  the length but never the text, and header names are kept while header values
+  are not: the report is the artifact that gets attached to a ticket and
+  forwarded, and a posture audit that leaked the keys it found would be worse
+  than no audit. `${input:api-key}`, the pattern a host offers so a secret is
+  never written down, reads as a reference; without that distinction a secret
+  detector built on these rows would fire on exactly the configs that did the
+  right thing.
+
+  Nothing is dropped silently. A key the reader does not model is listed rather
+  than ignored. A config that exists and cannot be read carries a stated reason
+  (MEDIUM), because an unreadable config has the same unexamined surface as a
+  hostile one. A file nesting further server declarations under `projects` is
+  reported as partly unread (MEDIUM): the count is right about what was read and
+  wrong about the file, and only that row says so. `$schema` raises nothing - it
+  sits on a large share of real configs, and a row for every file carrying one
+  would bury the case the check exists for. An empty result states how many
+  paths were examined, so it cannot be mistaken for an audit that never ran.
+  JSONC is accepted, since VS Code reads `.vscode/mcp.json` that way and calling
+  a commented file malformed would be a finding about this parser rather than
+  about the operator's config; comments and trailing commas are removed in two
+  string-aware passes, because `https://` is not a comment and `{"a": "x, }"}`
+  is a document whose value contains that sequence. A truncated file is still
+  rejected.
+- `--fail-on` gates CI. Ten commands take a severity threshold and exit 1 when a
+  finding reaches it. The README states that a run is reproducible in CI, and
+  the statement was not actionable there: every command returned 0 whatever it
+  found, so a pipeline could record a scan and not gate on one. The option is
+  opt-in and the existing path is untouched, because making a scan that finds
+  something exit non-zero by default would break every pipeline running one
+  today without asking for a gate.
+
+  1, not the 2 this release already assigns to a broken invocation - `agentic
+  scan` with nothing selected or a module that raised, a scope violation, a path
+  that does not exist. A pipeline has to tell "this scan found problems" from
+  "this job is misconfigured": the first is a result worth reading, the second
+  is a bug in the job. For the same reason an unknown threshold is rejected by
+  the option's callback before the scan starts rather than after it, since a
+  typo surfacing at the end of a long scan would have cost the scan. The report
+  is still written when the gate fails, because CI needs the artifact precisely
+  then.
+
+  The gate reads severity names rather than `Finding` objects. The MCP scan,
+  which carries the largest detector surface, still emits report rows whose
+  `severity` is a plain `str`, and a gate that only understood `Finding` would
+  silently never fire for the command with the most checks behind it. A value
+  the gate cannot parse is therefore reachable through a module bug, and it
+  fails the gate rather than being skipped - one that ignored a row it did not
+  understand would let through exactly what it exists to catch - and is reported
+  apart from the rows that genuinely tripped the threshold, so a red pipeline
+  always states its cause. Which commands offer the option is asserted from the
+  app's own command tree, so a scanning command added without it fails the suite
+  instead of quietly joining an exemption list.
 - The protected header of every A2A AgentCardSignature is audited. A2A v1.0
   made signed cards the trust anchor for decentralized agent discovery, and the
   card audit asked only whether `signatures[]` was non-empty - so a card
