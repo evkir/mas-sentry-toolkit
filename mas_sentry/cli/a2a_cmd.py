@@ -8,6 +8,8 @@ from rich.table import Table
 
 from mas_sentry.core.console import make_console
 
+from .fail_on import FAIL_ON_HELP, enforce_fail_on, validate_fail_on
+
 app = typer.Typer(no_args_is_help=True)
 console = make_console()
 err_console = make_console(stderr=True)
@@ -26,6 +28,9 @@ def a2a_scan(
         False,
         "--confirm-scope",
         help="Required for non-lab targets (anything outside localhost/.lab/.test/.local)",
+    ),
+    fail_on: str | None = typer.Option(
+        None, "--fail-on", help=FAIL_ON_HELP, callback=validate_fail_on, show_default=False
     ),
 ) -> None:
     """Scan an A2A agent endpoint: discover -> card audit -> optional active probes.
@@ -63,6 +68,7 @@ def a2a_scan(
         table.add_row(f.module, f.severity.value, f.title[:60], ", ".join(f.tags))
     console.print(table)
     console.print(f"[green]{len(findings)} finding(s) -> {out}[/green]")
+    enforce_fail_on([f.severity.value for f in findings], fail_on)
 
 
 @app.command("mesh")
@@ -73,6 +79,9 @@ def a2a_mesh(
         False,
         "--confirm-scope",
         help="Required for non-lab agent URLs (anything outside localhost/.lab/.test/.local)",
+    ),
+    fail_on: str | None = typer.Option(
+        None, "--fail-on", help=FAIL_ON_HELP, callback=validate_fail_on, show_default=False
     ),
 ) -> None:
     """Audit an A2A delegation mesh: fetch every card -> delegation graph -> flag escalation.
@@ -101,3 +110,4 @@ def a2a_mesh(
         table.add_row(f.module, f.severity.value, f.title[:70])
     console.print(table)
     console.print(f"[green]{len(findings)} mesh finding(s) -> {out}[/green]")
+    enforce_fail_on([f.severity.value for f in findings], fail_on)

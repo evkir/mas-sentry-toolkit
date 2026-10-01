@@ -9,6 +9,8 @@ from rich.table import Table
 
 from mas_sentry.core.console import make_console
 
+from .fail_on import FAIL_ON_HELP, enforce_fail_on, validate_fail_on
+
 app = typer.Typer(no_args_is_help=True)
 console = make_console()
 
@@ -30,6 +32,9 @@ def host_audit(
         show_default=False,
     ),
     out: Path = typer.Option(Path("reports/host.json"), "--out", "-o"),
+    fail_on: str | None = typer.Option(
+        None, "--fail-on", help=FAIL_ON_HELP, callback=validate_fail_on, show_default=False
+    ),
 ) -> None:
     """Audit the agent host: which configs exist, what they declare, what went unread.
 
@@ -57,3 +62,4 @@ def host_audit(
         table.add_row(f.module, f.severity.value, f.title[:70])
     console.print(table)
     console.print(f"[green]{len(findings)} finding(s) -> {out}[/green]")
+    enforce_fail_on([f.severity.value for f in findings], fail_on)

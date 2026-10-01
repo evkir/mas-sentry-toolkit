@@ -8,6 +8,8 @@ from rich.table import Table
 
 from mas_sentry.core.console import make_console
 
+from .fail_on import FAIL_ON_HELP, enforce_fail_on, validate_fail_on
+
 app = typer.Typer(no_args_is_help=True)
 console = make_console()
 
@@ -29,6 +31,9 @@ def mqtt_exploit(
         False,
         "--confirm-scope",
         help="Required for non-lab targets (anything outside localhost/.lab/.test/.local)",
+    ),
+    fail_on: str | None = typer.Option(
+        None, "--fail-on", help=FAIL_ON_HELP, callback=validate_fail_on, show_default=False
     ),
 ) -> None:
     """Plant a retained message and read it back. Writes to the broker."""
@@ -64,6 +69,7 @@ def mqtt_exploit(
         table.add_row(f.module.removeprefix("mqtt.exploit."), f.severity.value, f.title[:80])
     console.print(table)
     console.print(f"[green]wrote {len(findings)} findings -> {out}[/green]")
+    enforce_fail_on([f.severity.value for f in findings], fail_on)
 
 
 @app.command("scan")
@@ -81,6 +87,9 @@ def mqtt_scan(
         False,
         "--confirm-scope",
         help="Required for non-lab targets (anything outside localhost/.lab/.test/.local)",
+    ),
+    fail_on: str | None = typer.Option(
+        None, "--fail-on", help=FAIL_ON_HELP, callback=validate_fail_on, show_default=False
     ),
 ) -> None:
     """Audit an MQTT broker. Localhost/lab targets bypass --confirm-scope."""
@@ -117,3 +126,4 @@ def mqtt_scan(
         table.add_row(f.module.removeprefix("mqtt."), f.severity.value, f.title[:80])
     console.print(table)
     console.print(f"[green]wrote {len(findings)} findings -> {out}[/green]")
+    enforce_fail_on([f.severity.value for f in findings], fail_on)

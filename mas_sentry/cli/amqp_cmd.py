@@ -8,6 +8,8 @@ from rich.table import Table
 
 from mas_sentry.core.console import make_console
 
+from .fail_on import FAIL_ON_HELP, enforce_fail_on, validate_fail_on
+
 app = typer.Typer(no_args_is_help=True)
 console = make_console()
 
@@ -28,6 +30,9 @@ def amqp_scan(
         False,
         "--confirm-scope",
         help="Required for non-lab targets (anything outside localhost/.lab/.test/.local)",
+    ),
+    fail_on: str | None = typer.Option(
+        None, "--fail-on", help=FAIL_ON_HELP, callback=validate_fail_on, show_default=False
     ),
 ) -> None:
     """Audit a RabbitMQ management API (HTTP, port 15672)."""
@@ -59,3 +64,4 @@ def amqp_scan(
         table.add_row(f.severity.value, f.title[:80])
     console.print(table)
     console.print(f"[green]wrote {len(findings)} findings -> {out}[/green]")
+    enforce_fail_on([f.severity.value for f in findings], fail_on)

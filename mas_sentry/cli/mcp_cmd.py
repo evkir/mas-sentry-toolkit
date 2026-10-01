@@ -10,6 +10,8 @@ from rich.table import Table
 
 from mas_sentry.core.console import make_console
 
+from .fail_on import FAIL_ON_HELP, enforce_fail_on, validate_fail_on
+
 app = typer.Typer(no_args_is_help=True)
 console = make_console()
 
@@ -107,6 +109,9 @@ def mcp_scan(
         help="Working directory for a stdio target. Servers that resolve relative paths need the one their "
         "client would give them",
     ),
+    fail_on: str | None = typer.Option(
+        None, "--fail-on", help=FAIL_ON_HELP, callback=validate_fail_on, show_default=False
+    ),
 ) -> None:
     """Scan an MCP server. Localhost/lab targets bypass --confirm-scope."""
     from mas_sentry.protocols.mcp.runtime import run_mcp_scan
@@ -137,12 +142,16 @@ def mcp_scan(
     for f in findings:
         table.add_row(f["check"], f["severity"], f["detail"][:80])
     console.print(table)
+    enforce_fail_on([str(f.get("severity", "")) for f in findings], fail_on)
 
 
 @app.command("audit-source")
 def mcp_audit_source(
     path: Path = typer.Option(..., "--path", "-p", help="Directory or file holding the MCP server source"),
     out: Path = typer.Option(Path("reports/mcp-source.json"), "--out", "-o"),
+    fail_on: str | None = typer.Option(
+        None, "--fail-on", help=FAIL_ON_HELP, callback=validate_fail_on, show_default=False
+    ),
 ) -> None:
     """Audit MCP server source for the STDIO command-injection class.
 
@@ -161,3 +170,4 @@ def mcp_audit_source(
     for row in rows:
         table.add_row(row["check"], row["severity"], row["detail"][:80])
     console.print(table)
+    enforce_fail_on([str(r.get("severity", "")) for r in rows], fail_on)

@@ -8,6 +8,8 @@ from rich.table import Table
 
 from mas_sentry.core.console import make_console
 
+from .fail_on import FAIL_ON_HELP, enforce_fail_on, validate_fail_on
+
 app = typer.Typer(no_args_is_help=True)
 console = make_console()
 err_console = make_console(stderr=True)
@@ -24,6 +26,9 @@ def abfp_scan(
     ),
     baseline: Path | None = typer.Option(
         None, "--baseline", help="Prior snapshot to compare against (enables drift detection)"
+    ),
+    fail_on: str | None = typer.Option(
+        None, "--fail-on", help=FAIL_ON_HELP, callback=validate_fail_on, show_default=False
     ),
 ) -> None:
     """Run a single-shot ABFP scan: passive learn -> fingerprint -> score."""
@@ -71,3 +76,4 @@ def abfp_scan(
                 f"{m.eigenvector:.3f}",
             )
         console.print(metrics_table)
+    enforce_fail_on([f.score.severity.value for f in findings], fail_on)

@@ -10,6 +10,8 @@ from rich.table import Table
 
 from mas_sentry.core.console import make_console
 
+from .fail_on import FAIL_ON_HELP, enforce_fail_on, validate_fail_on
+
 if TYPE_CHECKING:
     from mas_sentry.agentic.tool_misuse import ToolInventoryEntry
 
@@ -26,6 +28,9 @@ def agentic_scan(
     token: str | None = typer.Option(None, "--token", help="JWT to audit (ASI03)"),
     requirements: Path | None = typer.Option(None, "--requirements", exists=True, help="requirements.txt"),
     out: Path = typer.Option(Path("reports/agentic.json"), "--out", "-o"),
+    fail_on: str | None = typer.Option(
+        None, "--fail-on", help=FAIL_ON_HELP, callback=validate_fail_on, show_default=False
+    ),
 ) -> None:
     """Static agentic scan. The live ASI01/ASI06 probes need a transport.
 
@@ -82,6 +87,7 @@ def agentic_scan(
         table.add_row(asi_tag, f.severity.value, f.title[:80])
     console.print(table)
     console.print(f"[dim]{len(findings)} finding(s) written to {out}[/dim]")
+    enforce_fail_on([f.severity.value for f in findings], fail_on)
 
 
 def _load_tools(path: Path | None) -> list[ToolInventoryEntry]:
