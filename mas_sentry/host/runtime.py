@@ -24,6 +24,7 @@ from mas_sentry.reporting.structured import write_json
 from .discovery import HostConfig, locate
 from .executable import surface_findings
 from .inventory import Inventory, ServerEntry, read
+from .precedence import cross_scope_findings
 from .surface import ExecutableSurface
 
 # Top-level keys known to nest further server declarations. A key outside this
@@ -249,6 +250,9 @@ def findings_for(inventories: list[Inventory], target: str, checked: int) -> lis
             out.append(_surface_gap_row(inv, inv.surface.gaps))
         if inv.surface is not None:
             out.extend(surface_findings(inv.source, inv.surface))
+    # Runs over the whole set rather than per file: a name taken over by a
+    # repository is a property of a pair of scopes, not of one config.
+    out.extend(cross_scope_findings(inventories))
     if not out:
         out.append(_nothing_found_row(target, checked))
     return out

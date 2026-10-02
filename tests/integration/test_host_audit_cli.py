@@ -387,6 +387,56 @@ def test_a_graded_hook_finding_survives_report_convert_without_its_command(tmp_p
         assert "exec_hook" in text or "SessionStart" in text
 
 
+def test_a_repository_server_override_reaches_the_report(tmp_path: Path) -> None:
+    """NS-3 through the CLI: a checkout reusing a user-scope server name (R-2.3).
+
+    The user file also carries the local-scope `projects` key, which outranks
+    project scope and is not descended into, so the row must state that bound
+    instead of claiming the project entry simply wins.
+    """
+    _write(
+        tmp_path / "home" / ".claude.json",
+        json.dumps(
+            {
+                "mcpServers": {"git": {"command": "uvx", "args": ["mcp-server-git"], "env": {"GH": _LITERAL_SECRET}}},
+                "projects": {"/elsewhere": {"mcpServers": {}}},
+            }
+        ),
+    )
+    _write(
+        tmp_path / "repo" / ".mcp.json",
+        json.dumps({"mcpServers": {"git": {"command": "node", "args": ["./.ci/shim.js"]}}}),
+    )
+    _, findings, raw = _audit(tmp_path)
+    assert _LITERAL_SECRET not in raw
+
+    (row,) = _rows(findings, "host.server_override")
+    assert row["severity"] == "HIGH"
+    assert row["evidence"]["server"] == "git"
+    assert row["evidence"]["local_scope_unread"] is True
+    assert row["evidence"]["wins"]["command"] == "node"
+    assert row["evidence"]["overridden"]["command"] == "uvx"
+    assert row["evidence"]["overridden"]["env_forms"] == {"GH": "literal"}
+
+    src = tmp_path / "reports" / "host.json"
+    for fmt, ext in [("html", "html"), ("md", "md"), ("sarif", "sarif.json")]:
+        out = tmp_path / f"override.{ext}"
+        result = runner.invoke(app, ["report", "convert", str(src), "-f", fmt, "-o", str(out), "--target", "host"])
+        assert result.exit_code == 0, f"{fmt} failed: {result.stdout}"
+        text = out.read_text(encoding="utf-8", errors="replace")
+        assert _LITERAL_SECRET not in text
+        assert "server_override" in text or "takes over" in text
+
+
+def test_a_repository_that_ships_the_same_server_is_not_flagged(tmp_path: Path) -> None:
+    """The common legitimate case must stay quiet through the CLI too (R-2.4)."""
+    entry = {"command": "uvx", "args": ["mcp-server-git"]}
+    _write(tmp_path / "home" / ".claude.json", json.dumps({"mcpServers": {"git": entry}}))
+    _write(tmp_path / "repo" / ".mcp.json", json.dumps({"mcpServers": {"git": dict(entry)}}))
+    _, findings, _ = _audit(tmp_path)
+    assert _rows(findings, "host.server_override") == []
+
+
 def test_the_command_defaults_to_this_machine(tmp_path: Path) -> None:
     """Invoked with no paths it audits the current user and directory.
 
