@@ -8,6 +8,7 @@ so it has its own package.
 """
 
 from .discovery import HostConfig, locate, present, supported_hosts
+from .executable import surface_findings
 from .inventory import EnvEntry, InputDecl, Inventory, ServerEntry, read
 from .runtime import findings_for, run_host_audit
 from .surface import ExecutableSurface, HelperCommand, HookHandler, read_surface
@@ -31,4 +32,5 @@ __all__ = [
     "run_host_audit",
     "shape_of",
     "supported_hosts",
+    "surface_findings",
 ]

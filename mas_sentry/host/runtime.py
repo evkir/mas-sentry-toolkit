@@ -22,6 +22,7 @@ from mas_sentry.core.finding import Finding, Severity
 from mas_sentry.reporting.structured import write_json
 
 from .discovery import HostConfig, locate
+from .executable import surface_findings
 from .inventory import Inventory, ServerEntry, read
 from .surface import ExecutableSurface
 
@@ -246,6 +247,8 @@ def findings_for(inventories: list[Inventory], target: str, checked: int) -> lis
             out.append(_partly_unread_row(inv, nesting))
         if inv.surface is not None and inv.surface.gaps:
             out.append(_surface_gap_row(inv, inv.surface.gaps))
+        if inv.surface is not None:
+            out.extend(surface_findings(inv.source, inv.surface))
     if not out:
         out.append(_nothing_found_row(target, checked))
     return out
