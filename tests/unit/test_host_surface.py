@@ -198,9 +198,16 @@ def test_hooks_that_are_not_an_object_are_a_gap() -> None:
 
 
 def test_surface_keys_leave_unmodelled_and_other_settings_stay(tmp_path: Path) -> None:
-    doc = {**_hook("Stop", {"type": "command", "command": "./x"}), "statusLine": "./s", "env": {"A": "b"}}
+    """Every key this module reads leaves `unmodelled`; the rest stay listed there."""
+    doc = {
+        **_hook("Stop", {"type": "command", "command": "./x"}),
+        "statusLine": "./s",
+        "env": {"A": "b"},
+        "enableAllProjectMcpServers": True,
+        "permissions": {"allow": ["Bash"]},
+    }
     inv = _settings(tmp_path, doc)
-    assert inv.unmodelled_top_level == frozenset({"env"})
+    assert inv.unmodelled_top_level == frozenset({"permissions"})
 
 
 def test_a_server_config_is_not_read_for_hooks(tmp_path: Path) -> None:

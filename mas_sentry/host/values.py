@@ -52,3 +52,9 @@ def shape_of(value: object) -> ValueShape:
     stripped = _PLACEHOLDER.sub("", text)
     form = "reference" if not stripped else "mixed"
     return ValueShape(form=form, references=found, length=len(text))
+
+
+@dataclass(frozen=True, slots=True)
+class EnvEntry:
+    key: str
+    shape: ValueShape

@@ -38,7 +38,7 @@ from typing import Any, Final
 
 from .discovery import HostConfig
 from .surface import SURFACE_KEYS, ExecutableSurface, read_surface
-from .values import ValueShape, shape_of
+from .values import EnvEntry, shape_of
 
 SERVER_MAP_KEYS: Final = ("mcpServers", "servers")
 """Top-level keys that hold the server map, in the order they are tried."""
@@ -46,12 +46,6 @@ SERVER_MAP_KEYS: Final = ("mcpServers", "servers")
 # Fields an entry is read into. A key outside this set lands in `unmodelled`,
 # which is how a host adding a field becomes visible instead of invisible.
 _MODELLED_SERVER_KEYS: Final = frozenset({"type", "command", "args", "env", "envFile", "cwd", "url", "headers"})
-
-
-@dataclass(frozen=True, slots=True)
-class EnvEntry:
-    key: str
-    shape: ValueShape
 
 
 @dataclass(frozen=True, slots=True)

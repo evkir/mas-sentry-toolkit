@@ -9,11 +9,12 @@ so it has its own package.
 
 from .discovery import HostConfig, locate, present, supported_hosts
 from .executable import surface_findings
-from .inventory import EnvEntry, InputDecl, Inventory, ServerEntry, read
+from .inventory import InputDecl, Inventory, ServerEntry, read
 from .precedence import cross_scope_findings
 from .runtime import findings_for, run_host_audit
-from .surface import ExecutableSurface, HelperCommand, HookHandler, read_surface
-from .values import ValueShape, shape_of
+from .surface import ExecutableSurface, HelperCommand, HookHandler, ServerApprovals, read_surface
+from .trust import trust_findings
+from .values import EnvEntry, ValueShape, shape_of
 
 __all__ = [
     "EnvEntry",
@@ -23,6 +24,7 @@ __all__ = [
     "HostConfig",
     "InputDecl",
     "Inventory",
+    "ServerApprovals",
     "ServerEntry",
     "ValueShape",
     "cross_scope_findings",
@@ -35,4 +37,5 @@ __all__ = [
     "shape_of",
     "supported_hosts",
     "surface_findings",
+    "trust_findings",
 ]

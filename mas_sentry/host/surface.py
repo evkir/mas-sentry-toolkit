@@ -22,6 +22,12 @@ Sources:
 Hooks and helpers are read into one surface because a detector that watched
 `hooks` alone would be bypassed by moving the same command into `statusLine`.
 
+Two further keys ride in the same file and change the host without executing
+anything themselves, so they are read here rather than in a reader of their own:
+the `env` block, which can point API traffic somewhere else, and the
+`.mcp.json` approval keys, which decide whether a server from the repository is
+connected without being asked about.
+
 Like the server inventory, this records and does not judge: which event fires
 before consent is the detector's question. Values are kept as shapes for the
 same reason as there - a hook command or an HTTP hook URL can carry a token.
@@ -36,7 +42,7 @@ from dataclasses import dataclass
 from typing import Final
 from urllib.parse import urlsplit
 
-from .values import ValueShape, shape_of
+from .values import EnvEntry, ValueShape, shape_of
 
 HELPER_KEYS: Final = (
     "apiKeyHelper",
@@ -50,7 +56,10 @@ HELPER_KEYS: Final = (
 )
 """Settings keys that each name one command the host runs, per the settings reference."""
 
-SURFACE_KEYS: Final = frozenset({"hooks", "disableAllHooks", *HELPER_KEYS})
+APPROVAL_KEYS: Final = ("enableAllProjectMcpServers", "enabledMcpjsonServers", "disabledMcpjsonServers")
+"""Keys that approve or reject servers declared in a project `.mcp.json`."""
+
+SURFACE_KEYS: Final = frozenset({"hooks", "disableAllHooks", "env", *HELPER_KEYS, *APPROVAL_KEYS})
 """Top-level keys this module reads; the inventory leaves them out of `unmodelled`."""
 
 # The field that says what a handler runs, calls or sends, by handler type.
@@ -118,6 +127,22 @@ class HelperCommand:
 
 
 @dataclass(frozen=True, slots=True)
+class ServerApprovals:
+    """What a settings file says about connecting servers from `.mcp.json`.
+
+    `enable_all` is `None` when the key is absent, which is distinct from
+    `False`: like every key here it resolves by settings precedence, so where
+    the value came from decides the outcome. `enabled` and `disabled` are the
+    per-name lists; a rejection applies from any file, an approval does not
+    (see the detector).
+    """
+
+    enable_all: bool | None
+    enabled: tuple[str, ...]
+    disabled: tuple[str, ...]
+
+
+@dataclass(frozen=True, slots=True)
 class ExecutableSurface:
     """Everything one settings file asks the host to execute.
 
@@ -129,6 +154,8 @@ class ExecutableSurface:
     hooks: tuple[HookHandler, ...]
     helpers: tuple[HelperCommand, ...]
     disable_all_hooks: bool | None
+    env: tuple[EnvEntry, ...]
+    approvals: ServerApprovals
     gaps: tuple[str, ...]
 
 
@@ -197,6 +224,42 @@ def _hooks(raw: object) -> tuple[list[HookHandler], list[str]]:
     return handlers, gaps
 
 
+def _name_list(raw: object, key: str, gaps: list[str]) -> tuple[str, ...]:
+    """Read a list of server names, recording a shape that is not one."""
+    if raw is None:
+        return ()
+    if not isinstance(raw, list):
+        gaps.append(f"{key}: {type(raw).__name__}, not a list")
+        return ()
+    return tuple(str(n) for n in raw)
+
+
+def _approvals(parsed: Mapping[str, object], gaps: list[str]) -> ServerApprovals:
+    enable_raw = parsed.get("enableAllProjectMcpServers")
+    enable = enable_raw if isinstance(enable_raw, bool) else None
+    if enable_raw is not None and enable is None:
+        gaps.append(f"enableAllProjectMcpServers: {type(enable_raw).__name__}, not a boolean")
+    return ServerApprovals(
+        enable_all=enable,
+        enabled=_name_list(parsed.get("enabledMcpjsonServers"), "enabledMcpjsonServers", gaps),
+        disabled=_name_list(parsed.get("disabledMcpjsonServers"), "disabledMcpjsonServers", gaps),
+    )
+
+
+def _env_block(raw: object, gaps: list[str]) -> tuple[EnvEntry, ...]:
+    """Read the `env` block as names and shapes.
+
+    An `env` value is exactly as sensitive as a server's: it is where an API key
+    is pasted. Only the name and the shape are kept (R-7.3).
+    """
+    if raw is None:
+        return ()
+    if not isinstance(raw, dict):
+        gaps.append(f"env: {type(raw).__name__}, not an object")
+        return ()
+    return tuple(EnvEntry(key=str(k), shape=shape_of(v)) for k, v in raw.items())
+
+
 def read_surface(parsed: Mapping[str, object]) -> ExecutableSurface:
     """Read the executable keys of one parsed settings document."""
     handlers, gaps = _hooks(parsed["hooks"]) if "hooks" in parsed else ([], [])
@@ -220,5 +283,7 @@ def read_surface(parsed: Mapping[str, object]) -> ExecutableSurface:
         hooks=tuple(handlers),
         helpers=tuple(helpers),
         disable_all_hooks=disable,
+        env=_env_block(parsed.get("env"), gaps),
+        approvals=_approvals(parsed, gaps),
         gaps=tuple(gaps),
     )

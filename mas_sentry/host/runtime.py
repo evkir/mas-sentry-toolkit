@@ -26,6 +26,7 @@ from .executable import surface_findings
 from .inventory import Inventory, ServerEntry, read
 from .precedence import cross_scope_findings
 from .surface import ExecutableSurface
+from .trust import trust_findings
 
 # Top-level keys known to nest further server declarations. A key outside this
 # set is recorded on the inventory row but raises no gap: `$schema` and
@@ -250,6 +251,7 @@ def findings_for(inventories: list[Inventory], target: str, checked: int) -> lis
             out.append(_surface_gap_row(inv, inv.surface.gaps))
         if inv.surface is not None:
             out.extend(surface_findings(inv.source, inv.surface))
+            out.extend(trust_findings(inv.source, inv.surface))
     # Runs over the whole set rather than per file: a name taken over by a
     # repository is a property of a pair of scopes, not of one config.
     out.extend(cross_scope_findings(inventories))
