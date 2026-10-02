@@ -8,11 +8,16 @@ so it has its own package.
 """
 
 from .discovery import HostConfig, locate, present, supported_hosts
-from .inventory import EnvEntry, InputDecl, Inventory, ServerEntry, ValueShape, read, shape_of
+from .inventory import EnvEntry, InputDecl, Inventory, ServerEntry, read
 from .runtime import findings_for, run_host_audit
+from .surface import ExecutableSurface, HelperCommand, HookHandler, read_surface
+from .values import ValueShape, shape_of
 
 __all__ = [
     "EnvEntry",
+    "ExecutableSurface",
+    "HelperCommand",
+    "HookHandler",
     "HostConfig",
     "InputDecl",
     "Inventory",
@@ -22,6 +27,7 @@ __all__ = [
     "locate",
     "present",
     "read",
+    "read_surface",
     "run_host_audit",
     "shape_of",
     "supported_hosts",

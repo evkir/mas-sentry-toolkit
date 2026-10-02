@@ -233,6 +233,95 @@ def test_host_findings_convert_to_every_report_format(tmp_path: Path) -> None:
         assert _LITERAL_SECRET not in out.read_text(encoding="utf-8", errors="replace")
 
 
+def test_repository_settings_report_what_they_execute(tmp_path: Path) -> None:
+    """A settings file is reported by its executable surface, not as an empty MCP config.
+
+    Before the surface was read, a repository settings file carrying a
+    SessionStart hook came out as "0 server(s) declared under the 'None' key".
+    """
+    _write(
+        tmp_path / "repo" / ".claude" / "settings.json",
+        json.dumps(
+            {
+                "hooks": {
+                    "SessionStart": [
+                        {"matcher": "startup", "hooks": [{"type": "command", "command": "./scripts/bootstrap.sh"}]}
+                    ]
+                },
+                "statusLine": {"type": "command", "command": "./scripts/status.sh"},
+                "disableAllHooks": False,
+            }
+        ),
+    )
+    _, findings, _ = _audit(tmp_path)
+    (row,) = _rows(findings, "host.inventory")
+    assert row["title"] == "claude-code (project): 1 hook handler(s), 1 helper command(s) declared"
+    assert "server(s)" not in row["detail"]
+    surface = row["evidence"]["surface"]
+    assert surface["hooks"][0]["event"] == "SessionStart"
+    assert surface["hooks"][0]["matcher"] == "startup"
+    assert surface["hooks"][0]["payload_form"] == "literal"
+    assert surface["helpers"] == [
+        {"key": "statusLine", "payload_form": "literal", "payload_length": 19, "payload_references": []}
+    ]
+    assert surface["disable_all_hooks"] is False
+    assert "hooks" not in row["evidence"]["unmodelled_top_level"]
+
+
+def test_no_hook_or_helper_value_reaches_any_report_format(tmp_path: Path) -> None:
+    """The O-2 criterion: what a hook runs or sends stays on the host, in every format."""
+    _write(
+        tmp_path / "repo" / ".claude" / "settings.json",
+        json.dumps(
+            {
+                "hooks": {
+                    "SessionStart": [{"hooks": [{"type": "command", "command": f"./sync --key {_LITERAL_SECRET}"}]}],
+                    "Stop": [
+                        {
+                            "hooks": [
+                                {
+                                    "type": "http",
+                                    "url": f"https://hooks.example.test/in?key={_LITERAL_SECRET}",
+                                    "headers": {"Authorization": _BEARER},
+                                }
+                            ]
+                        }
+                    ],
+                },
+                "apiKeyHelper": f"echo {_LITERAL_SECRET}",
+            }
+        ),
+    )
+    _, findings, raw = _audit(tmp_path)
+    assert _rows(findings, "host.inventory")[0]["evidence"]["surface"]["hooks"][1]["origin"] == (
+        "https://hooks.example.test"
+    )
+    src = tmp_path / "reports" / "host.json"
+    texts = [raw]
+    for fmt, ext in [("html", "html"), ("md", "md"), ("json", "json"), ("junit", "xml"), ("sarif", "sarif.json")]:
+        out = tmp_path / f"surface.{ext}"
+        result = runner.invoke(app, ["report", "convert", str(src), "-f", fmt, "-o", str(out), "--target", "host"])
+        assert result.exit_code == 0, f"{fmt} failed: {result.stdout}"
+        texts.append(out.read_text(encoding="utf-8", errors="replace"))
+    for text in texts:
+        assert _LITERAL_SECRET not in text
+        assert "eyJhbGciOiJIUzI1NiJ9" not in text
+
+
+def test_unreadable_executable_settings_are_a_gap_row(tmp_path: Path) -> None:
+    """A hook the reader could not parse is reported as unassessed, not dropped."""
+    _write(
+        tmp_path / "repo" / ".claude" / "settings.json",
+        json.dumps({"hooks": {"SessionStart": [{"hooks": [{"type": "command"}]}]}}),
+    )
+    _, findings, _ = _audit(tmp_path)
+    (inventory,) = _rows(findings, "host.inventory")
+    assert inventory["evidence"]["surface"]["hooks"] == []
+    (gap,) = _rows(findings, "host.enumeration_gap")
+    assert gap["severity"] == "MEDIUM"
+    assert gap["evidence"]["unread"] == ["hooks.SessionStart[0].hooks[0]: command handler has no 'command' string"]
+
+
 def test_the_command_defaults_to_this_machine(tmp_path: Path) -> None:
     """Invoked with no paths it audits the current user and directory.
 

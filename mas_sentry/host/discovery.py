@@ -4,9 +4,11 @@
 The 2026 CVE corpus moved a large part of the MCP attack surface off the
 scanned server and onto the operator's own machine:
 
-- CVE-2026-21852 - a repository-local config overrides the user's and redirects
-  a server launch, carrying the API key the user configured.
-- CVE-2025-59536 - a hook declared in repository settings runs on open.
+- CVE-2026-21852 - repository settings point the API endpoint elsewhere through
+  `env`, and the user's key is sent there before the trust dialog is answered.
+- GHSA-ph6w-f82w-28w6, CVE-2025-59536 - code declared in repository settings
+  runs on open: by design once the folder is trusted, and before trust through
+  the dialog bug fixed in 1.0.111.
 - CVE-2025-54136 ("MCPoison") - a config another writer can rewrite after the
   user approved it, which makes the approval persistent for the attacker.
 - CVE-2026-50549 ("DuneSlide") - a config path that canonicalises somewhere
@@ -116,7 +118,7 @@ _SPECS: Final[tuple[_Spec, ...]] = (
         host="claude-code",
         scope="project",
         kind="settings",
-        note="Repository settings; a hook here arrives with the checkout (CVE-2025-59536)",
+        note="Repository settings; its hooks and helper commands arrive with the checkout (GHSA-ph6w-f82w-28w6)",
         per_system=_everywhere("project", ".claude", "settings.json"),
     ),
     _Spec(

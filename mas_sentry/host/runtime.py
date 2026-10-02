@@ -23,6 +23,7 @@ from mas_sentry.reporting.structured import write_json
 
 from .discovery import HostConfig, locate
 from .inventory import Inventory, ServerEntry, read
+from .surface import ExecutableSurface
 
 # Top-level keys known to nest further server declarations. A key outside this
 # set is recorded on the inventory row but raises no gap: `$schema` and
@@ -52,34 +53,76 @@ def _server_evidence(server: ServerEntry) -> dict[str, Any]:
     }
 
 
+def _surface_evidence(surface: ExecutableSurface) -> dict[str, Any]:
+    """The executable surface for the evidence block: where and how, never what.
+
+    Event, matcher and handler type are what a later verdict turns on, so they
+    are kept verbatim. The command, URL or prompt itself is reduced to its
+    shape: a hook command is as likely to carry a token as an env value is.
+    """
+    return {
+        "hooks": [
+            {
+                "event": h.event,
+                "matcher": h.matcher,
+                "type": h.handler_type,
+                "exec_form": h.exec_form,
+                "payload_form": h.payload.form,
+                "payload_length": h.payload.length,
+                "payload_references": list(h.payload.references),
+                "origin": h.origin,
+                "allowed_env_vars": list(h.env_names),
+                "unmodelled": sorted(h.unmodelled),
+            }
+            for h in surface.hooks
+        ],
+        "helpers": [
+            {
+                "key": c.key,
+                "payload_form": c.payload.form,
+                "payload_length": c.payload.length,
+                "payload_references": list(c.payload.references),
+            }
+            for c in surface.helpers
+        ],
+        "disable_all_hooks": surface.disable_all_hooks,
+    }
+
+
 def _inventory_row(inv: Inventory) -> Finding:
     src = inv.source
-    count = len(inv.servers)
+    # A settings file declares what the host executes, not which servers it
+    # launches. Counting its servers would report it as an empty MCP config.
+    if inv.surface is None:
+        declared = f"{len(inv.servers)} server(s)"
+        where = f" under the '{inv.dialect}' key"
+    else:
+        declared = f"{len(inv.surface.hooks)} hook handler(s), {len(inv.surface.helpers)} helper command(s)"
+        where = ""
+    evidence: dict[str, Any] = {
+        "host": src.host,
+        "scope": src.scope,
+        "kind": src.kind,
+        "path": str(src.path),
+        "resolved": str(src.resolved),
+        "via_symlink": src.via_symlink,
+        "dialect": inv.dialect,
+        "servers": [_server_evidence(s) for s in inv.servers],
+        "inputs": [
+            {"id": i.input_id, "kind": i.kind, "is_password": i.is_password, "command": i.command} for i in inv.inputs
+        ],
+        "unmodelled_top_level": sorted(inv.unmodelled_top_level),
+    }
+    if inv.surface is not None:
+        evidence["surface"] = _surface_evidence(inv.surface)
     return Finding(
         module="host.inventory",
-        title=f"{src.host} ({src.scope}): {count} server(s) declared",
-        detail=(
-            f"{src.path} declares {count} MCP server(s) under the '{inv.dialect}' key. "
-            f"{src.note}. Recorded as inventory, not as a problem."
-        ),
+        title=f"{src.host} ({src.scope}): {declared} declared",
+        detail=f"{src.path} declares {declared}{where}. {src.note}. Recorded as inventory, not as a problem.",
         severity=Severity.INFO,
         target=str(src.path),
         tags=["host", "inventory"],
-        evidence={
-            "host": src.host,
-            "scope": src.scope,
-            "kind": src.kind,
-            "path": str(src.path),
-            "resolved": str(src.resolved),
-            "via_symlink": src.via_symlink,
-            "dialect": inv.dialect,
-            "servers": [_server_evidence(s) for s in inv.servers],
-            "inputs": [
-                {"id": i.input_id, "kind": i.kind, "is_password": i.is_password, "command": i.command}
-                for i in inv.inputs
-            ],
-            "unmodelled_top_level": sorted(inv.unmodelled_top_level),
-        },
+        evidence=evidence,
     )
 
 
@@ -142,6 +185,34 @@ def _partly_unread_row(inv: Inventory, keys: frozenset[str]) -> Finding:
     )
 
 
+def _surface_gap_row(inv: Inventory, gaps: tuple[str, ...]) -> Finding:
+    """Executable settings the reader could not interpret, named by location.
+
+    A hook group that did not parse is a hook no detector sees, and a row that
+    counted only the readable handlers would understate exactly the surface
+    this audit exists to report (R-2.1).
+    """
+    src = inv.source
+    return Finding(
+        module="host.enumeration_gap",
+        title=f"{src.host} ({src.scope}): executable settings partly unread",
+        detail=(
+            f"{src.path} declares executable settings this reader could not interpret at {len(gaps)} "
+            "location(s). The hooks and helper commands reported for this file are the readable ones, "
+            "so the file is partly unassessed rather than fully read"
+        ),
+        severity=Severity.MEDIUM,
+        target=str(src.path),
+        tags=["host", "enumeration_gap"],
+        evidence={
+            "host": src.host,
+            "scope": src.scope,
+            "path": str(src.path),
+            "unread": list(gaps),
+        },
+    )
+
+
 def _nothing_found_row(target: str, checked: int) -> Finding:
     """No host config is present, stated with how many paths were examined.
 
@@ -173,6 +244,8 @@ def findings_for(inventories: list[Inventory], target: str, checked: int) -> lis
         nesting = inv.unmodelled_top_level & _NESTING_KEYS
         if nesting:
             out.append(_partly_unread_row(inv, nesting))
+        if inv.surface is not None and inv.surface.gaps:
+            out.append(_surface_gap_row(inv, inv.surface.gaps))
     if not out:
         out.append(_nothing_found_row(target, checked))
     return out

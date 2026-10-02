@@ -32,12 +32,13 @@ produces a stated reason rather than an empty server list (R-2.1).
 from __future__ import annotations
 
 import json
-import re
 from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any, Final
 
 from .discovery import HostConfig
+from .surface import SURFACE_KEYS, ExecutableSurface, read_surface
+from .values import ValueShape, shape_of
 
 SERVER_MAP_KEYS: Final = ("mcpServers", "servers")
 """Top-level keys that hold the server map, in the order they are tried."""
@@ -45,26 +46,6 @@ SERVER_MAP_KEYS: Final = ("mcpServers", "servers")
 # Fields an entry is read into. A key outside this set lands in `unmodelled`,
 # which is how a host adding a field becomes visible instead of invisible.
 _MODELLED_SERVER_KEYS: Final = frozenset({"type", "command", "args", "env", "envFile", "cwd", "url", "headers"})
-
-# `${...}` placeholder. The body is bounded: a config is operator-supplied text,
-# and an unclosed brace in a minified one-line file would otherwise let one
-# placeholder run to the end of the document.
-_PLACEHOLDER: Final = re.compile(r"\$\{([^}]{0,200})\}")
-
-
-@dataclass(frozen=True, slots=True)
-class ValueShape:
-    """What a config value is, never what it says.
-
-    `form` is one of: `empty`, `reference` (the whole value is one placeholder),
-    `mixed` (placeholders plus other text), `literal` (no placeholder at all).
-    `length` is the raw value's length, which lets a report distinguish a short
-    flag from something key-shaped without carrying either.
-    """
-
-    form: str
-    references: tuple[str, ...]
-    length: int
 
 
 @dataclass(frozen=True, slots=True)
@@ -118,6 +99,10 @@ class Inventory:
     the file is absent, or it is present and could not be parsed. It is `None`
     for a file that parsed, including one that genuinely declares no servers -
     which is the distinction a report must preserve.
+
+    `surface` is set for a settings file and `None` for a server config. A
+    `hooks` key in a file the host never reads hooks from is not a hook, so it
+    stays in `unmodelled_top_level` rather than being read as one.
     """
 
     source: HostConfig
@@ -126,6 +111,7 @@ class Inventory:
     inputs: tuple[InputDecl, ...]
     unmodelled_top_level: frozenset[str]
     unreadable: str | None
+    surface: ExecutableSurface | None = None
 
 
 def _strip_comments(text: str) -> str:
@@ -215,24 +201,6 @@ def _drop_trailing_commas(text: str) -> str:
         out.append(ch)
         i += 1
     return "".join(out)
-
-
-def shape_of(value: object) -> ValueShape:
-    """Classify a config value without keeping it.
-
-    A non-string value (a number, a bool, a nested object) is reported as a
-    literal of its rendered length: it carries no placeholder, and its content
-    is no more ours to keep than a string's.
-    """
-    text = value if isinstance(value, str) else json.dumps(value, sort_keys=True)
-    if not text:
-        return ValueShape(form="empty", references=(), length=0)
-    found = tuple(m.group(1) for m in _PLACEHOLDER.finditer(text))
-    if not found:
-        return ValueShape(form="literal", references=(), length=len(text))
-    stripped = _PLACEHOLDER.sub("", text)
-    form = "reference" if not stripped else "mixed"
-    return ValueShape(form=form, references=found, length=len(text))
 
 
 def _env_entries(raw: object) -> tuple[EnvEntry, ...]:
@@ -336,7 +304,8 @@ def read(source: HostConfig, text: str | None = None) -> Inventory:
 
     dialect = next((k for k in SERVER_MAP_KEYS if isinstance(parsed.get(k), dict)), None)
     raw_servers: Mapping[str, object] = parsed[dialect] if dialect is not None else {}
-    known_top = set(SERVER_MAP_KEYS) | {"inputs"}
+    is_settings = source.kind == "settings"
+    known_top = set(SERVER_MAP_KEYS) | {"inputs"} | (SURFACE_KEYS if is_settings else set())
     return Inventory(
         source=source,
         dialect=dialect,
@@ -344,4 +313,5 @@ def read(source: HostConfig, text: str | None = None) -> Inventory:
         inputs=_input_decls(parsed.get("inputs")),
         unmodelled_top_level=frozenset(parsed) - known_top,
         unreadable=None,
+        surface=read_surface(parsed) if is_settings else None,
     )

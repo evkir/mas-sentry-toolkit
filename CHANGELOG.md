@@ -6,9 +6,10 @@
 - The agent host is audited. `mas-sentry host audit` locates the configs that
   launch MCP servers on the operator's own machine and reports what they
   declare. A large share of the 2026 CVE corpus lands there rather than on a
-  scanned server - a repository-local config overriding the user's and
-  redirecting a launch with the key the user configured (CVE-2026-21852), a hook
-  arriving with a checkout (CVE-2025-59536), a config a second writer rewrites
+  scanned server - repository settings pointing the API endpoint elsewhere so
+  the user's key is sent there before the trust dialog is answered
+  (CVE-2026-21852), a hook arriving with a checkout and running on open
+  (GHSA-ph6w-f82w-28w6, CVE-2025-59536), a config a second writer rewrites
   after the user approved it (CVE-2025-54136), a path canonicalising somewhere
   other than where it appears to (CVE-2026-50549) - and none of it is observable
   from the far end of a connection, so none of it belongs behind a flag on `mcp
