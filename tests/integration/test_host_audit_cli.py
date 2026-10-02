@@ -497,6 +497,89 @@ def test_a_users_own_endpoint_choice_is_not_flagged(tmp_path: Path) -> None:
     assert _rows(findings, "host.server_approval") == []
 
 
+_GH_TOKEN = "ghp_aBcDeFgHiJkLmNoPqRsT012345678901"
+
+
+def test_a_committed_credential_is_reported_without_its_value(tmp_path: Path) -> None:
+    """The O-2 criterion through the CLI: the row exists, the secret does not (R-2.3).
+
+    The same file carries the forms that must stay quiet - an environment
+    reference, the host's own input placeholder, and a credential reference in a
+    remote server's headers, which the host reads as empty.
+    """
+    _write(
+        tmp_path / "repo" / ".mcp.json",
+        json.dumps(
+            {
+                "mcpServers": {
+                    "gh": {
+                        "command": "uvx",
+                        "env": {
+                            "COMMITTED": _GH_TOKEN,
+                            "FROM_ENV": "${GITHUB_TOKEN}",
+                            "PROMPTED": "${input:api-key}",
+                        },
+                    },
+                    "remote": {
+                        "url": "https://api.test/mcp",
+                        "headers": {"Authorization": "Bearer ${ANTHROPIC_API_KEY}"},
+                    },
+                    "loader": {"command": "node", "envFile": ".env.local"},
+                }
+            }
+        ),
+    )
+    (tmp_path / "home").mkdir()
+    _, findings, raw = _audit(tmp_path)
+    assert _GH_TOKEN not in raw
+
+    (literal,) = _rows(findings, "host.credential_literal")
+    assert literal["severity"] == "HIGH"
+    assert literal["evidence"]["variable"] == "COMMITTED"
+    assert literal["evidence"]["credential_format"] == "prefix:ghp_"
+    assert "GitHub personal access token" in literal["title"]
+
+    (unread,) = _rows(findings, "host.credential_unread")
+    assert unread["severity"] == "INFO"
+    assert unread["evidence"]["env_file"] == ".env.local"
+
+    src = tmp_path / "reports" / "host.json"
+    for fmt, ext in [("html", "html"), ("md", "md"), ("json", "json"), ("junit", "xml"), ("sarif", "sarif.json")]:
+        out = tmp_path / f"cred.{ext}"
+        result = runner.invoke(app, ["report", "convert", str(src), "-f", fmt, "-o", str(out), "--target", "host"])
+        assert result.exit_code == 0, f"{fmt} failed: {result.stdout}"
+        text = out.read_text(encoding="utf-8", errors="replace")
+        assert _GH_TOKEN not in text
+        assert "COMMITTED" in text
+
+
+def test_a_credential_gates_ci_through_fail_on(tmp_path: Path) -> None:
+    """A committed key is HIGH, so --fail-on high must give a non-zero exit."""
+    _write(
+        tmp_path / "repo" / ".mcp.json",
+        json.dumps({"mcpServers": {"gh": {"command": "uvx", "env": {"T": _GH_TOKEN}}}}),
+    )
+    (tmp_path / "home").mkdir()
+    out = tmp_path / "gate.json"
+    result = runner.invoke(
+        app,
+        [
+            "host",
+            "audit",
+            "--home",
+            str(tmp_path / "home"),
+            "--project-root",
+            str(tmp_path / "repo"),
+            "--out",
+            str(out),
+            "--fail-on",
+            "high",
+        ],
+    )
+    assert result.exit_code != 0
+    assert _GH_TOKEN not in out.read_text()
+
+
 def test_the_command_defaults_to_this_machine(tmp_path: Path) -> None:
     """Invoked with no paths it audits the current user and directory.
 

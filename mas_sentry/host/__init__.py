@@ -7,6 +7,7 @@ reported compromises happened. It is not reachable by connecting to anything,
 so it has its own package.
 """
 
+from .credentials import credential_findings
 from .discovery import HostConfig, locate, present, supported_hosts
 from .executable import surface_findings
 from .inventory import InputDecl, Inventory, ServerEntry, read
@@ -14,9 +15,10 @@ from .precedence import cross_scope_findings
 from .runtime import findings_for, run_host_audit
 from .surface import ExecutableSurface, HelperCommand, HookHandler, ServerApprovals, read_surface
 from .trust import trust_findings
-from .values import EnvEntry, ValueShape, shape_of
+from .values import CREDENTIAL_PREFIXES, EnvEntry, ValueShape, classify, shape_of
 
 __all__ = [
+    "CREDENTIAL_PREFIXES",
     "EnvEntry",
     "ExecutableSurface",
     "HelperCommand",
@@ -27,6 +29,8 @@ __all__ = [
     "ServerApprovals",
     "ServerEntry",
     "ValueShape",
+    "classify",
+    "credential_findings",
     "cross_scope_findings",
     "findings_for",
     "locate",

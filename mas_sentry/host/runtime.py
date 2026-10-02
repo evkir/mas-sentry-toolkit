@@ -21,6 +21,7 @@ from mas_sentry.core.audit_log import write as audit_write
 from mas_sentry.core.finding import Finding, Severity
 from mas_sentry.reporting.structured import write_json
 
+from .credentials import credential_findings
 from .discovery import HostConfig, locate
 from .executable import surface_findings
 from .inventory import Inventory, ServerEntry, read
@@ -244,6 +245,7 @@ def findings_for(inventories: list[Inventory], target: str, checked: int) -> lis
             out.append(_unreadable_row(inv))
             continue
         out.append(_inventory_row(inv))
+        out.extend(credential_findings(inv))
         nesting = inv.unmodelled_top_level & _NESTING_KEYS
         if nesting:
             out.append(_partly_unread_row(inv, nesting))
