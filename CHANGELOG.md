@@ -86,6 +86,104 @@
   always states its cause. Which commands offer the option is asserted from the
   app's own command tree, so a scanning command added without it fails the suite
   instead of quietly joining an exemption list.
+- The executable and trust-changing surface of an agent host is judged, not
+  just inventoried. `host audit` read the configs; it now says which of what
+  they declare is a finding. Five detectors cover the four ways a checkout
+  reaches the operator's machine without being asked about, and each names the
+  source it was written from rather than a CVE number alone - the 2026 corpus
+  is widely misattributed, and a detector citing the wrong advisory is a
+  detector nobody can check.
+
+  `host.exec_hook` and `host.exec_helper` grade code a repository settings file
+  runs. A hook binding `command`, `http` or `mcp_tool` to `SessionStart`,
+  `Setup` or `InstructionsLoaded` is HIGH, because every one of those fires
+  before the operator does anything in the session, and every `SessionStart`
+  matcher (`startup`, `resume`, `clear`, `compact`, `fork`) is a moment the
+  session opens - so the matcher does not soften it. A later event is MEDIUM;
+  `prompt` and `agent` are LOW, driving the model rather than code. The eight
+  helper keys (`apiKeyHelper`, `statusLine` and the rest) are HIGH on their
+  own, since a detector watching only `hooks` is bypassed by moving the command
+  into one of them, and the settings reference marks all eight as applying from
+  any file. A repository `disableAllHooks: false` is MEDIUM: precedence
+  resolves it over an operator's `true`, turning their own kill switch off for
+  that checkout.
+
+  Neither trust nor a per-command prompt gates any of this. A trusted folder
+  runs every hook silently (GHSA-ph6w-f82w-28w6, which was fixed by rewording
+  the dialog rather than changing the behaviour), and a `claude -p` or SDK run
+  - any CI agent on a checkout - never shows the dialog at all, so the surface
+  is used there unprompted. CVE-2025-59536 is the separate pre-trust dialog
+  bug, fixed in 1.0.111; the two were conflated in the earlier entry and in the
+  discovery table, and both are corrected.
+
+  `host.server_override` is the first host finding that is a property of a pair
+  of files, so it runs as its own pass over the whole set. Server names resolve
+  by precedence - local, then project, then user - and the winning entry is
+  taken whole rather than merged, so a `.mcp.json` arriving with a checkout can
+  reuse a name the operator configured: the name keeps working and something
+  else runs behind it. The row carries both sides and names the launch fields
+  that differ. Two bounds are stated rather than assumed away: local scope
+  outranks project scope and lives under `projects` in `~/.claude.json`, which
+  this reader does not descend into, so the row says the comparison covers
+  project against user only; and precedence is defined within one host, so the
+  evidence carries both paths instead of asserting which host reads which file.
+  An identical redeclaration raises nothing - it takes precedence too, but it
+  launches what the operator already had.
+
+  `host.endpoint_override` and `host.server_approval` judge what repository
+  settings change without executing anything. A `*_BASE_URL` in an `env` block
+  is where API traffic goes, so a repository setting one receives the
+  operator's credential (CVE-2026-21852); the row says that happens once the
+  folder is trusted rather than before the dialog, because the pre-trust leak
+  was fixed in 2.0.65 and a verdict a reviewer cannot reproduce on a current
+  host is worse than a narrower one. `enableAllProjectMcpServers` and
+  `enabledMcpjsonServers` are MEDIUM and worded as removing consent for servers
+  a future pull adds: since v2.1.196 such a key committed to a repository is
+  ignored while the folder is untrusted, so calling it a bypass of today's
+  dialog would be wrong.
+
+  `host.credential_literal` reports a secret written into a config. The
+  classification happens in the reader, because by the time a detector sees a
+  value it is already a shape - the property that keeps a key out of a report -
+  so what leaves the reader is a label (`prefix:ghp_`, `jwt`) and the detector
+  reasons about the label, the variable name and the length. Only formats whose
+  prefix the issuer documents are listed, with the source on the table: the six
+  GitHub token types and the two AWS IAM access-key prefixes. A JWT is
+  recognised by decoding its header, so it needs no source and cannot drift.
+  Scope sets severity - a literal in a repository file is HIGH and needs
+  rotating rather than deleting, the same key in user scope is MEDIUM.
+
+  What stays quiet is as deliberate as what fires, because a check no honest
+  config can pass cleanly is noise rather than coverage. A whole-value
+  placeholder, including the `${input:...}` form the host offers so a key is
+  never written down, raises nothing. A credential-named variable fed from the
+  environment raises nothing: that is how a server is normally given a token. A
+  credential reference in a remote server's `url` or `headers` raises nothing,
+  because the host reads covered credential variables there as empty rather
+  than expanding them, so the leak a row would describe cannot happen.
+  `CLAUDE_CONFIG_DIR` and the OpenTelemetry exporter variables raise nothing
+  because they do not apply from a repository file at all.
+  `disabledMcpjsonServers` raises nothing because it only restricts. A key with
+  no documented prefix is not labelled at all - an entropy test would fire on
+  commit hashes, UUIDs and base64 config blobs. A user-scope executable surface
+  is recorded without a verdict, since an implant that persists through
+  approval (CVE-2025-54136) cannot be told from the operator's own hook.
+
+  Three things are reported as unassessed rather than clean. The local override
+  `settings.local.json` is graded only when a symlinked `.claude` makes it
+  repository-reached; otherwise it is reported unverified, because running git
+  to test whether it is committed would itself execute repository-controlled
+  code, which is the class this audit exists to report. An `envFile` names a
+  file outside the documented config set, so its secrets are an INFO gap.
+  Executable settings the reader cannot interpret produce a located MEDIUM gap
+  naming the position - down to `hooks.Stop[0].hooks[2]` - and never quoting
+  the value it could not read.
+
+  No value from any config enters a report in any of this: the guarantee is
+  asserted against the written file and through every one of the five output
+  formats, for hook commands, HTTP hook URLs, endpoint variables and
+  credentials alike. A committed key is HIGH, so `--fail-on high` now gates a
+  pipeline on one.
 - The protected header of every A2A AgentCardSignature is audited. A2A v1.0
   made signed cards the trust anchor for decentralized agent discovery, and the
   card audit asked only whether `signatures[]` was non-empty - so a card
