@@ -3,6 +3,13 @@
 ## [Unreleased]
 
 ### Added
+- A correlation finding carries the basis of its verdict as structured evidence
+  rather than only inside its sentence: the name and version the server
+  announced, which class of version that is, the bound quoted from the advisory,
+  and the advisory's URL. An unresolved row carries the list of advisories still
+  to settle, each with its severity and source, so it reads as a worklist
+  instead of a paragraph. A verdict a reviewer cannot reconstruct is not a
+  deterministic one (R-7.2).
 - The agent host is audited. `mas-sentry host audit` locates the configs that
   launch MCP servers on the operator's own machine and reports what they
   declare. A large share of the 2026 CVE corpus lands there rather than on a
@@ -356,6 +363,14 @@
   report sites that used to be missed.
 
 ### Fixed
+- The evidence block reaches the SARIF and HTML reports. SARIF promoted five
+  keys the agentic modules emit and dropped everything else; the HTML template
+  rendered four shapes of its own and ignored the rest. Any module-supplied
+  evidence therefore existed only in the Markdown and JSON reports, so a
+  protocol finding arrived in the two formats an operator actually opens
+  carrying a verdict with no way to check it. Both now render whatever a module
+  supplied, minus the keys they already display in a shape of their own, and a
+  finding with no extra evidence gains no empty block.
 - A CVE is correlated against the release a target announced instead of against
   its name alone, and a release that carries the fix is no longer given the
   advisory it fixed. The comparison respects a fixed-in bound and an

@@ -54,6 +54,10 @@ h1{border-bottom:2px solid #334155;padding-bottom:.5rem}
 .cascade .br{color:#fca5a5;font-weight:600}
 .br-list{color:#cbd5e1;margin-top:.2rem}
 .chain{margin-top:.4rem;font-size:.9rem}
+.evidence{margin:.5rem 0;font-size:.85rem}
+table.ev{border-collapse:collapse}
+.ev-k{color:#94a3b8;padding-right:.75rem;vertical-align:top;white-space:nowrap}
+.ev-v{color:#e2e8f0;word-break:break-word}
 .chain-path{color:#fca5a5;font-weight:600;font-family:ui-monospace,monospace}
 .chain-meta{color:#94a3b8;margin-left:.5rem}
 .prop-summary{background:#2a0e0e;border:1px solid #7f1d1d;border-radius:6px;
@@ -150,6 +154,16 @@ footer{margin-top:3rem;color:#64748b;font-size:.85rem;border-top:1px solid #3341
     {% endfor %}
   </ul></div>
   {% endif %}
+  {% set rest = evidence_rest(f) %}
+  {% if rest %}
+  <div class="evidence"><strong>Evidence</strong>
+  <table class="ev">
+    {% for k, v in rest %}
+    <tr><td class="ev-k">{{ k }}</td><td class="ev-v">{{ v }}</td></tr>
+    {% endfor %}
+  </table>
+  </div>
+  {% endif %}
   {% if f.evidence.chain %}
   <div class="chain"><strong>Contamination chain</strong>
     <span class="chain-path">{{ f.evidence.chain | join(' -> ') }}</span>
@@ -177,6 +191,22 @@ footer{margin-top:3rem;color:#64748b;font-size:.85rem;border-top:1px solid #3341
 </footer>
 </body></html>"""
 
+# Evidence keys the template already renders in a shape of their own, so the
+# generic table below does not repeat them.
+_RENDERED_EVIDENCE = frozenset({"dimensions", "chain", "depth", "tier", "blast_radius"})
+
+
+def _evidence_rest(f: Finding) -> list[tuple[str, Any]]:
+    """Evidence a module supplied that no dedicated block above displays.
+
+    Protocol findings carry the basis of their verdict here - what a server
+    announced, the bound it was weighed against, the advisory it came from - and
+    before this it reached only the Markdown and JSON reports, so the format an
+    operator opens showed a verdict with no way to check it (R-7.2).
+    """
+    return [(k, v) for k, v in (f.evidence or {}).items() if k not in _RENDERED_EVIDENCE]
+
+
 _TEMPLATE = _ENV.from_string(_TEMPLATE_SRC)
 
 
@@ -197,6 +227,7 @@ def render_unified_html(
         _TEMPLATE.render(
             target=target,
             findings=findings,
+            evidence_rest=_evidence_rest,
             counts={s.value: counts.get(s.value, 0) for s in _SEV_ORDER},
             by_sev=by_sev,
             severities=[s.value for s in _SEV_ORDER],

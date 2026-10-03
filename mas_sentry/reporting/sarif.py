@@ -55,6 +55,11 @@ def _finding_total(f: dict[str, Any]) -> float | None:
         return None
 
 
+# Evidence keys that already have a first-class home in `properties`, so the
+# catch-all below does not emit them twice.
+_PROMOTED = frozenset({"dimensions", "agent_id", "total", "blast_radius", "z"})
+
+
 def _security_severity(severity: str, total: float | None) -> float:
     """Map a finding to a GitHub security-severity number, band-anchored on severity.
 
@@ -119,6 +124,15 @@ def to_sarif(findings: list[dict[str, Any]], tool_version: str | None = None) ->
             properties["score"] = evidence["total"]
         if evidence.get("blast_radius"):
             properties["blast_radius"] = evidence["blast_radius"]
+        # Everything else a module put in evidence. Without this the block is
+        # visible only in Markdown and JSON, so the basis a protocol finding
+        # rests on - what the server announced, the bound it was weighed
+        # against, the advisory it came from - is absent from the format a
+        # triager actually opens. Keys already promoted above are left out
+        # rather than repeated.
+        rest = {k: v for k, v in evidence.items() if k not in _PROMOTED}
+        if rest:
+            properties["evidence"] = rest
         if evidence.get("z") is not None:
             # Effect size of a coordination signal: the number a triager
             # sorts and filters on, so it belongs in structured properties

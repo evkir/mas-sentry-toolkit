@@ -31,6 +31,7 @@ from .client import McpClient, ScanBudget
 from .cve_match import CveVerdict, verdicts_for
 from .errors import TargetUnreachable
 from .fingerprint import McpFingerprint, fingerprint
+from .known_cves import KnownCve
 from .transport_http import HttpConfig, open_http
 from .transport_stdio import StdioConfig, open_stdio
 
@@ -393,6 +394,18 @@ def _auth_rows(client: McpClient, target_url: str, scope_confirmed: bool) -> lis
     return [{"check": f.check, "severity": f.severity, "detail": f.detail} for f in findings]
 
 
+def _bound_of(cve: KnownCve) -> str:
+    """The advisory's own words about which releases it covers.
+
+    Carried into the report verbatim rather than rendered from the comparison,
+    so a reviewer checks the scanner against the source and not against the
+    scanner's own paraphrase of it.
+    """
+    if cve.fixed is not None:
+        return f">= {cve.introduced} and < {cve.fixed}" if cve.introduced is not None else f"< {cve.fixed}"
+    return f"== {cve.affected}"
+
+
 def _known_cve_rows(fp: McpFingerprint) -> list[dict[str, Any]]:
     """Report what the advisories listed against this target actually say about it.
 
@@ -433,6 +446,20 @@ def _known_cve_rows(fp: McpFingerprint) -> list[dict[str, Any]]:
                         f"{known.wire_name} ({known.distribution}): {verdict.cve.id} - {verdict.cve.summary}. "
                         f"Correlated because {verdict.basis}. Source: {verdict.cve.source}"
                     ),
+                    # Keys beyond the three the row needs become the unified
+                    # Finding's evidence block, which is where a reviewer
+                    # reconstructs the verdict instead of re-reading prose
+                    # (R-7.2). Both sides of the comparison are named: what the
+                    # server said, and the bound it was weighed against.
+                    "observed_name": fp.name,
+                    "observed_version": fp.version,
+                    "version_source": known.version_source,
+                    "distribution": known.distribution,
+                    "ecosystem": known.ecosystem,
+                    "cve": verdict.cve.id,
+                    "bound": _bound_of(verdict.cve),
+                    "basis": verdict.basis,
+                    "source": verdict.cve.source,
                 }
             )
 
@@ -447,6 +474,20 @@ def _known_cve_rows(fp: McpFingerprint) -> list[dict[str, Any]]:
                     f"Unresolved against this target: {listed}. "
                     f"Read the deployed {known.ecosystem} package version to settle it"
                 ),
+                "observed_name": fp.name,
+                "observed_version": fp.version,
+                "version_source": known.version_source,
+                "distribution": known.distribution,
+                "ecosystem": known.ecosystem,
+                "basis": basis,
+                # Structured rather than only inside the sentence: an operator
+                # resolving these by hand wants the list, and the highest
+                # severity among them is what decides whether it is worth doing
+                # before the next deployment.
+                "unresolved": [
+                    {"cve": v.cve.id, "severity": v.cve.severity, "bound": _bound_of(v.cve), "source": v.cve.source}
+                    for v in group
+                ],
             }
         )
     return rows
