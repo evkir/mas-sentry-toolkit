@@ -24,6 +24,7 @@ from mas_sentry.reporting.structured import write_json
 from .credentials import credential_findings
 from .discovery import HostConfig, PathExposure, locate
 from .executable import surface_findings
+from .integrity import integrity_findings
 from .inventory import Inventory, ServerEntry, read
 from .launch_spec import launch_findings
 from .precedence import cross_scope_findings
@@ -261,6 +262,10 @@ def findings_for(inventories: list[Inventory], target: str, checked: int) -> lis
     """Turn the readings into rows. Separated from I/O so it can be driven directly."""
     out: list[Finding] = []
     for inv in inventories:
+        # Ahead of the unreadable branch on purpose: a config this audit could
+        # not parse but that anybody can rewrite is an exposure all the same,
+        # and skipping it would report the weaker half of what was observed.
+        out.extend(integrity_findings(inv.source))
         if inv.unreadable is not None:
             out.append(_unreadable_row(inv))
             continue

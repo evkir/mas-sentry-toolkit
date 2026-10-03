@@ -10,6 +10,7 @@ so it has its own package.
 from .credentials import credential_findings
 from .discovery import HostConfig, PathExposure, locate, present, supported_hosts
 from .executable import surface_findings
+from .integrity import integrity_findings
 from .inventory import InputDecl, Inventory, ServerEntry, read
 from .launch_spec import PinVerdict, launch_findings, verdict_for
 from .precedence import cross_scope_findings
@@ -36,6 +37,7 @@ __all__ = [
     "credential_findings",
     "cross_scope_findings",
     "findings_for",
+    "integrity_findings",
     "launch_findings",
     "locate",
     "present",

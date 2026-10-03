@@ -12,7 +12,6 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-import pytest
 from typer.testing import CliRunner
 
 from mas_sentry.cli import app
@@ -610,7 +609,6 @@ def test_an_unpinned_launch_spec_is_graded(tmp_path: Path) -> None:
     assert flagged == {"bare", "moving", "loose"}
 
 
-@pytest.mark.xfail(strict=True, reason="NS-5: config mode and path redirection are not graded yet")
 def test_a_config_that_others_can_rewrite_or_that_points_elsewhere_is_graded(tmp_path: Path) -> None:
     """The config is the launch decision, so its own integrity is part of the posture.
 
