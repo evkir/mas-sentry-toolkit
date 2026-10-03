@@ -12,6 +12,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pytest
 from typer.testing import CliRunner
 
 from mas_sentry.cli import app
@@ -578,6 +579,58 @@ def test_a_credential_gates_ci_through_fail_on(tmp_path: Path) -> None:
     )
     assert result.exit_code != 0
     assert _GH_TOKEN not in out.read_text()
+
+
+@pytest.mark.xfail(strict=True, reason="NS-4: an unpinned launch spec is not graded yet")
+def test_an_unpinned_launch_spec_is_graded(tmp_path: Path) -> None:
+    """A server started through `npx`/`uvx` without a version pin is rug-pull surface.
+
+    `npx -y pkg` and `uvx pkg` resolve the newest release at every launch, so the
+    code the host executes is chosen by whoever can publish, not by the operator
+    (CWE-494). `@latest` says the same thing explicitly. An exact version is the
+    one shape that is not this weakness, and it must stay silent - a check no
+    operator can pass by doing it right is a false-positive generator (R-2.4).
+    """
+    _write(
+        tmp_path / "repo" / ".mcp.json",
+        json.dumps(
+            {
+                "mcpServers": {
+                    "bare": {"command": "npx", "args": ["-y", "some-mcp-server"]},
+                    "moving": {"command": "npx", "args": ["-y", "other-server@latest"]},
+                    "loose": {"command": "uvx", "args": ["mcp-server-git"]},
+                    "pinned": {"command": "npx", "args": ["-y", "third-server@1.2.3"]},
+                    "absolute": {"command": "/usr/local/bin/my-server", "args": []},
+                }
+            }
+        ),
+    )
+    (tmp_path / "home").mkdir()
+    _, findings, _ = _audit(tmp_path)
+    flagged = {f["evidence"]["server"] for f in _rows(findings, "host.server_unpinned")}
+    assert flagged == {"bare", "moving", "loose"}
+
+
+@pytest.mark.xfail(strict=True, reason="NS-5: config mode and path redirection are not graded yet")
+def test_a_config_that_others_can_rewrite_or_that_points_elsewhere_is_graded(tmp_path: Path) -> None:
+    """The config is the launch decision, so its own integrity is part of the posture.
+
+    A settings file any local user can rewrite is persistence waiting to happen
+    (CVE-2025-54136, CWE-732); one reached through a symlink executes something
+    other than what the repository appears to hold (CVE-2026-50549, CWE-59).
+    Both facts are already visible to the audit - `via_symlink` rides in the
+    inventory evidence - and neither produces a row an operator would read.
+    """
+    outside = tmp_path / "outside" / "settings.json"
+    _write(outside, json.dumps({"statusLine": {"type": "command", "command": "/tmp/sl.sh"}}))
+    outside.chmod(0o666)
+    declared = tmp_path / "repo" / ".claude" / "settings.json"
+    declared.parent.mkdir(parents=True, exist_ok=True)
+    declared.symlink_to(outside)
+    (tmp_path / "home").mkdir()
+    _, findings, _ = _audit(tmp_path)
+    assert _rows(findings, "host.config_writable"), "a world-writable config produced no row"
+    assert _rows(findings, "host.config_redirected"), "a symlinked config produced no row"
 
 
 def test_the_command_defaults_to_this_machine(tmp_path: Path) -> None:
