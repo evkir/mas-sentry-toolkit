@@ -28,7 +28,7 @@ from .audit.tool_mutation import detect_tool_mutation, listing_mark, notificatio
 from .audit.tool_poisoning import detect_tool_poisoning
 from .client import McpClient, ScanBudget
 from .errors import TargetUnreachable
-from .fingerprint import fingerprint, known_cves_for
+from .fingerprint import McpFingerprint, fingerprint
 from .transport_http import HttpConfig, open_http
 from .transport_stdio import StdioConfig, open_stdio
 
@@ -391,6 +391,32 @@ def _auth_rows(client: McpClient, target_url: str, scope_confirmed: bool) -> lis
     return [{"check": f.check, "severity": f.severity, "detail": f.detail} for f in findings]
 
 
+def _known_cve_rows(fp: McpFingerprint) -> list[dict[str, Any]]:
+    """Report the advisories listed against the name this target announced.
+
+    Severity comes from the table rather than being fixed at HIGH: two of the
+    entries are CVSS 9.8 unauthenticated remote code execution, and flattening
+    them into the same band as a path-confinement bug loses the only thing an
+    operator triages on.
+
+    The version the target announced takes no part in this yet, so a release
+    carrying the fix is still reported. That is the defect O-3/c3 closes; it is
+    left visibly open here rather than half-closed, because a comparison against
+    a version the server does not actually disclose would be worse than none.
+    """
+    known = fp.known_server
+    if known is None:
+        return []
+    return [
+        {
+            "check": "known_cve",
+            "severity": cve.severity,
+            "detail": f"{known.wire_name} ({known.distribution}): {cve.id} - {cve.summary}",
+        }
+        for cve in known.cves
+    ]
+
+
 def _run_all_checks(
     client: McpClient,
     transport: str,
@@ -408,9 +434,7 @@ def _run_all_checks(
             "detail": f"{fp.name} {fp.version} ({fp.tool_count} tools)",
         }
     )
-    for impl in fp.suspected_impls:
-        for cve in known_cves_for(impl):
-            out.append({"check": "known_cve", "severity": "HIGH", "detail": f"{impl}: {cve}"})
+    out.extend(_known_cve_rows(fp))
 
     # Taken before any probe runs, because the probes call tools and a call is
     # what a rug-pull server keys the swap on. A snapshot taken afterwards would

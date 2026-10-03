@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
-"""MCP server fingerprint — minimal info we need to attribute CVEs."""
+"""MCP server fingerprint - minimal info we need to attribute CVEs."""
 
 from __future__ import annotations
 
@@ -8,6 +8,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from .client import McpClient
+from .known_cves import KnownServer, server_for
 
 
 @dataclass(frozen=True, slots=True)
@@ -21,16 +22,10 @@ class McpFingerprint:
     prompt_count: int = 0
     resource_count: int = 0
     tools_hash: str = ""
-    suspected_impls: list[str] = field(default_factory=list)
-
-
-_KNOWN_VULN_IMPLS = {
-    "mcp-server-git": ["CVE-2025-68143", "CVE-2025-68144", "CVE-2025-68145"],
-    "markitdown": ["MarkItDown-MCP-SSRF-2026"],
-    "gemini-mcp-tool": ["CVE-2026-0755"],
-    "github-kanban": ["CVE-2026-0756"],
-    "orval-mcp": ["CVE-2026-22785", "CVE-2026-23947"],
-}
+    # The table entry this target matched, by the name it announced, or None. A
+    # tuple is not needed: a server announces one name and the match is exact,
+    # so at most one entry can apply.
+    known_server: KnownServer | None = None
 
 
 def fingerprint(client: McpClient, transport_name: str) -> McpFingerprint:
@@ -43,8 +38,6 @@ def fingerprint(client: McpClient, transport_name: str) -> McpFingerprint:
     tools_repr = "|".join(sorted(t.name for t in enum.tools))
     tools_hash = hashlib.sha256(tools_repr.encode()).hexdigest()[:16]
 
-    name_lc = info.name.lower()
-    suspected = [impl for impl in _KNOWN_VULN_IMPLS if impl in name_lc]
     return McpFingerprint(
         name=info.name,
         version=info.version,
@@ -55,10 +48,5 @@ def fingerprint(client: McpClient, transport_name: str) -> McpFingerprint:
         prompt_count=len(enum.prompts),
         resource_count=len(enum.resources),
         tools_hash=tools_hash,
-        suspected_impls=suspected,
+        known_server=server_for(info.name),
     )
-
-
-def known_cves_for(name: str) -> list[str]:
-    """Case-insensitive lookup. Accepts a raw server name or a normalised key."""
-    return _KNOWN_VULN_IMPLS.get(name.lower(), [])

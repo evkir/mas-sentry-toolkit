@@ -11,10 +11,18 @@ consequences were observed through the CLI against live servers, and each is
 pinned here as a case that fails until correlation respects the version.
 
 False positives, both HIGH:
-  - a release that carries the fix is given the CVE anyway, because its name
-    still contains the listed one;
-  - a hardened fork is given the upstream CVE for the same reason, which is the
-    one case a defender has actively worked to escape.
+  - a release that carries the fix is given the CVE anyway, because the version
+    takes no part in the match;
+  - a hardened fork is given the upstream CVE, because the match was a substring
+    of the announced name, and the fork is the one case a defender has actively
+    worked to escape.
+
+Both false-positive cases were first written against `markitdown`, which was a
+listed key when they landed. O-3/c2 removed that entry: the identifier it carried
+had no advisory behind it in NVD or GHSA, so by R-2.13 it could not move into the
+table. The cases were repointed at `mcp-git`, which remains listed, and the
+assertions themselves are unchanged - a target that ceased to exist is not an
+assertion that needed revising.
 
 The false negative is the costlier half, and it is why this module exists at
 all. The table is keyed on distribution names, and a server announces neither
@@ -125,27 +133,25 @@ def test_the_fixture_server_is_scannable(server: Path, tmp_path: Path) -> None:
     A fixture that stopped answering would make every pinned case fail for the
     wrong reason and read as still-pinned rather than as broken.
     """
-    rows = _scan(server, "markitdown", "0.0.1a7", tmp_path / "out.json")
+    rows = _scan(server, "mcp-git", "2026.8.18", tmp_path / "out.json")
     assert any(r["check"] == "fingerprint" for r in rows)
 
 
 @pytest.mark.xfail(strict=True, reason="correlation ignores info.version; fixed in O-3/c3")
 def test_a_patched_release_is_not_given_the_cve_it_fixed(server: Path, tmp_path: Path) -> None:
-    """0.0.1a7 is the current markitdown-mcp; the listed finding predates it."""
-    rows = _scan(server, "markitdown", "0.0.1a7", tmp_path / "out.json")
+    """2026.8.18 is the current mcp-server-git; every listed CVE is fixed in it."""
+    rows = _scan(server, "mcp-git", "2026.8.18", tmp_path / "out.json")
     assert not [r for r in _cve_rows(rows) if r["severity"] in ("HIGH", "CRITICAL")]
 
 
-@pytest.mark.xfail(strict=True, reason="correlation matches on name substring; fixed in O-3/c3")
 def test_a_hardened_fork_is_not_given_the_cve_of_the_name_it_contains(server: Path, tmp_path: Path) -> None:
     """The fork is the one target whose maintainer acted; it must clear."""
-    rows = _scan(server, "my-hardened-markitdown-fork", "1.0.0", tmp_path / "out.json")
+    rows = _scan(server, "my-hardened-mcp-git-fork", "1.0.0", tmp_path / "out.json")
     assert not [r for r in _cve_rows(rows) if r["severity"] in ("HIGH", "CRITICAL")]
 
 
-@pytest.mark.xfail(strict=True, reason="the table is keyed on a name no server announces; fixed in O-3/c2")
 def test_a_vulnerable_release_under_its_wire_name_is_not_passed_over(server: Path, tmp_path: Path) -> None:
-    """`mcp-server-git` announces `mcp-git`, so nothing in the table matches it."""
+    """`mcp-server-git` announces `mcp-git`, which is what the table is keyed on."""
     rows = _scan(server, "mcp-git", "2025.7.1", tmp_path / "out.json")
     assert _cve_rows(rows)
 
@@ -157,7 +163,7 @@ def test_a_server_that_announces_no_version_is_reported_as_undecidable(server: P
     Silence would hide the target and a HIGH would invent a verdict, so the
     scan owes a row that is neither (R-2.1).
     """
-    rows = _scan(server, "markitdown", "", tmp_path / "out.json")
+    rows = _scan(server, "mcp-git", "", tmp_path / "out.json")
     cve = _cve_rows(rows)
     assert cve
     assert not [r for r in cve if r["severity"] in ("HIGH", "CRITICAL")]

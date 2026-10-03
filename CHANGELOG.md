@@ -244,6 +244,48 @@
   no caching row at all.
 
 ### Changed
+- **Breaking** The known-vulnerable server table moved out of `fingerprint.py`
+  into `mas_sentry/protocols/mcp/data/known_cves.toml`, is keyed on the name a
+  server announces rather than on its distribution, and is matched exactly
+  rather than as a substring. Each of those was a separate false verdict.
+  `mcp-server-git` announces itself as `mcp-git`, so a table keyed on the
+  distribution name matched nothing a scan ever saw and the vulnerable releases
+  were passed over in silence; the same held for `gemini-mcp-tool`, which
+  announces `gemini-cli-mcp`. In the other direction, a substring match gave
+  every fork of a listed implementation the upstream CVEs, which is the one
+  target whose maintainer had acted. Each entry now carries its primary source
+  and the date that source was read, and the loader refuses a table it cannot
+  read in full rather than correlating against fewer entries than the file
+  lists.
+- **Breaking** Two entries did not survive the source review and were removed.
+  `markitdown` carried the identifier `MarkItDown-MCP-SSRF-2026`, which exists
+  in neither NVD nor the GitHub advisory database - the nearest real advisory,
+  CVE-2025-58358, is against a different package - so by R-2.13 it cannot be in
+  a knowledge table. `orval-mcp` listed CVEs against Orval, an OpenAPI code
+  generator: the flaws are in the generation of MCP servers, not in a running
+  one, and nothing about them is observable from a scan of the far end of a
+  connection. `CVE-2026-27735` was added to `mcp-git`, which the old table did
+  not list at all.
+- **Breaking** `McpFingerprint.suspected_impls` is replaced by `known_server`,
+  which carries the matched table entry or `None`, and `known_cves_for()` is
+  gone. A server announces one name and the match is exact, so the list could
+  never hold more than one element.
+- A `known_cve` row takes its severity from the advisory instead of being fixed
+  at HIGH, and names the distribution and the flaw alongside the identifier. Two
+  of the listed CVEs are CVSS 9.8 unauthenticated remote code execution, and
+  reporting them in the same band as a path-confinement bug lost the only thing
+  an operator triages on.
+- Every entry records whether the version it announces can be compared against a
+  range at all, because not one of the three can. `mcp-git` announces the
+  version of the `mcp` SDK, which substitutes its own when a server passes none;
+  `gemini-cli-mcp` and `github-kanban-mcp-server` announce literals that stopped
+  following their releases, in the second case naming 0.2.0 while the affected
+  release is 0.3.0. Correlating on those would clear a vulnerable target or
+  condemn a patched one with equal confidence, so the field is read by the
+  correlation step rather than assumed away.
+- `packaging` moved from the development extra into the runtime dependencies:
+  the table loader proves every version bound parses before a scan can rely on
+  it.
 - Cache hints are recorded for the two cacheable results that are not paginated
   listings. SEP-2549 puts `ttlMs`/`cacheScope` on six results; four are the
   listings, already recorded page by page, while `server/discover` and

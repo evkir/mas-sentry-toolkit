@@ -1,0 +1,102 @@
+# Known-vulnerable MCP server implementations.
+#
+# Keyed on wire_name - what a server puts in serverInfo.name on initialize -
+# because that is the only identity a scan observes. The distribution name is
+# carried alongside for a reader, never matched against: mcp-server-git ships
+# from PyPI under that name and announces itself as "mcp-git", so a table keyed
+# on the distribution matches nothing a scan ever sees.
+#
+# version_source answers whether the version announced on the wire can be
+# compared against the ranges below at all. Only "server" can. Every entry here
+# was checked against the published package on 2026-10-02 and not one of them
+# announces a usable version, which is why the field exists:
+#   server  - announces its own release; a range comparison is meaningful
+#   sdk     - announces the SDK version instead of its own (mcp 1.x substitutes
+#             pkg_version("mcp") when the server passes none)
+#   stale   - announces a hardcoded version that stopped following releases
+#   absent  - announces no version at all (mcp 2.x leaves it empty)
+#
+# Ranges follow the advisory, not a guess. "fixed" is exclusive: a release equal
+# to or above it is out. "affected" pins a single release and is used where the
+# primary source named one version and no upper bound - inventing a range there
+# would assert something the advisory does not say.
+#
+# Every entry carries the primary source (NVD, or the GHSA/ZDI advisory it
+# points at) and the date it was read. An entry without one does not belong in
+# this file (R-1.3, R-2.13).
+
+schema_version = 1
+
+[[server]]
+wire_name = "mcp-git"
+distribution = "mcp-server-git"
+ecosystem = "pypi"
+# Observed 2026-10-02: mcp-server-git 2026.8.18 scans as "mcp-git 1.30.0", where
+# 1.30.0 is the mcp distribution. The release the ranges below are about -
+# 2026.8.18 - never reaches the wire.
+version_source = "sdk"
+
+[[server.cve]]
+id = "CVE-2025-68143"
+fixed = "2025.9.25"
+severity = "HIGH"
+summary = "git_init created repositories at unvalidated paths, making them eligible for later git operations"
+source = "https://github.com/modelcontextprotocol/servers/security/advisories/GHSA-5cgr-j3jf-jw3v"
+verified = "2026-10-02"
+
+[[server.cve]]
+id = "CVE-2025-68144"
+fixed = "2025.12.17"
+severity = "HIGH"
+summary = "git_diff and git_checkout passed user-controlled arguments to the git CLI, allowing file overwrite through flag-like values"
+source = "https://github.com/modelcontextprotocol/servers/security/advisories/GHSA-9xwc-hfwc-8w59"
+verified = "2026-10-02"
+
+[[server.cve]]
+id = "CVE-2025-68145"
+fixed = "2025.12.17"
+severity = "HIGH"
+summary = "repo_path was not confined to the --repository the server was started with"
+source = "https://github.com/modelcontextprotocol/servers/security/advisories/GHSA-j22h-9j4x-23w5"
+verified = "2026-10-02"
+
+[[server.cve]]
+id = "CVE-2026-27735"
+fixed = "2026.1.14"
+severity = "HIGH"
+summary = "git_add accepted relative paths escaping the repository through parent-directory sequences"
+source = "https://github.com/modelcontextprotocol/servers/security/advisories/GHSA-vjqx-cfc4-9h6v"
+verified = "2026-10-02"
+
+[[server]]
+wire_name = "gemini-cli-mcp"
+distribution = "gemini-mcp-tool"
+ecosystem = "npm"
+# Observed 2026-10-02: the package is 1.1.8 and the server announces 1.1.4, a
+# literal in the source that stopped tracking releases.
+version_source = "stale"
+
+[[server.cve]]
+id = "CVE-2026-0755"
+affected = "1.1.2"
+severity = "CRITICAL"
+summary = "execAsync executed a user-supplied string without validation, giving unauthenticated remote code execution"
+source = "https://www.zerodayinitiative.com/advisories/ZDI-26-021/"
+verified = "2026-10-02"
+
+[[server]]
+wire_name = "github-kanban-mcp-server"
+distribution = "@sunwood-ai-labs/github-kanban-mcp-server"
+ecosystem = "npm"
+# Observed 2026-10-02: the package is 0.3.0 - the latest, and the affected one -
+# while the server announces 0.2.0. Correlating on the announced version would
+# clear the only release that carries the CVE.
+version_source = "stale"
+
+[[server.cve]]
+id = "CVE-2026-0756"
+affected = "0.3.0"
+severity = "CRITICAL"
+summary = "the create_issue parameter reached a system call unvalidated, giving unauthenticated remote code execution"
+source = "https://www.zerodayinitiative.com/advisories/ZDI-26-022/"
+verified = "2026-10-02"

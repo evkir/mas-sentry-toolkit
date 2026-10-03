@@ -2,7 +2,7 @@
 from typing import Any
 
 from mas_sentry.protocols.mcp.client import McpClient
-from mas_sentry.protocols.mcp.fingerprint import fingerprint, known_cves_for
+from mas_sentry.protocols.mcp.fingerprint import fingerprint
 from mas_sentry.protocols.mcp.jsonrpc import (
     JsonRpcCodec,
     JsonRpcRequest,
@@ -54,7 +54,7 @@ def _git_server_script() -> list[dict[str, Any]]:
             "result": {
                 "protocolVersion": "2025-06-18",
                 "capabilities": {"tools": {}, "prompts": {}},
-                "serverInfo": {"name": "mcp-server-git", "version": "0.5.0"},
+                "serverInfo": {"name": "mcp-git", "version": "0.5.0"},
             },
         },
         {
@@ -81,15 +81,10 @@ def test_fingerprint_full_flow():
     t = FakeTransport(_git_server_script())
     client = McpClient(t)
     fp = fingerprint(client, transport_name="stdio")
-    assert fp.name == "mcp-server-git"
+    assert fp.name == "mcp-git"
     assert fp.tool_count == 2
     assert fp.transport == "stdio"
     assert fp.tools_hash != ""
-    assert "mcp-server-git" in fp.suspected_impls
-    cves = [c for impl in fp.suspected_impls for c in known_cves_for(impl)]
-    assert "CVE-2025-68143" in cves
-
-
-def test_known_cves_for_is_case_insensitive():
-    assert known_cves_for("MarkItDown") == known_cves_for("markitdown")
-    assert known_cves_for("nonexistent") == []
+    assert fp.known_server is not None
+    assert fp.known_server.distribution == "mcp-server-git"
+    assert "CVE-2025-68143" in [c.id for c in fp.known_server.cves]
