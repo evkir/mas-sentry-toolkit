@@ -16,11 +16,14 @@ from .launch_spec import PinVerdict, launch_findings, verdict_for
 from .precedence import cross_scope_findings
 from .runtime import findings_for, run_host_audit
 from .surface import ExecutableSurface, HelperCommand, HookHandler, ServerApprovals, read_surface
+from .taxonomy import HOST_LENSES, HOST_UNLENSED, lensed
 from .trust import trust_findings
 from .values import CREDENTIAL_PREFIXES, EnvEntry, ValueShape, classify, shape_of
 
 __all__ = [
     "CREDENTIAL_PREFIXES",
+    "HOST_LENSES",
+    "HOST_UNLENSED",
     "EnvEntry",
     "ExecutableSurface",
     "HelperCommand",
@@ -39,6 +42,7 @@ __all__ = [
     "findings_for",
     "integrity_findings",
     "launch_findings",
+    "lensed",
     "locate",
     "present",
     "read",

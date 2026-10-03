@@ -29,6 +29,7 @@ from .inventory import Inventory, ServerEntry, read
 from .launch_spec import launch_findings
 from .precedence import cross_scope_findings
 from .surface import ExecutableSurface
+from .taxonomy import lensed
 from .trust import trust_findings
 
 # Top-level keys known to nest further server declarations. A key outside this
@@ -285,7 +286,10 @@ def findings_for(inventories: list[Inventory], target: str, checked: int) -> lis
     out.extend(cross_scope_findings(inventories))
     if not out:
         out.append(_nothing_found_row(target, checked))
-    return out
+    # One pass over the finished rows rather than a lens in each judge: the
+    # scanned surface applies its table once in `from_mcp_check` for the same
+    # reason, and a module that grows a new row cannot half-register it.
+    return [lensed(f) for f in out]
 
 
 def run_host_audit(home: Path, project_root: Path, system: str, out: Path) -> list[Finding]:
