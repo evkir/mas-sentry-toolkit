@@ -10,6 +10,7 @@ particular only mean something against a real link.
 from __future__ import annotations
 
 import os
+import stat
 from pathlib import Path
 
 import pytest
@@ -214,3 +215,110 @@ def test_an_unknown_platform_yields_nothing(tmp_path: Path) -> None:
     apart - an empty list here means the table has nothing to say.
     """
     assert locate(home=tmp_path / "h", project_root=tmp_path / "r", system="SunOS") == []
+
+
+# --- permissions of what was located ----------------------------------------
+
+
+def _cursor_config(home: Path) -> Path:
+    config = home / ".cursor" / "mcp.json"
+    config.parent.mkdir(parents=True, exist_ok=True)
+    config.write_text("{}")
+    return config
+
+
+@pytest.mark.skipif(os.name == "nt", reason="POSIX mode bits")
+def test_the_mode_of_the_file_and_of_its_directory_are_both_read(tmp_path: Path) -> None:
+    """Two objects, because they are two routes to rewriting what the host runs.
+
+    Write permission on the file allows rewriting it in place; write permission
+    on the directory allows replacing it, which POSIX treats as a property of
+    the directory alone.
+    """
+    home = tmp_path / "home"
+    config = _cursor_config(home)
+    config.chmod(0o600)
+    config.parent.chmod(0o755)
+
+    exposure = _by(locate(home=home, project_root=tmp_path / "repo", system="Linux"), "cursor", "user").exposure
+    assert exposure is not None
+    assert exposure.mode == 0o600
+    assert exposure.dir_mode == 0o755
+    assert exposure.owned_by_auditor is True
+
+
+@pytest.mark.skipif(os.name == "nt", reason="POSIX mode bits")
+def test_a_world_writable_config_and_a_world_writable_directory_are_distinguishable(tmp_path: Path) -> None:
+    home = tmp_path / "home"
+    config = _cursor_config(home)
+    config.chmod(0o666)
+    config.parent.chmod(0o777)
+
+    exposure = _by(locate(home=home, project_root=tmp_path / "repo", system="Linux"), "cursor", "user").exposure
+    assert exposure is not None
+    assert exposure.mode & 0o002
+    assert exposure.dir_mode & 0o002
+
+
+@pytest.mark.skipif(os.name == "nt", reason="POSIX mode bits")
+def test_the_sticky_bit_survives_into_the_directory_mode(tmp_path: Path) -> None:
+    """A world-writable directory with the sticky bit does not allow replacement.
+
+    `/tmp` is 1777 and nobody can delete another user's file in it, so the bit
+    has to reach whatever judges these or the judge would report the same
+    exposure for 0777 and for 1777.
+    """
+    home = tmp_path / "home"
+    config = _cursor_config(home)
+    config.parent.chmod(0o1777)
+
+    exposure = _by(locate(home=home, project_root=tmp_path / "repo", system="Linux"), "cursor", "user").exposure
+    assert exposure is not None
+    assert exposure.dir_mode == 0o1777
+    assert exposure.dir_mode & stat.S_ISVTX
+
+
+@pytest.mark.skipif(os.name == "nt", reason="POSIX symlink semantics")
+def test_permissions_are_read_through_the_link_to_what_will_be_read(tmp_path: Path) -> None:
+    """The mode that matters belongs to the file the link arrives at.
+
+    A symlink carries 0777 of its own on most systems and says nothing about
+    whether its target can be rewritten. That a link was followed is reported
+    separately, so nothing is lost by looking through it here.
+    """
+    home = tmp_path / "home"
+    target = tmp_path / "elsewhere" / "mcp.json"
+    target.parent.mkdir(parents=True)
+    target.write_text("{}")
+    target.chmod(0o666)
+    link = home / ".cursor" / "mcp.json"
+    link.parent.mkdir(parents=True)
+    link.symlink_to(target)
+
+    config = _by(locate(home=home, project_root=tmp_path / "repo", system="Linux"), "cursor", "user")
+    assert config.via_symlink is True
+    assert config.exposure is not None
+    assert config.exposure.mode == 0o666
+
+
+def test_a_config_that_does_not_exist_has_no_permissions_to_report(tmp_path: Path) -> None:
+    configs = locate(home=tmp_path / "home", project_root=tmp_path / "repo", system="Linux")
+    assert all(c.exposure is None for c in configs)
+
+
+def test_windows_reports_no_permissions_rather_than_emulated_ones(tmp_path: Path) -> None:
+    """Mode bits synthesised from a read-only attribute would describe nothing.
+
+    An unknown stays an unknown: a verdict about an ACL cannot be drawn from
+    `os.stat` on Windows, so the field is empty rather than plausible.
+    """
+    home = tmp_path / "home"
+    _cursor_config(home)
+    configs = locate(
+        home=home,
+        project_root=tmp_path / "repo",
+        system="Windows",
+        appdata=tmp_path / "appdata",
+    )
+    assert any(c.exists for c in configs), "the fixture must produce at least one present config"
+    assert all(c.exposure is None for c in configs)

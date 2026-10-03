@@ -22,7 +22,7 @@ from mas_sentry.core.finding import Finding, Severity
 from mas_sentry.reporting.structured import write_json
 
 from .credentials import credential_findings
-from .discovery import HostConfig, locate
+from .discovery import HostConfig, PathExposure, locate
 from .executable import surface_findings
 from .inventory import Inventory, ServerEntry, read
 from .launch_spec import launch_findings
@@ -35,6 +35,24 @@ from .trust import trust_findings
 # `sandbox` are ordinary, and a finding on every file that carries one would be
 # noise that buries the case that matters (R-2.4).
 _NESTING_KEYS: Final = frozenset({"projects"})
+
+
+def _exposure_evidence(exposure: PathExposure | None) -> dict[str, Any] | None:
+    """Permission facts rendered for a report, or None when none could be read.
+
+    The octal is formatted rather than left as an integer so a reviewer reads
+    `0644` instead of `420` and can re-derive a later verdict from the row
+    itself (R-7.2). None travels rather than being dropped: a config whose
+    permissions are wide open and one whose permissions were never legible are
+    different answers, and a reader has to be able to tell them apart (R-2.1).
+    """
+    if exposure is None:
+        return None
+    return {
+        "mode": format(exposure.mode, "04o"),
+        "dir_mode": format(exposure.dir_mode, "04o"),
+        "owned_by_auditor": exposure.owned_by_auditor,
+    }
 
 
 def _server_evidence(server: ServerEntry) -> dict[str, Any]:
@@ -111,6 +129,7 @@ def _inventory_row(inv: Inventory) -> Finding:
         "path": str(src.path),
         "resolved": str(src.resolved),
         "via_symlink": src.via_symlink,
+        "exposure": _exposure_evidence(src.exposure),
         "dialect": inv.dialect,
         "servers": [_server_evidence(s) for s in inv.servers],
         "inputs": [

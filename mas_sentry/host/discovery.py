@@ -17,10 +17,18 @@ scanned server and onto the operator's own machine:
 None of that is observable from the far end of a connection, so it needs its
 own entry point rather than a flag on `mcp scan`.
 
-This module locates and nothing more. It does not open the files. Reading them
-has its own rules about what may enter a report (a config holds API keys), and
-a path that was only located cannot leak one. The read step consumes what this
-returns.
+This module locates, reads the permissions of what it located, and nothing
+more. It does not open the files: their contents have their own rules about what
+may enter a report (a config holds API keys), and a path that was only located
+cannot leak one. The read step consumes what this returns.
+
+Permissions are read here because two of the cases above turn on them, and on
+two different objects. Rewriting a config in place needs write permission on the
+file; replacing it needs write permission on the directory holding it, which
+POSIX grants to anyone who can write there unless the sticky bit is set. A
+reader that looked only at the file would call a 0644 config in a 0777 directory
+clean, which is the MCPoison vector exactly.
+https://man7.org/linux/man-pages/man2/unlink.2.html
 
 Paths follow each host's documented location. The project scope matters as much
 as the user scope: `.mcp.json` at a repository root is the portable format and
@@ -30,6 +38,8 @@ read by whichever of them the next operator happens to run.
 
 from __future__ import annotations
 
+import os
+import stat
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
@@ -52,6 +62,29 @@ _SYSTEMS: Final = ("Darwin", "Linux", "Windows")
 
 
 @dataclass(frozen=True, slots=True)
+class PathExposure:
+    """Who, besides the owner, can change the file the host will read.
+
+    `mode` and `dir_mode` are the permission bits of the file and of the
+    directory holding it, sticky bit included. Both are kept because they are
+    two routes to one outcome: writing the file in place needs permission on
+    the file, replacing it needs permission on the directory.
+
+    `owned_by_auditor` is False when the file belongs to somebody other than
+    the user running the audit. It is a fact rather than an assumption because
+    the command takes `--home`: a responder examining a mounted image or another
+    account on a shared machine owns none of what it reads.
+
+    No verdict is drawn here. Which combination of bits amounts to an exposure
+    depends on the threat, and that belongs to whatever judges these (R-1.7).
+    """
+
+    mode: int
+    dir_mode: int
+    owned_by_auditor: bool
+
+
+@dataclass(frozen=True, slots=True)
 class HostConfig:
     """One located configuration file.
 
@@ -70,6 +103,7 @@ class HostConfig:
     resolved: Path
     via_symlink: bool
     note: str
+    exposure: PathExposure | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -207,6 +241,36 @@ def supported_hosts() -> tuple[str, ...]:
     return tuple(seen)
 
 
+def _exposure_of(path: Path, system: str) -> PathExposure | None:
+    """Permission facts for the file a host will read, or None when there are none.
+
+    The resolved path is what gets examined, not the declared one: the mode that
+    decides whether the content can be rewritten belongs to the file the link
+    arrives at. That a link was followed at all is already carried separately,
+    so nothing about the redirection is lost by looking through it.
+
+    Windows is excluded rather than described. `os.stat` there synthesises POSIX
+    mode bits from the read-only attribute and reports no owner, so a verdict
+    drawn from them would be about the emulation rather than about the ACL that
+    governs the file. An unknown is marked unknown instead of guessed (R-2.5).
+    """
+    if system == "Windows":
+        return None
+    try:
+        info = path.stat()
+        holder = path.parent.stat()
+    except OSError:
+        # A broken link, a directory that cannot be traversed, a file removed
+        # between locating and reading it. The absence is reported by returning
+        # None; it is not an audit failure, and it is not a clean result either.
+        return None
+    return PathExposure(
+        mode=stat.S_IMODE(info.st_mode),
+        dir_mode=stat.S_IMODE(holder.st_mode),
+        owned_by_auditor=info.st_uid == os.getuid(),
+    )
+
+
 def _anchor_path(anchor: Anchor, home: Path, project_root: Path, appdata: Path) -> Path:
     if anchor == "home":
         return home
@@ -280,6 +344,7 @@ def locate(
                 resolved=resolved,
                 via_symlink=via_symlink,
                 note=spec.note,
+                exposure=_exposure_of(resolved, system) if declared.exists() else None,
             )
         )
     return out

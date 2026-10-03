@@ -8,7 +8,7 @@ so it has its own package.
 """
 
 from .credentials import credential_findings
-from .discovery import HostConfig, locate, present, supported_hosts
+from .discovery import HostConfig, PathExposure, locate, present, supported_hosts
 from .executable import surface_findings
 from .inventory import InputDecl, Inventory, ServerEntry, read
 from .launch_spec import PinVerdict, launch_findings, verdict_for
@@ -27,6 +27,7 @@ __all__ = [
     "HostConfig",
     "InputDecl",
     "Inventory",
+    "PathExposure",
     "PinVerdict",
     "ServerApprovals",
     "ServerEntry",
