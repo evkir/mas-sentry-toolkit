@@ -91,6 +91,11 @@ _MCP_CHECK_TAGS = {
     # A known-vulnerable server implementation is inherited risk, so it maps to
     # the supply-chain lens rather than to anything the operator wrote.
     "known_cve": ["ASI04_Supply_Chain", "CWE-1395"],
+    # The same inherited risk, with the version comparison left unresolved
+    # because the server does not disclose its own release. CWE-1395 still
+    # describes the exposure; the missing piece is the operator's visibility
+    # into which release is deployed, which is what CWE-1059 names.
+    "known_cve_unverified": ["ASI04_Supply_Chain", "CWE-1395", "CWE-1059"],
     # User-controlled data reaching the stdio command line is OS command
     # injection, and the agentic consequence is code the operator never
     # authorised running on the server host.

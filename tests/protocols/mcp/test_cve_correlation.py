@@ -40,11 +40,12 @@ its distribution nor, in general, its own version:
 
 Every case drives `mas-sentry mcp scan` rather than calling `fingerprint()`
 (R-2.3), and asserts on the rows the scan writes rather than on the table or the
-match: the table moves into data in O-3/c2 and the matching logic is replaced in
-O-3/c3, and a case phrased against either would have to be rewritten alongside
-the fix it is supposed to prove (R-2.6). "No CVE" is phrased as the absence of a
-high-severity CVE row rather than the absence of a named check, so renaming the
-check does not quietly satisfy it.
+match: the table moved into data in O-3/c2 and the matching logic was replaced in
+O-3/c3, and a case phrased against either would have had to be rewritten
+alongside the fix it was supposed to prove (R-2.6). "No CVE" is phrased as the
+absence of a high-severity CVE row rather than the absence of a named check, so
+renaming the check does not quietly satisfy it. All four landed red and were
+closed by those two commits without a word of their assertions changing.
 """
 
 from __future__ import annotations
@@ -128,16 +129,15 @@ def _cve_rows(rows: list[dict[str, str]]) -> list[dict[str, str]]:
 
 
 def test_the_fixture_server_is_scannable(server: Path, tmp_path: Path) -> None:
-    """Guards the cases below, which are xfail and would absorb a broken rig.
+    """Guards the cases below, which say what the scan does not report.
 
-    A fixture that stopped answering would make every pinned case fail for the
-    wrong reason and read as still-pinned rather than as broken.
+    Four of them assert an absence, so a fixture that stopped answering would
+    satisfy them while proving nothing. This one fails instead.
     """
     rows = _scan(server, "mcp-git", "2026.8.18", tmp_path / "out.json")
     assert any(r["check"] == "fingerprint" for r in rows)
 
 
-@pytest.mark.xfail(strict=True, reason="correlation ignores info.version; fixed in O-3/c3")
 def test_a_patched_release_is_not_given_the_cve_it_fixed(server: Path, tmp_path: Path) -> None:
     """2026.8.18 is the current mcp-server-git; every listed CVE is fixed in it."""
     rows = _scan(server, "mcp-git", "2026.8.18", tmp_path / "out.json")
@@ -156,7 +156,6 @@ def test_a_vulnerable_release_under_its_wire_name_is_not_passed_over(server: Pat
     assert _cve_rows(rows)
 
 
-@pytest.mark.xfail(strict=True, reason="an unusable version yields a HIGH rather than a gap; fixed in O-3/c3")
 def test_a_server_that_announces_no_version_is_reported_as_undecidable(server: Path, tmp_path: Path) -> None:
     """No version is no basis: the row has to say so instead of asserting a CVE.
 

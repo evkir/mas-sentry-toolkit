@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import json
 import os
+from collections import defaultdict
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any
@@ -27,6 +28,7 @@ from .audit.tool_drift import detect_tool_drift
 from .audit.tool_mutation import detect_tool_mutation, listing_mark, notification_mark, snapshot_tools
 from .audit.tool_poisoning import detect_tool_poisoning
 from .client import McpClient, ScanBudget
+from .cve_match import CveVerdict, verdicts_for
 from .errors import TargetUnreachable
 from .fingerprint import McpFingerprint, fingerprint
 from .transport_http import HttpConfig, open_http
@@ -392,29 +394,62 @@ def _auth_rows(client: McpClient, target_url: str, scope_confirmed: bool) -> lis
 
 
 def _known_cve_rows(fp: McpFingerprint) -> list[dict[str, Any]]:
-    """Report the advisories listed against the name this target announced.
+    """Report what the advisories listed against this target actually say about it.
 
-    Severity comes from the table rather than being fixed at HIGH: two of the
-    entries are CVSS 9.8 unauthenticated remote code execution, and flattening
-    them into the same band as a path-confinement bug loses the only thing an
-    operator triages on.
+    Three outcomes reach the report differently. An advisory that applies is a
+    finding at the severity the advisory carries - two of the listed CVEs are
+    CVSS 9.8 unauthenticated remote code execution, and flattening them into one
+    band with a path-confinement bug loses what an operator triages on. An
+    advisory ruled out by the observed release produces nothing, which is the
+    point of correlating by version at all.
 
-    The version the target announced takes no part in this yet, so a release
-    carrying the fix is still reported. That is the defect O-3/c3 closes; it is
-    left visibly open here rather than half-closed, because a comparison against
-    a version the server does not actually disclose would be worse than none.
+    An advisory that could not be weighed gets its own check name rather than
+    being dropped or promoted. Dropping it would report a possibly vulnerable
+    target as clean (R-2.1); raising it to the advisory's severity would fail a
+    pipeline on every deployment of an implementation that merely does not
+    disclose its release, which is most of them. A separate name lets an operator
+    gate on it deliberately instead of inheriting either choice.
+
+    Undecidable verdicts are grouped by the reason they share, because the reason
+    is usually a property of the server rather than of each advisory, and
+    repeating one sentence per CVE buries it.
     """
     known = fp.known_server
     if known is None:
         return []
-    return [
-        {
-            "check": "known_cve",
-            "severity": cve.severity,
-            "detail": f"{known.wire_name} ({known.distribution}): {cve.id} - {cve.summary}",
-        }
-        for cve in known.cves
-    ]
+
+    rows: list[dict[str, Any]] = []
+    undecided: dict[str, list[CveVerdict]] = defaultdict(list)
+
+    for verdict in verdicts_for(known, fp.version):
+        if verdict.applies is None:
+            undecided[verdict.basis].append(verdict)
+        elif verdict.applies:
+            rows.append(
+                {
+                    "check": "known_cve",
+                    "severity": verdict.cve.severity,
+                    "detail": (
+                        f"{known.wire_name} ({known.distribution}): {verdict.cve.id} - {verdict.cve.summary}. "
+                        f"Correlated because {verdict.basis}. Source: {verdict.cve.source}"
+                    ),
+                }
+            )
+
+    for basis, group in undecided.items():
+        listed = ", ".join(f"{v.cve.id} ({v.cve.severity})" for v in group)
+        rows.append(
+            {
+                "check": "known_cve_unverified",
+                "severity": "MEDIUM",
+                "detail": (
+                    f"{known.wire_name} ({known.distribution}) is a listed implementation, but {basis}. "
+                    f"Unresolved against this target: {listed}. "
+                    f"Read the deployed {known.ecosystem} package version to settle it"
+                ),
+            }
+        )
+    return rows
 
 
 def _run_all_checks(

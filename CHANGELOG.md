@@ -356,6 +356,27 @@
   report sites that used to be missed.
 
 ### Fixed
+- A CVE is correlated against the release a target announced instead of against
+  its name alone, and a release that carries the fix is no longer given the
+  advisory it fixed. The comparison respects a fixed-in bound and an
+  introduced-in bound, and both sides of it travel in the finding, so a reviewer
+  can reach the verdict again from the report rather than by rerunning the scan.
+- Where the comparison cannot be made, the scan says so under a check of its
+  own, `known_cve_unverified`, rather than reporting the target as clean or
+  asserting the advisory anyway. This is the common case rather than the error
+  path: of nine published servers surveyed on 2026-10-02, seven announce a
+  version no range can be compared against - `mcp-server-git`, `mcp-server-time`
+  and `mcp-server-fetch` all report the version of the SDK they are built on,
+  and the official filesystem and memory servers report literals frozen at 0.2.0
+  and 0.6.3 against a 2026.8.31 release. A real `mcp-server-git` deployment now
+  produces one MEDIUM row naming the four advisories it could not settle and
+  what to read to settle them, where it previously produced four HIGH rows that
+  were wrong for every patched deployment and right only by accident for the
+  rest.
+- An advisory that names a single affected release and gives no upper bound does
+  not clear a later one. The source said what it tested; calling anything above
+  it fixed would assert what no source does, so that case is reported as
+  unresolved as well.
 - The lockfile is installed on every interpreter it claims to support. The
   hash-verified install ran on 3.12 alone while `requires-python` promises
   3.11, and the matrix that does cover 3.11 installs `-e ".[dev]"` and

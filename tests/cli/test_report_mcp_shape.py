@@ -55,6 +55,36 @@ def test_mcp_rows_keep_their_module_and_title(tmp_path: Path) -> None:
     assert all(f["title"] for f in findings)
 
 
+def test_an_unverified_cve_row_carries_its_own_taxonomy(tmp_path: Path) -> None:
+    """A check added without a tag-table entry reaches the report untagged.
+
+    `known_cve_unverified` arrived with the version-aware correlation in O-3/c3,
+    and the adapter attaches tags by exact check name, so an entry of its own is
+    what keeps it from being filed as a bare category - the defect this module
+    was written for, one check later.
+    """
+    src = tmp_path / "mcp.json"
+    src.write_text(
+        json.dumps(
+            [
+                {
+                    "check": "known_cve_unverified",
+                    "severity": "MEDIUM",
+                    "detail": "mcp-git (mcp-server-git) is a listed implementation, but the version is unusable",
+                }
+            ]
+        ),
+        encoding="utf-8",
+    )
+    out = tmp_path / "out.json"
+    _convert(src, out, "json")
+    finding = json.loads(out.read_text())["findings"][0]
+
+    assert finding["module"] == "mcp.known_cve_unverified"
+    assert finding["title"]
+    assert {"ASI04_Supply_Chain", "CWE-1395"} <= set(finding["tags"])
+
+
 def test_mcp_rows_carry_their_taxonomy(tmp_path: Path) -> None:
     """The tag table is the reason the adapter exists; it has to be applied."""
     out = tmp_path / "out.json"
