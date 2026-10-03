@@ -11,6 +11,7 @@ from .credentials import credential_findings
 from .discovery import HostConfig, locate, present, supported_hosts
 from .executable import surface_findings
 from .inventory import InputDecl, Inventory, ServerEntry, read
+from .launch_spec import PinVerdict, launch_findings, verdict_for
 from .precedence import cross_scope_findings
 from .runtime import findings_for, run_host_audit
 from .surface import ExecutableSurface, HelperCommand, HookHandler, ServerApprovals, read_surface
@@ -26,6 +27,7 @@ __all__ = [
     "HostConfig",
     "InputDecl",
     "Inventory",
+    "PinVerdict",
     "ServerApprovals",
     "ServerEntry",
     "ValueShape",
@@ -33,6 +35,7 @@ __all__ = [
     "credential_findings",
     "cross_scope_findings",
     "findings_for",
+    "launch_findings",
     "locate",
     "present",
     "read",
@@ -42,4 +45,5 @@ __all__ = [
     "supported_hosts",
     "surface_findings",
     "trust_findings",
+    "verdict_for",
 ]

@@ -25,6 +25,7 @@ from .credentials import credential_findings
 from .discovery import HostConfig, locate
 from .executable import surface_findings
 from .inventory import Inventory, ServerEntry, read
+from .launch_spec import launch_findings
 from .precedence import cross_scope_findings
 from .surface import ExecutableSurface
 from .trust import trust_findings
@@ -246,6 +247,7 @@ def findings_for(inventories: list[Inventory], target: str, checked: int) -> lis
             continue
         out.append(_inventory_row(inv))
         out.extend(credential_findings(inv))
+        out.extend(launch_findings(inv))
         nesting = inv.unmodelled_top_level & _NESTING_KEYS
         if nesting:
             out.append(_partly_unread_row(inv, nesting))

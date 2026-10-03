@@ -581,7 +581,6 @@ def test_a_credential_gates_ci_through_fail_on(tmp_path: Path) -> None:
     assert _GH_TOKEN not in out.read_text()
 
 
-@pytest.mark.xfail(strict=True, reason="NS-4: an unpinned launch spec is not graded yet")
 def test_an_unpinned_launch_spec_is_graded(tmp_path: Path) -> None:
     """A server started through `npx`/`uvx` without a version pin is rug-pull surface.
 
