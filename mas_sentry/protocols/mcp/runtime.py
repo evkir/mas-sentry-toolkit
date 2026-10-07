@@ -14,6 +14,7 @@ from mas_sentry.core.audit_log import write as audit_write
 from mas_sentry.core.scope import assert_in_scope
 
 from .audit.apps import audit_apps
+from .audit.arg_bypass import BLOCKED, BYPASSED, probe_argument_bypass
 from .audit.auth_prm import HttpFetcher, audit_protected_resource
 from .audit.caching import audit_caching
 from .audit.dns_rebind import test_dns_rebinding
@@ -310,6 +311,23 @@ def _ssrf_rows(client: McpClient) -> list[dict[str, Any]]:
     ]
 
 
+# Why a bypass attempt reached no verdict, with the severity that follows from
+# it. The two are not the same signal: a target that accepted the argument and
+# answered has shown something about itself and is worth a MEDIUM, while a
+# target that disclosed no allowlist has shown nothing and would make
+# `--fail-on MEDIUM` fire on every server that keeps its configuration private.
+_UNVERIFIED = {
+    "accepted-without-marker": (
+        "MEDIUM",
+        "accepted the argument and answered, with nothing in the answer to show a shell expanded it",
+    ),
+    "allowlist-undisclosed": (
+        "INFO",
+        "names no permitted commands in its descriptor, so there was no allowlist to clear",
+    ),
+}
+
+
 def _traversal_rows(client: McpClient) -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = [
         {"check": "path_traversal", "severity": "HIGH", "detail": f"{tf.tool}: {tf.payload}"}
@@ -321,6 +339,56 @@ def _traversal_rows(client: McpClient) -> list[dict[str, Any]]:
         for tf in probe_arg_injection(client)
         if tf.confirmed
     )
+    rows.extend(_bypass_rows(client))
+    return rows
+
+
+def _bypass_rows(client: McpClient) -> list[dict[str, Any]]:
+    """Rows for the allowlist-bypass probe, carrying both sides of the comparison.
+
+    A refusal produces no row, the way a denied SSRF probe produces none: the
+    target did the right thing, and one row per correctly refused shape would
+    bury the two outcomes that say something.
+
+    Everything past `check`/`severity`/`detail` is lifted into the unified
+    finding's `evidence` by `from_mcp_check`, which is how a reviewer rebuilds
+    the verdict instead of trusting it (R-7.2). The sentence in `detail` names
+    the shape; the keys carry what was sent, what came back, and the product
+    that was looked for.
+    """
+    rows: list[dict[str, Any]] = []
+    for finding in probe_argument_bypass(client):
+        if finding.outcome == BLOCKED:
+            continue
+        evidence = {
+            "shape": finding.shape,
+            "sent_argument": finding.sent_argument,
+            "observed": finding.observed,
+            "expected_marker": finding.expected_marker,
+        }
+        if finding.outcome == BYPASSED:
+            rows.append(
+                {
+                    "check": "shell_substitution",
+                    "severity": "CRITICAL",
+                    "detail": (
+                        f"{finding.tool}: the {finding.shape} shape cleared the command allowlist "
+                        "and its argument was expanded by a shell"
+                    ),
+                    **evidence,
+                }
+            )
+            continue
+        severity, phrase = _UNVERIFIED[finding.reason]
+        rows.append(
+            {
+                "check": "shell_substitution_unverified",
+                "severity": severity,
+                "detail": f"{finding.tool}: the target {phrase}",
+                "reason": finding.reason,
+                **evidence,
+            }
+        )
     return rows
 
 

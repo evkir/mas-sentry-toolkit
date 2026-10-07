@@ -181,7 +181,6 @@ def test_an_accepted_argument_without_the_marker_is_inconclusive() -> None:
     assert {f.reason for f in unresolved} == {"accepted-without-marker"}
 
 
-@pytest.mark.xfail(strict=True, reason="O-4/c3: the row carries the payload only, not the observation")
 @pytest.mark.skipif(sys.platform == "win32", reason="arithmetic expansion is POSIX shell syntax")
 def test_the_report_row_carries_both_what_was_sent_and_what_came_back(rig: Path, tmp_path: Path) -> None:
     """Driven through `mcp scan` so the row is the one an operator reads (R-2.3)."""

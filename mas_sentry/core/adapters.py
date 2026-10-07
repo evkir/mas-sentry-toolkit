@@ -69,6 +69,14 @@ _MCP_CHECK_TAGS = {
     # Argument injection into tool calls is classic command injection - no clean
     # ATLAS technique, so it is deliberately left ATLAS-untagged.
     "arg_injection": ["ASI02_Tool_Misuse", "CWE-77", "STRIDE_Tampering"],
+    # An argument that cleared a command allowlist and was then expanded by a
+    # shell. CWE-78 rather than the CWE-77 above it: both are children of 77,
+    # and they part company at the fix. Flag injection is answered by an
+    # allowlist of flags, this is answered by not reaching a shell at all, so
+    # the precise child is the one an operator can act on (checked against
+    # cwe.mitre.org, both Base level). ATLAS is left off for the same reason
+    # arg_injection leaves it off.
+    "shell_substitution": ["ASI02_Tool_Misuse", "CWE-78", "STRIDE_Tampering"],
     # A tool that will fetch an attacker-chosen URL is server-side request
     # forgery reached through the tool surface, so the weakness is the fetch,
     # not whatever the operator happens to expose on the inside.
@@ -176,6 +184,12 @@ _MCP_UNTAGGED_CHECKS = frozenset(
         "capability_required",
         "auth_required",
         "mutation_inconclusive",
+        # A bypass shape that reached no verdict: either the target accepted the
+        # argument without anything proving a shell saw it, or it disclosed no
+        # allowlist to clear. Both are statements about what this scan could
+        # observe, not about a weakness, and a CWE here would fill an operator's
+        # filter with rows that name no defect. The reason travels in evidence.
+        "shell_substitution_unverified",
         "app_surface",
         "app_binding",
         # The target deferred the call to a task it was never asked for. A
