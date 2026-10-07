@@ -1,11 +1,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 from typing import Any
 
-from mas_sentry.protocols.mcp.audit.path_traversal import (
-    _first_path_param,
-    _first_string_param,
-    probe_path_traversal,
-)
+from mas_sentry.protocols.mcp.audit.path_traversal import _first_path_param, probe_path_traversal
 from mas_sentry.protocols.mcp.audit.ssrf import _ssrf_indicator, probe_ssrf
 from mas_sentry.protocols.mcp.client import McpClient, ToolDef
 from mas_sentry.protocols.mcp.jsonrpc import JsonRpcRequest, JsonRpcResponse
@@ -49,11 +45,6 @@ def test_ssrf_indicator_no_match():
 def test_path_param_detection():
     schema = {"properties": {"file_path": {"type": "string"}, "max_lines": {"type": "integer"}}}
     assert _first_path_param(schema) == "file_path"
-
-
-def test_string_param_detection():
-    schema = {"properties": {"name": {"type": "string"}, "count": {"type": "integer"}}}
-    assert _first_string_param(schema) == "name"
 
 
 def test_path_param_none_on_empty_schema():

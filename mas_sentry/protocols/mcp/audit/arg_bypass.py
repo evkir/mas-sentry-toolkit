@@ -49,15 +49,26 @@ with a source behind it; a target that discloses nothing is reported
 
 Shapes deliberately left out
 ----------------------------
-Two shapes ship, one per mechanism that can put a string in front of a shell:
-bare, for an implementation that uses a shell unconditionally, and after an
-operator, for one that reaches a shell only once an operator appears, which is
-the mechanism the CVE describes. The `--config=/dev/stdin`, repeated-flag and
-`-e`/`--eval` shapes are not here: no first-party advisory ties them to this
-class, and a shape without a source is a guess (R-1.3, R-2.4). Flag injection
-proper - `--upload-pack=`, `-oProxyCommand=` - is a different weakness with a
-different fix (CWE-88, an allowlist of flags, against CWE-78, not reaching a
-shell at all) and stays in its own probe.
+Two substitution shapes ship, one per mechanism that can put a string in front
+of a shell: bare, for an implementation that uses a shell unconditionally, and
+after an operator, for one that reaches a shell only once an operator appears,
+which is the mechanism the CVE describes. The `--config=/dev/stdin`,
+repeated-flag and `-e`/`--eval` shapes are not here: no first-party advisory
+ties them to this class, and a shape without a source is a guess (R-1.3, R-2.4).
+
+The second weakness in this module
+----------------------------------
+Flag injection is the other way an argument goes where it should not, and it is
+a different weakness with a different fix: an allowlist of flags, against not
+reaching a shell at all. So it carries CWE-88 while substitution carries CWE-78,
+and it gets its own probe - but the same three outcomes and the same finding
+type, because the question it asks is identical. Source: CVE-2025-68144
+(`mcp-server-git` < 2025.12.17, GHSA-9xwc-hfwc-8w59), where a caller's value is
+split into argv with no `--` separator and a leading dash is read as an option.
+
+`-oProxyCommand=` is not among its shapes. The principle fits, but no ssh client
+was available to observe it with, and a shape nobody watched work is the same
+guess as a shape nobody sourced (R-2.4).
 """
 
 from __future__ import annotations
@@ -175,16 +186,24 @@ def _marker_pair() -> tuple[str, str]:
     return f"MST$(({left}*{right}))", f"MST{left * right}"
 
 
-def _attempt(client: McpClient, tool_name: str, param: str, shape: str, argument: str, marker: str) -> BypassFinding:
+def _attempt(
+    client: McpClient,
+    tool_name: str,
+    param: str,
+    shape: str,
+    argument: str,
+    marker: str,
+    confirmed_reason: str = "marker-expanded",
+) -> BypassFinding:
     resp = client.send("tools/call", {"name": tool_name, "arguments": {param: argument}})
     body = str(resp.error) if resp.is_error else tool_result_text(resp.result)
     observed = body[:_MAX_OBSERVED]
-    if marker in body:
+    if _marker_stands_alone(marker, body):
         return BypassFinding(
             tool=tool_name,
             shape=shape,
             outcome=BYPASSED,
-            reason="marker-expanded",
+            reason=confirmed_reason,
             sent_argument=argument,
             observed=observed,
             expected_marker=marker,
@@ -208,6 +227,25 @@ def _attempt(client: McpClient, tool_name: str, param: str, shape: str, argument
         observed=observed,
         expected_marker=marker,
     )
+
+
+def _marker_stands_alone(marker: str, body: str) -> bool:
+    """True when the marker arrives as a word of its own, not inside an echo.
+
+    A target that refuses an option quotes the option back whole. git answers
+    ``error: unknown option `exec=MST782577'`` to a `--exec=` it does not
+    accept, and a plain substring test reads that refusal as a confirmation -
+    a false positive on a target that did the right thing, which is the half of
+    R-2.4 that is easy to miss.
+
+    The difference is positional and holds for both weaknesses here. A value
+    that was *used* - as a program name, or as the product of an expansion -
+    arrives as its own word. A value that was merely quoted arrives still
+    attached to the `=` of the option that carried it. Caught live against git
+    2.43.0, where the confirmed case read `MST592491 '/repo/.git': 1:
+    MST592491: not found` and the refused one read as above.
+    """
+    return re.search(rf"(?<![=\w-]){re.escape(marker)}", body) is not None
 
 
 def _command_param(tool: ToolDef) -> str | None:
@@ -239,3 +277,89 @@ def _disclosed_heads(tool: ToolDef) -> list[str] | None:
         return []
     heads = [part.strip() for part in listed.split(",")]
     return [head for head in heads if head.replace("-", "").replace("_", "").isalnum()][:_MAX_HEADS]
+
+
+# Options that name a program for the binary to run. Both verified against git
+# 2.43.0: the binary quotes the name back when it cannot run it, which is the
+# whole observation - `--upload-pack=` on a local clone and `--exec=` on
+# `git archive --remote` both answered `MST9182736 '<repo>': 1: MST9182736: not
+# found`, while a clean value cloned with no marker anywhere (R-2.2, R-2.4).
+_FLAG_SHAPES = (
+    ("upload_pack", "--upload-pack={marker}"),
+    ("exec", "--exec={marker}"),
+)
+
+# Parameter words that carry a value a git-like tool passes into argv. Read off
+# the installed `mcp-server-git` 2026.8.18 schema rather than guessed: its
+# fields are repo_path, target, revision, branch_name, base_branch, contains and
+# not_contains. `message` is deliberately absent - it travels as the value of
+# `-m`, where a leading dash is not read as an option.
+_ARGUMENT_WORDS = frozenset(
+    {"path", "repo", "repository", "target", "revision", "ref", "branch", "remote", "source", "upstream", "contains"}
+)
+
+# How many matching parameters are tried per tool. Each gets both shapes, and a
+# tool can declare several argv-bearing parameters, so the cap keeps one tool
+# from issuing a handful of calls on its own. The schema's own order is kept.
+_MAX_PARAMS = 2
+
+
+def probe_flag_injection(client: McpClient) -> list[BypassFinding]:
+    """Send an option naming a program that does not exist, and read the echo.
+
+    Confirmation is the name coming back, which proves the option reached the
+    binary and was used as a program. Nothing of ours runs, because there is
+    nothing by that name to run - the opposite of the canary this replaces,
+    which executed `touch` and then asked the scanner's own filesystem whether
+    the target had misbehaved.
+
+    Not observable this way: `--upload-pack` over https, which git ignores with
+    "setting remote service path not supported by protocol". Such a target ends
+    up `inconclusive`, which is a report, not a silence (R-7.5).
+    """
+    out: list[BypassFinding] = []
+    for tool in client.list_tools():
+        for param in _argument_params(tool):
+            for shape, template in _FLAG_SHAPES:
+                marker = _program_marker()
+                out.append(
+                    _attempt(
+                        client,
+                        tool.name,
+                        param,
+                        shape,
+                        template.format(marker=marker),
+                        marker,
+                        confirmed_reason="marker-echoed",
+                    )
+                )
+    return out
+
+
+def _program_marker() -> str:
+    """A program name nothing will resolve, fresh per attempt.
+
+    Fresh for the same reason the arithmetic factors are: a fixed name is a name
+    an attacker - or a stale run - can arrange to exist, and the verdict would
+    then describe the environment instead of the target.
+    """
+    return f"MST{secrets.randbelow(900000) + 100000}"
+
+
+def _argument_params(tool: ToolDef) -> list[str]:
+    params = [
+        name
+        for name, spec in ((tool.input_schema or {}).get("properties") or {}).items()
+        if isinstance(spec, dict) and spec.get("type") == "string" and _name_words(name) & _ARGUMENT_WORDS
+    ]
+    return params[:_MAX_PARAMS]
+
+
+def _name_words(name: str) -> set[str]:
+    """A parameter name split into words, so a word matches a word.
+
+    Substring matching would make `resource_uri` look like a `source`
+    parameter and send git options at a resource reader, which is the noise
+    R-2.4 is about. camelCase is split too, because a schema may use either.
+    """
+    return set(re.sub(r"(?<!^)(?=[A-Z])", "_", name).lower().split("_"))

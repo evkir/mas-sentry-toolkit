@@ -3,7 +3,7 @@
 
 from typing import Any
 
-from mas_sentry.protocols.mcp.audit.path_traversal import probe_arg_injection, probe_path_traversal
+from mas_sentry.protocols.mcp.audit.path_traversal import probe_path_traversal
 from mas_sentry.protocols.mcp.audit.ssrf import probe_ssrf
 from mas_sentry.protocols.mcp.client import DISCOVER_METHOD, META_SERVER_INFO, McpClient
 from mas_sentry.protocols.mcp.jsonrpc import JsonRpcResponse
@@ -117,7 +117,6 @@ def test_probes_find_nothing_and_the_deferral_survives_them() -> None:
     client = _deferring_client()
     assert [f for f in probe_ssrf(client) if f.status == "OK"] == []
     assert probe_path_traversal(client) == []
-    assert [f for f in probe_arg_injection(client) if f.confirmed] == []
     assert client.deferred_tasks, "the deferral must survive the probes that hit it"
 
 

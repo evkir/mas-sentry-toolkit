@@ -30,6 +30,7 @@ or it did not.
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from typing import Any
 
@@ -164,3 +165,125 @@ def detect_tool_mutation(
                 )
             )
     return out
+
+
+# Verbs that change something. A tool whose name carries one is never called
+# below: the window this opens is worth having, and not at the price of running
+# an operation on the target to get it (R-7.6). The test is deliberately
+# conservative in the unsafe direction - an unrecognised name is called, a
+# recognised one is not - so being wrong costs coverage rather than the target.
+_MUTATING_VERBS = frozenset(
+    {
+        "add",
+        "append",
+        "apply",
+        "clear",
+        "commit",
+        "create",
+        "delete",
+        "deploy",
+        "drop",
+        "edit",
+        "exec",
+        "execute",
+        "insert",
+        "install",
+        "kill",
+        "launch",
+        "move",
+        "patch",
+        "post",
+        "publish",
+        "purge",
+        "push",
+        "put",
+        "remove",
+        "rename",
+        "reset",
+        "restart",
+        "run",
+        "send",
+        "set",
+        "shutdown",
+        "spawn",
+        "start",
+        "stop",
+        "truncate",
+        "update",
+        "upload",
+        "write",
+    }
+)
+
+# How many tools are exercised. Each is one more request against the target and
+# one more draw on the budget, and the swap this opens the window for fires on
+# the first use of whichever tool the server keyed it to - so the cap trades a
+# long tail of calls for the common case where that tool is among the first few
+# a server advertises.
+_MAX_EXERCISED = 6
+
+# Values that satisfy a declared type without asking the target for anything in
+# particular. A parameter whose type is absent or composite is not filled, and
+# its tool is skipped rather than called with a guess.
+_SCALAR_FILLER: dict[str, Any] = {"string": "mas-sentry", "integer": 1, "number": 1, "boolean": False}
+
+
+def exercise_tools(client: McpClient) -> list[str]:
+    """Call the read-shaped tools, so a swap keyed on use has the chance to happen.
+
+    This detector can only see a descriptor that moved, and a server that
+    rewrites on first use moves nothing until something uses it. Until now that
+    use arrived by accident: an argument probe aimed at the first string
+    parameter of every tool called all of them, including the ones it had no
+    business calling. Making that probe precise closed the window, which is how
+    the dependency came to light - the reference rig stopped reporting a swap it
+    had reported since the detector landed. A window that depends on another
+    module's imprecision is not a window; it is a coincidence.
+
+    So it is opened on purpose now, and narrowly: no tool whose name carries a
+    mutating verb, no argument that is not synthesised from the declared schema,
+    and nothing at all for a tool whose required parameters this cannot fill.
+
+    When every advertised tool is excluded, no window opens and the comparison
+    that follows can only report what was already visible. That is a limit of
+    what a scan may safely do rather than a probe that failed, so it is recorded
+    here instead of as a row (R-2.4).
+    """
+    called: list[str] = []
+    for tool in client.list_tools():
+        if len(called) >= _MAX_EXERCISED:
+            break
+        if _name_carries_a_mutating_verb(tool.name):
+            continue
+        arguments = _fillable_arguments(tool.input_schema)
+        if arguments is None:
+            continue
+        client.send("tools/call", {"name": tool.name, "arguments": arguments})
+        called.append(tool.name)
+    return called
+
+
+def _name_carries_a_mutating_verb(name: str) -> bool:
+    words = set(re.sub(r"(?<!^)(?=[A-Z])", "_", name).lower().split("_"))
+    return bool(words & _MUTATING_VERBS)
+
+
+def _fillable_arguments(schema: dict[str, Any] | None) -> dict[str, Any] | None:
+    """Arguments for every required parameter, or None if one cannot be filled.
+
+    With no `required` list every declared property is treated as required: a
+    server that documents none of them is not telling us which it needs, and
+    sending a partial object to find out is a worse guess than not calling.
+    """
+    properties = (schema or {}).get("properties") or {}
+    required = (schema or {}).get("required") or list(properties)
+    arguments: dict[str, Any] = {}
+    for name in required:
+        spec = properties.get(name)
+        if not isinstance(spec, dict):
+            return None
+        filler = _SCALAR_FILLER.get(str(spec.get("type")))
+        if filler is None:
+            return None
+        arguments[name] = filler
+    return arguments

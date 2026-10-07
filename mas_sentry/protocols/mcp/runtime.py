@@ -14,19 +14,25 @@ from mas_sentry.core.audit_log import write as audit_write
 from mas_sentry.core.scope import assert_in_scope
 
 from .audit.apps import audit_apps
-from .audit.arg_bypass import BLOCKED, BYPASSED, probe_argument_bypass
+from .audit.arg_bypass import BLOCKED, BYPASSED, probe_argument_bypass, probe_flag_injection
 from .audit.auth_prm import HttpFetcher, audit_protected_resource
 from .audit.caching import audit_caching
 from .audit.dns_rebind import test_dns_rebinding
 from .audit.elicitation import audit_elicitations
 from .audit.header_desync import probe_header_desync
 from .audit.instructions import audit_instructions
-from .audit.path_traversal import probe_arg_injection, probe_path_traversal
+from .audit.path_traversal import probe_path_traversal
 from .audit.resource_content import audit_resource_content, audit_resource_templates
 from .audit.ssrf import probe_ssrf
 from .audit.stdio_rce import StdioConfigAuditor
 from .audit.tool_drift import detect_tool_drift
-from .audit.tool_mutation import detect_tool_mutation, listing_mark, notification_mark, snapshot_tools
+from .audit.tool_mutation import (
+    detect_tool_mutation,
+    exercise_tools,
+    listing_mark,
+    notification_mark,
+    snapshot_tools,
+)
 from .audit.tool_poisoning import detect_tool_poisoning
 from .client import McpClient, ScanBudget
 from .cve_match import CveVerdict, verdicts_for
@@ -334,11 +340,7 @@ def _traversal_rows(client: McpClient) -> list[dict[str, Any]]:
         for tf in probe_path_traversal(client)
         if tf.confirmed
     ]
-    rows.extend(
-        {"check": "arg_injection", "severity": "CRITICAL", "detail": f"{tf.tool}: {tf.payload}"}
-        for tf in probe_arg_injection(client)
-        if tf.confirmed
-    )
+    rows.extend(_flag_rows(client))
     rows.extend(_bypass_rows(client))
     return rows
 
@@ -392,6 +394,61 @@ def _bypass_rows(client: McpClient) -> list[dict[str, Any]]:
     return rows
 
 
+# The same two halves as _UNVERIFIED above, in the words of this weakness: here
+# nothing was expanded, the question is whether a binary read the value as an
+# option and said so.
+_FLAG_UNVERIFIED = {
+    "accepted-without-marker": (
+        "MEDIUM",
+        "accepted the option and answered, without quoting back the program it names",
+    ),
+}
+
+
+def _flag_rows(client: McpClient) -> list[dict[str, Any]]:
+    """Rows for the flag-injection probe, carrying both sides of the comparison.
+
+    Same shape as `_bypass_rows`, different weakness: CWE-88 against CWE-78, and
+    an allowlist of flags against never reaching a shell. Kept as its own
+    function with its own literals so each reads whole and the collector can see
+    both keys.
+    """
+    rows: list[dict[str, Any]] = []
+    for finding in probe_flag_injection(client):
+        if finding.outcome == BLOCKED:
+            continue
+        evidence = {
+            "shape": finding.shape,
+            "sent_argument": finding.sent_argument,
+            "observed": finding.observed,
+            "expected_marker": finding.expected_marker,
+        }
+        if finding.outcome == BYPASSED:
+            rows.append(
+                {
+                    "check": "arg_injection",
+                    "severity": "CRITICAL",
+                    "detail": (
+                        f"{finding.tool}: the {finding.shape} option was read as an option and the program "
+                        "it names was quoted back by the target"
+                    ),
+                    **evidence,
+                }
+            )
+            continue
+        severity, phrase = _FLAG_UNVERIFIED[finding.reason]
+        rows.append(
+            {
+                "check": "arg_injection_unverified",
+                "severity": severity,
+                "detail": f"{finding.tool}: the target {phrase}",
+                "reason": finding.reason,
+                **evidence,
+            }
+        )
+    return rows
+
+
 def _drift_rows(client: McpClient, tool_baseline: Path | None) -> list[dict[str, Any]]:
     return [
         {"check": df.kind, "severity": df.severity, "detail": df.detail}
@@ -402,6 +459,11 @@ def _drift_rows(client: McpClient, tool_baseline: Path | None) -> list[dict[str,
 def _mutation_rows(
     client: McpClient, tools_before: dict[str, Any], inbound_mark: int, issues_mark: int
 ) -> list[dict[str, Any]]:
+    # The window is opened here, deliberately, immediately before it is measured.
+    # It used to be opened by whichever probe happened to call the tool a server
+    # keyed its swap to, which stopped being true the moment those probes became
+    # precise about which tools they had business calling.
+    exercise_tools(client)
     return [
         {"check": mf.kind, "severity": mf.severity, "detail": mf.detail}
         for mf in detect_tool_mutation(client, tools_before, inbound_mark, issues_mark)

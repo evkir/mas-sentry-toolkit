@@ -66,9 +66,12 @@ _MCP_CHECK_TAGS = {
     "tool_appeared": ["ASI04_Supply_Chain", "CWE-494", "STRIDE_Tampering", "AML.T0110"],
     # Tool-poisoning carries IPI directives in the descriptor fields the LLM ingests.
     "tool_poisoning": ["ASI01_Goal_Hijack", "CWE-1427", "STRIDE_Tampering", "AML.T0051"],
-    # Argument injection into tool calls is classic command injection - no clean
-    # ATLAS technique, so it is deliberately left ATLAS-untagged.
-    "arg_injection": ["ASI02_Tool_Misuse", "CWE-77", "STRIDE_Tampering"],
+    # A value read as a command-line option rather than as data. CWE-88 and not
+    # the CWE-77 parent it used to carry: 88 is the Base child that names
+    # argument delimiters, and it is what an operator fixes, with a `--`
+    # separator or an allowlist of flags (checked against cwe.mitre.org). No
+    # clean ATLAS technique, so it is deliberately left ATLAS-untagged.
+    "arg_injection": ["ASI02_Tool_Misuse", "CWE-88", "STRIDE_Tampering"],
     # An argument that cleared a command allowlist and was then expanded by a
     # shell. CWE-78 rather than the CWE-77 above it: both are children of 77,
     # and they part company at the fix. Flag injection is answered by an
@@ -190,6 +193,10 @@ _MCP_UNTAGGED_CHECKS = frozenset(
         # observe, not about a weakness, and a CWE here would fill an operator's
         # filter with rows that name no defect. The reason travels in evidence.
         "shell_substitution_unverified",
+        # The same unreached verdict for flag injection: the option was accepted
+        # and the target never quoted back the program it named, so nothing was
+        # observed to classify.
+        "arg_injection_unverified",
         "app_surface",
         "app_binding",
         # The target deferred the call to a task it was never asked for. A

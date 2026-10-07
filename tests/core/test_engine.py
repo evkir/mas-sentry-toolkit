@@ -278,10 +278,15 @@ def test_from_mcp_check_injection_taxonomy() -> None:
     # LLM-prompt-injection lens across all four taxonomies.
     p = from_mcp_check({"check": "tool_poisoning", "severity": "HIGH", "detail": "hidden directive"}, "stdio://srv")
     assert p.tags == ["tool_poisoning", "ASI01_Goal_Hijack", "CWE-1427", "STRIDE_Tampering", "AML.T0051"]
-    # Argument injection is command injection: CWE-77 + Tampering, deliberately no ATLAS.
-    a = from_mcp_check({"check": "arg_injection", "severity": "CRITICAL", "detail": "&& id"}, "stdio://srv")
-    assert a.tags == ["arg_injection", "ASI02_Tool_Misuse", "CWE-77", "STRIDE_Tampering"]
+    # A value read as an option is argument injection: the CWE-88 child rather
+    # than the CWE-77 parent, because the fix is a separator or a flag allowlist.
+    # Tampering, and deliberately no ATLAS.
+    a = from_mcp_check({"check": "arg_injection", "severity": "CRITICAL", "detail": "--exec=x"}, "stdio://srv")
+    assert a.tags == ["arg_injection", "ASI02_Tool_Misuse", "CWE-88", "STRIDE_Tampering"]
     assert not any(t.startswith("AML.") for t in a.tags)
+    # Substitution is the sibling weakness and keeps the other child, CWE-78.
+    sub = from_mcp_check({"check": "shell_substitution", "severity": "CRITICAL", "detail": "$(x)"}, "stdio://srv")
+    assert sub.tags == ["shell_substitution", "ASI02_Tool_Misuse", "CWE-78", "STRIDE_Tampering"]
 
 
 def test_from_agentic_maps_atlas_technique() -> None:

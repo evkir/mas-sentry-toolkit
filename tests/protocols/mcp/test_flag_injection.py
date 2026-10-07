@@ -150,7 +150,6 @@ def rig(tmp_path: Path) -> tuple[Path, Path, Path]:
     return script, repo, dest
 
 
-@pytest.mark.xfail(strict=True, reason="O-4/c5: the probe still confirms from a canary file")
 def test_no_file_on_the_scanner_host_can_confirm_a_flag_injection() -> None:
     """A planted file is not evidence about the target.
 
@@ -172,7 +171,6 @@ def test_no_file_on_the_scanner_host_can_confirm_a_flag_injection() -> None:
             _HISTORIC_CANARY.unlink(missing_ok=True)
 
 
-@pytest.mark.xfail(strict=True, reason="O-4/c5: confirmation does not read the name the binary echoed")
 @needs_git
 def test_a_flag_that_reached_the_binary_is_confirmed_by_the_echoed_name(rig: tuple[Path, Path, Path]) -> None:
     """git quotes the program it failed to run, and that name is the evidence."""
@@ -194,7 +192,6 @@ def test_a_flag_that_reached_the_binary_is_confirmed_by_the_echoed_name(rig: tup
     assert "touch" not in hit.sent_argument, "the probe must not send a payload that does anything"
 
 
-@pytest.mark.xfail(strict=True, reason="O-4/c5: the row carries the payload only, not the observation")
 @needs_git
 def test_the_report_row_names_the_flag_and_what_came_back(rig: tuple[Path, Path, Path], tmp_path: Path) -> None:
     """Driven through `mcp scan` so the row is the one an operator reads (R-2.3)."""
@@ -251,3 +248,19 @@ def test_the_rig_reproduces_the_cve_it_stands_for(rig: tuple[Path, Path, Path]) 
     assert "MST9182736" in injected, "git must quote back the program it could not run"
     assert "not found" in injected, "the name must have been used as a program, not as a path"
     assert "MST9182736" not in json.dumps(replies[2]), "a clean source must leave no marker behind"
+
+
+def test_an_option_quoted_back_in_a_refusal_is_not_a_confirmation() -> None:
+    """The false positive a substring test produces, with both live texts.
+
+    Negative by construction, so it is green from the commit that introduces it
+    (the R-2.6 exception). Both strings came off git 2.43.0: the first is how it
+    refuses an option it does not know, the second is how it reports a program
+    it could not run.
+    """
+    from mas_sentry.protocols.mcp.audit.arg_bypass import _marker_stands_alone
+
+    refused = "error: unknown option `exec=MST782577'\nusage: git clone [<options>] [--] <repo>"
+    executed = "MST592491 '/repo/.git': 1: MST592491: not found"
+    assert not _marker_stands_alone("MST782577", refused), "a quoted option is not an execution"
+    assert _marker_stands_alone("MST592491", executed), "a program name used as one must still confirm"
