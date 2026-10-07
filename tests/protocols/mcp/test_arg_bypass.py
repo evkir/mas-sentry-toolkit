@@ -143,7 +143,6 @@ def rig(tmp_path: Path) -> Path:
     return path
 
 
-@pytest.mark.xfail(strict=True, reason="O-4/c2: the probe still keys its verdict on a canary file")
 def test_no_file_on_the_scanner_host_can_produce_a_finding() -> None:
     """A planted file is not evidence about the target.
 
@@ -166,7 +165,6 @@ def test_no_file_on_the_scanner_host_can_produce_a_finding() -> None:
             _HISTORIC_CANARY.unlink(missing_ok=True)
 
 
-@pytest.mark.xfail(strict=True, reason="O-4/c2: an accepted argument without the marker is dropped")
 def test_an_accepted_argument_without_the_marker_is_inconclusive() -> None:
     """Accepted, but nothing proves the shell saw it - the third outcome.
 
