@@ -33,7 +33,7 @@ from __future__ import annotations
 import hashlib
 import json
 from collections import Counter
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
@@ -46,6 +46,10 @@ class DriftFinding:
     kind: str  # tool_rug_pull / tool_shadowing / tool_added / tool_removed / tool_baseline_captured
     severity: str
     detail: str
+    # Both sides of whatever the row claims, so a reviewer rebuilds the verdict
+    # from the row instead of taking it on trust (R-7.2). Empty for a row whose
+    # entire content is its sentence, such as same-enumeration shadowing.
+    evidence: dict[str, str] = field(default_factory=dict)
 
 
 @dataclass(frozen=True, slots=True)
@@ -66,6 +70,76 @@ class BaselineEntry:
     def has_descriptor(self) -> bool:
         """Whether the prior side of a change can be read off this entry."""
         return self.description is not None
+
+
+# A descriptor is bounded by nothing in the protocol: a server may answer with a
+# megabyte of description, and every byte would travel into each of the four
+# report formats. The cap is generous because the change a reviewer looks for is
+# often deep inside a long description. The one case a cap can still hide is a
+# difference past it, where both sides read alike, so a clipped field is named
+# rather than left looking like no difference at all.
+_MAX_EVIDENCE_CHARS = 1000
+
+
+def _schema_text(schema: dict[str, Any] | None) -> str:
+    return json.dumps(schema, sort_keys=True, separators=(",", ":"), default=str)
+
+
+def _side(prefix: str, entry: BaselineEntry) -> dict[str, str]:
+    """The descriptor as one side of a comparison had it."""
+    return {
+        f"{prefix}_description": entry.description or "",
+        f"{prefix}_schema": _schema_text(entry.input_schema),
+    }
+
+
+def _clipped(values: dict[str, str]) -> dict[str, str]:
+    """Cap every value and name the keys that hit the cap."""
+    out = {key: text[:_MAX_EVIDENCE_CHARS] for key, text in values.items()}
+    over = sorted(key for key, text in values.items() if len(text) > _MAX_EVIDENCE_CHARS)
+    if over:
+        out["truncated"] = ", ".join(over)
+    return out
+
+
+def _rug_pull_evidence(prior: BaselineEntry, current: BaselineEntry) -> dict[str, str]:
+    """What moved, and what it moved between.
+
+    A digest-only baseline proves the change and can say nothing else. The
+    honest shape is the current side with the gap named: inventing a prior side
+    and dropping the row would each be a different lie (R-2.1).
+
+    Each side carries the whole descriptor, not only the part that moved. The
+    unchanged half is what lets a reviewer check `changed` instead of trusting
+    it: with the schema omitted, "only the description moved" would be a claim
+    the row asserts and nothing in it supports.
+    """
+    if not prior.has_descriptor:
+        return {"baseline_format": "digest-only", **_clipped(_side("current", current))}
+    moved = [
+        name
+        for name, changed in (
+            ("description", prior.description != current.description),
+            ("input_schema", prior.input_schema != current.input_schema),
+        )
+        if changed
+    ]
+    return {
+        "changed": ", ".join(moved),
+        **_clipped({**_side("previous", prior), **_side("current", current)}),
+    }
+
+
+def _absent_side_evidence(prior: BaselineEntry) -> dict[str, str]:
+    """A tool the baseline holds and the server no longer advertises.
+
+    This is the one row whose prior side is the whole point: it carries the
+    name and the input schema MST itself observed, which is what lets a later
+    probe ask about the tool without guessing either.
+    """
+    if not prior.has_descriptor:
+        return {"baseline_format": "digest-only"}
+    return _clipped(_side("previous", prior))
 
 
 def _digest(description: str, input_schema: dict[str, Any]) -> str:
@@ -171,6 +245,7 @@ def diff_tool_descriptors(baseline: dict[str, BaselineEntry], tools: list[ToolDe
                     kind="tool_rug_pull",
                     severity="HIGH",
                     detail=f"Descriptor for '{name}' changed since baseline (post-approval mutation)",
+                    evidence=_rug_pull_evidence(prior, entry),
                 )
             )
         elif prior is None:
@@ -180,10 +255,11 @@ def diff_tool_descriptors(baseline: dict[str, BaselineEntry], tools: list[ToolDe
                     kind="tool_added",
                     severity="LOW",
                     detail=f"New tool '{name}' not present in baseline; review for shadowing",
+                    evidence=_clipped(_side("current", entry)),
                 )
             )
 
-    for name in baseline:
+    for name, prior in baseline.items():
         if name not in current:
             findings.append(
                 DriftFinding(
@@ -191,6 +267,7 @@ def diff_tool_descriptors(baseline: dict[str, BaselineEntry], tools: list[ToolDe
                     kind="tool_removed",
                     severity="INFO",
                     detail=f"Tool '{name}' from baseline no longer advertised",
+                    evidence=_absent_side_evidence(prior),
                 )
             )
 

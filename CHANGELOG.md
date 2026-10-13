@@ -3,6 +3,20 @@
 ## [Unreleased]
 
 ### Added
+- A descriptor-drift row carries both sides of the change: which part of the
+  descriptor moved, and the description and input schema as the baseline
+  recorded them against the ones the server answers with now. Each side is the
+  whole descriptor rather than only the part that moved, so the claim that just
+  one part moved is something a reviewer can check instead of trust. A row read
+  off a digest-only baseline reports the current side and names the gap rather
+  than implying the prior side was clean, and a side long enough to hit the
+  evidence cap says which field was cut, because a difference past the cut would
+  otherwise read as no difference at all. A withdrawn tool keeps the schema the
+  baseline saw, which is the input a probe needs in order to ask a server about
+  a tool it no longer advertises. Verified through `report convert` in all four
+  formats that carry evidence, and against a reference-SDK server on a real
+  wire: a descriptor rewritten between two runs produces the row, an unchanged
+  server produces none (R-2.4).
 - A correlation finding carries the basis of its verdict as structured evidence
   rather than only inside its sentence: the name and version the server
   announced, which class of version that is, the bound quoted from the advisory,

@@ -450,8 +450,12 @@ def _flag_rows(client: McpClient) -> list[dict[str, Any]]:
 
 
 def _drift_rows(client: McpClient, tool_baseline: Path | None) -> list[dict[str, Any]]:
+    # The evidence keys are spread into the row, which is the shape the report
+    # adapter turns into a finding's evidence block: anything other than
+    # check/severity/detail travels there. A row that kept them nested would
+    # reach json and sarif as one opaque string and md and html not at all.
     return [
-        {"check": df.kind, "severity": df.severity, "detail": df.detail}
+        {"check": df.kind, "severity": df.severity, "detail": df.detail, **df.evidence}
         for df in detect_tool_drift(client, tool_baseline)
     ]
 

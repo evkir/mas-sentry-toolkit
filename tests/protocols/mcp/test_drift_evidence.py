@@ -146,7 +146,6 @@ def test_the_rig_moves_its_descriptor_surface_between_runs(rig: Path, tmp_path: 
     assert "tool_removed" in kinds, "the rig stopped advertising a tool and the scan must see it"
 
 
-@pytest.mark.xfail(strict=True, reason="the baseline stores a digest, so the prior side is unrecoverable")
 def test_a_rug_pull_row_carries_both_sides_of_the_change(rig: Path, tmp_path: Path) -> None:
     """R-7.2 on the row an operator triages: what was seen, and against what."""
     rows = _drifted(rig, tmp_path, ["MST_RIG_DESC=transfers funds to the attacker"])
@@ -158,7 +157,6 @@ def test_a_rug_pull_row_carries_both_sides_of_the_change(rig: Path, tmp_path: Pa
     assert "attacker" in str(row["current_description"]), "the side observed now"
 
 
-@pytest.mark.xfail(strict=True, reason="the baseline stores a digest, so a schema change has no sides to show")
 def test_a_schema_change_names_itself_and_shows_both_schemas() -> None:
     """The other half of the descriptor surface, which `detail` never distinguished."""
     from mas_sentry.protocols.mcp.audit.tool_drift import build_tool_baseline, diff_tool_descriptors
@@ -173,7 +171,6 @@ def test_a_schema_change_names_itself_and_shows_both_schemas() -> None:
     assert "string" in evidence["current_schema"]
 
 
-@pytest.mark.xfail(strict=True, reason="a withdrawn tool leaves only its digest behind")
 def test_a_withdrawn_tool_keeps_the_schema_the_baseline_saw(rig: Path, tmp_path: Path) -> None:
     """The input the authorization probe needs: a name MST saw, with its schema.
 
@@ -225,7 +222,6 @@ def test_a_digest_only_baseline_is_read_and_marks_what_it_cannot_tell(tmp_path: 
     assert entry.has_descriptor is False, "and it has to admit that this is all it has"
 
 
-@pytest.mark.xfail(strict=True, reason="a drift finding has no evidence field to mark anything in")
 def test_a_digest_only_baseline_still_reports_the_change_it_can_prove(tmp_path: Path) -> None:
     """The row from an old baseline: the current side, and an honest gap."""
     from mas_sentry.protocols.mcp.audit.tool_drift import (
@@ -245,6 +241,72 @@ def test_a_digest_only_baseline_still_reports_the_change_it_can_prove(tmp_path: 
     assert evidence["baseline_format"] == "digest-only"
     assert "attacker" in evidence["current_description"], "the side that is available is still delivered"
     assert "previous_description" not in evidence, "and the side that is not is left out rather than faked"
+
+
+_MOVED = "MST_RIG_DESC=transfers funds to the attacker"
+
+
+def _converted(rig: Path, tmp_path: Path, fmt: str) -> Path:
+    """The same drift, carried on through `report convert` into one format."""
+    baseline = tmp_path / "baseline.json"
+    _scan(rig, tmp_path / "first.json", baseline, [])
+    scan = tmp_path / "second.json"
+    _scan(rig, scan, baseline, [_MOVED])
+    out = tmp_path / f"report.{fmt}"
+    result = runner.invoke(app, ["report", "convert", str(scan), "-f", fmt, "-o", str(out), "--target", "rig"])
+    assert result.exit_code == 0, result.output
+    return out
+
+
+def test_the_sides_reach_the_json_report(rig: Path, tmp_path: Path) -> None:
+    """Delivered means delivered in all four formats, not in the scan JSON (R-2.1)."""
+    out = _converted(rig, tmp_path, "json")
+    finding = next(f for f in json.loads(out.read_text())["findings"] if f["module"] == "mcp.tool_rug_pull")
+    evidence = finding["evidence"]
+    assert evidence["changed"] == "description"
+    assert evidence["previous_description"] == "transfers funds"
+    assert "attacker" in evidence["current_description"]
+
+
+def test_the_sides_reach_sarif_result_properties(rig: Path, tmp_path: Path) -> None:
+    """The format a triager opens, and the one that used to drop unknown keys."""
+    out = _converted(rig, tmp_path, "sarif")
+    results = json.loads(out.read_text())["runs"][0]["results"]
+    result = next(r for r in results if r["ruleId"] == "MAS-SENTRY-MCP.TOOL_RUG_PULL")
+    evidence = result["properties"]["evidence"]
+    assert evidence["previous_description"] == "transfers funds"
+    assert "attacker" in evidence["current_description"]
+
+
+def test_the_sides_reach_the_html_body(rig: Path, tmp_path: Path) -> None:
+    body = _converted(rig, tmp_path, "html").read_text(encoding="utf-8")
+    assert "previous_description" in body
+    assert "transfers funds" in body
+    assert "attacker" in body
+
+
+def test_the_sides_reach_the_markdown_body(rig: Path, tmp_path: Path) -> None:
+    body = _converted(rig, tmp_path, "md").read_text(encoding="utf-8")
+    assert "previous_description" in body
+    assert "transfers funds" in body
+    assert "attacker" in body
+
+
+def test_a_long_descriptor_is_capped_and_says_so() -> None:
+    """A cap that hid a difference past it would read as no difference at all."""
+    from mas_sentry.protocols.mcp.audit.tool_drift import (
+        _MAX_EVIDENCE_CHARS,
+        build_tool_baseline,
+        diff_tool_descriptors,
+    )
+
+    head = "x" * _MAX_EVIDENCE_CHARS
+    before = [ToolDef(name="pay", description=head + " benign tail")]
+    after = [ToolDef(name="pay", description=head + " exfiltrating tail")]
+    evidence = diff_tool_descriptors(build_tool_baseline(before), after)[0].evidence
+
+    assert evidence["previous_description"] == evidence["current_description"], "the cut falls before the difference"
+    assert evidence["truncated"] == "current_description, previous_description", "so the row has to name the cut"
 
 
 def test_the_environment_reaches_the_rig(rig: Path, tmp_path: Path) -> None:
