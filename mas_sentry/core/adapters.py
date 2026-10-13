@@ -99,6 +99,13 @@ _MCP_CHECK_TAGS = {
     # An endpoint honouring a Host or Origin it should have refused is an
     # origin validation failure, whatever the attacker then reaches through it.
     "dns_rebind": ["ASI02_Tool_Misuse", "CWE-346", "STRIDE_Spoofing"],
+    # A restriction the server announced at discovery and did not apply at
+    # execution. CWE-863 (incorrect authorization) rather than CWE-862 (missing
+    # authorization): the check exists and runs, it is simply not reached on the
+    # path that matters, which is what the advisory for this class names
+    # (checked against cwe.mitre.org). The agentic consequence is a tool the
+    # operator removed from the inventory still acting on their behalf.
+    "authz_desync": ["ASI02_Tool_Misuse", "CWE-863", "STRIDE_Elevation_Of_Privilege"],
     # A known-vulnerable server implementation is inherited risk, so it maps to
     # the supply-chain lens rather than to anything the operator wrote.
     "known_cve": ["ASI04_Supply_Chain", "CWE-1395"],
@@ -197,6 +204,12 @@ _MCP_UNTAGGED_CHECKS = frozenset(
         # and the target never quoted back the program it named, so nothing was
         # observed to classify.
         "arg_injection_unverified",
+        # Every outcome of the authorization probe other than a reachable tool.
+        # Two of them are good news about the target - the call was refused, or
+        # the name was answered as an unknown one - and the rest say what this
+        # scan could not establish. None is a weakness, so none carries a CWE,
+        # and the reason travels in evidence.
+        "authz_desync_unverified",
         "app_surface",
         "app_binding",
         # The target deferred the call to a task it was never asked for. A

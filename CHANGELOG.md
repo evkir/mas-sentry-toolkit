@@ -3,6 +3,38 @@
 ## [Unreleased]
 
 ### Added
+- A restriction announced at discovery and not applied at execution is detected.
+  `mcp scan --tool-baseline` asks whether a tool the target has stopped
+  advertising still answers `tools/call`, which is CVE-2026-46519
+  (`mcp-server-kubernetes` 0.2.4-3.5.1, CWE-863) and the class behind it: the
+  allowlist was honoured by the listing handler and by nothing else, so any
+  client holding a name reached the tool regardless. No scanner reads this
+  today, because reading it means asking the target a question rather than
+  reading a config or matching a CVE by name.
+
+  The name comes from MST's own baseline, never from a table or a word list: a
+  table supplies a name without a schema, and the only call possible without a
+  schema is one with empty arguments, which executes the tool body on both
+  reference SDKs whenever the schema requires nothing. The call omits one
+  required property instead, so an implementation that validates refuses before
+  dispatch and one that does not still fails to bind the argument - the body is
+  unreachable either way, and a tool whose schema requires nothing is reported
+  rather than called (R-7.6).
+
+  The answer is read differentially, against two references taken from the same
+  target in the same scan: a freshly generated name that cannot exist, and an
+  announced tool called the same invalid way. Nothing reads an error code -
+  neither reference implementation emits -32601, the TypeScript SDK answers
+  -32602 to an unknown name and to bad arguments alike, and a server enforcing
+  the filter at both levels answered -32603 on one implementation and -32600 on
+  the other. Six outcomes short of a weakness are reported as
+  `authz_desync_unverified` with their reason, among them a target that answers
+  known and unknown names alike and therefore cannot be read this way at all.
+
+  Verified against a reference-SDK rig in all three states, through `report
+  convert` in every format that carries evidence: the filtered shape produces
+  the finding, the fixed shape produces none, and a marker written by the hidden
+  tool's body is absent from every run (R-2.4, R-7.6).
 - A descriptor-drift row carries both sides of the change: which part of the
   descriptor moved, and the description and input schema as the baseline
   recorded them against the ones the server answers with now. Each side is the

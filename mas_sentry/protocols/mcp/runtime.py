@@ -16,6 +16,8 @@ from mas_sentry.core.scope import assert_in_scope
 from .audit.apps import audit_apps
 from .audit.arg_bypass import BLOCKED, BYPASSED, probe_argument_bypass, probe_flag_injection
 from .audit.auth_prm import HttpFetcher, audit_protected_resource
+from .audit.authz_desync import REACHABLE as AUTHZ_REACHABLE
+from .audit.authz_desync import probe_authz_desync
 from .audit.caching import audit_caching
 from .audit.dns_rebind import test_dns_rebinding
 from .audit.elicitation import audit_elicitations
@@ -25,7 +27,7 @@ from .audit.path_traversal import probe_path_traversal
 from .audit.resource_content import audit_resource_content, audit_resource_templates
 from .audit.ssrf import probe_ssrf
 from .audit.stdio_rce import StdioConfigAuditor
-from .audit.tool_drift import detect_tool_drift
+from .audit.tool_drift import detect_tool_drift, load_tool_baseline
 from .audit.tool_mutation import (
     detect_tool_mutation,
     exercise_tools,
@@ -460,6 +462,69 @@ def _drift_rows(client: McpClient, tool_baseline: Path | None) -> list[dict[str,
     ]
 
 
+# The three outcomes that are not a weakness, in the words of this one. Each
+# says what the scan could observe, which is why none of them carries a CWE.
+_AUTHZ_UNVERIFIED = {
+    "refused-at-call": ("INFO", "refused the call outright, so the filter spans both levels"),
+    "not-recognised": ("INFO", "answered as it answers a name it does not know"),
+    "schema-permits-empty-call": (
+        "MEDIUM",
+        "declared no required argument, so the only possible call would have run the tool",
+    ),
+    "no-reference-tool": ("MEDIUM", "advertises no tool that could serve as a reference answer"),
+    "target-does-not-discriminate": ("MEDIUM", "answers a known and an unknown name alike"),
+    "reference-refused": ("MEDIUM", "refused a reference call, leaving nothing to compare against"),
+}
+
+
+def _authz_rows(client: McpClient, tool_baseline: Path | None) -> list[dict[str, Any]]:
+    """Whether a tool the target stopped advertising is still callable.
+
+    The baseline is the input: without one there is no name to ask about that
+    MST did not guess, and guessing is what separates this from a port scan.
+    """
+    if tool_baseline is None or not tool_baseline.exists():
+        return []
+    baseline = load_tool_baseline(tool_baseline)
+    rows: list[dict[str, Any]] = []
+    for finding in probe_authz_desync(client, baseline):
+        evidence = {
+            "announced": finding.announced,
+            "observed": finding.observed,
+            "reference_unknown_tool": finding.reference_unknown_tool,
+            "reference_known_tool": finding.reference_known_tool,
+            "name_source": "baseline",
+        }
+        if finding.outcome == AUTHZ_REACHABLE:
+            rows.append(
+                {
+                    "check": "authz_desync",
+                    # HIGH and not CRITICAL: the advisory scores this class 8.8,
+                    # and what the reached tool goes on to do is outside what
+                    # this scan observed. The severity follows the source.
+                    "severity": "HIGH",
+                    "detail": (
+                        f"{finding.tool}: withdrawn from tools/list and still answering tools/call "
+                        "as an advertised tool does, so the restriction is announced and not applied"
+                    ),
+                    "reason": finding.reason,
+                    **evidence,
+                }
+            )
+            continue
+        severity, phrase = _AUTHZ_UNVERIFIED[finding.reason]
+        rows.append(
+            {
+                "check": "authz_desync_unverified",
+                "severity": severity,
+                "detail": f"{finding.tool}: the target {phrase}",
+                "reason": finding.reason,
+                **evidence,
+            }
+        )
+    return rows
+
+
 def _mutation_rows(
     client: McpClient, tools_before: dict[str, Any], inbound_mark: int, issues_mark: int
 ) -> list[dict[str, Any]]:
@@ -665,6 +730,7 @@ def _run_all_checks(
         ("ssrf", lambda: _ssrf_rows(client)),
         ("traversal", lambda: _traversal_rows(client)),
         ("drift", lambda: _drift_rows(client, tool_baseline)),
+        ("authz", lambda: _authz_rows(client, tool_baseline)),
         ("auth", lambda: _auth_rows(client, target_url, scope_confirmed)),
     ]
     if mutation_watch:

@@ -165,7 +165,6 @@ def test_the_fixed_mode_refuses_the_call_outright(marker: Path, tmp_path: Path) 
     assert not marker.exists(), "so the body never runs"
 
 
-@pytest.mark.xfail(strict=True, reason="nothing probes whether a withdrawn tool is still callable")
 def test_a_withdrawn_tool_that_is_still_callable_is_reported(marker: Path, tmp_path: Path) -> None:
     """The finding, and the bound on how it was obtained, in one case.
 
@@ -180,7 +179,6 @@ def test_a_withdrawn_tool_that_is_still_callable_is_reported(marker: Path, tmp_p
     assert not marker.exists(), "and the probe established that without executing the tool (R-7.6)"
 
 
-@pytest.mark.xfail(strict=True, reason="nothing probes whether a withdrawn tool is still callable")
 def test_a_filter_on_both_levels_produces_no_finding(marker: Path, tmp_path: Path) -> None:
     """The other half of R-2.4: a server that did it right must come out clean.
 
@@ -194,7 +192,46 @@ def test_a_filter_on_both_levels_produces_no_finding(marker: Path, tmp_path: Pat
     assert not marker.exists()
 
 
-@pytest.mark.xfail(strict=True, reason="there is no authz row, so nothing carries the two layers it spans")
+def _converted(mode: str, marker: Path, tmp_path: Path, fmt: str) -> Path:
+    """The same scan, carried on through `report convert` into one format."""
+    baseline = tmp_path / "baseline.json"
+    _scan("off", marker, tmp_path / "approved.json", baseline, checks="drift")
+    scan = tmp_path / "scan.json"
+    _scan(mode, marker, scan, baseline)
+    out = tmp_path / f"report.{fmt}"
+    result = runner.invoke(app, ["report", "convert", str(scan), "-f", fmt, "-o", str(out), "--target", "rig"])
+    assert result.exit_code == 0, result.output
+    return out
+
+
+def test_the_finding_carries_its_lenses_and_sides_into_json(marker: Path, tmp_path: Path) -> None:
+    """A new evidence key counts as delivered only once all four formats carry it (R-2.1)."""
+    out = _converted("list-only", marker, tmp_path, "json")
+    finding = next(f for f in json.loads(out.read_text())["findings"] if f["module"] == "mcp.authz_desync")
+
+    assert "CWE-863" in finding["tags"], "without a lens the row is invisible to an operator's filter"
+    assert finding["evidence"]["announced"] == "absent from tools/list"
+    assert finding["evidence"]["name_source"] == "baseline"
+    assert finding["evidence"]["observed"]
+    assert not marker.exists()
+
+
+def test_the_finding_reaches_sarif_with_its_cwe(marker: Path, tmp_path: Path) -> None:
+    out = _converted("list-only", marker, tmp_path, "sarif")
+    results = json.loads(out.read_text())["runs"][0]["results"]
+    result = next(r for r in results if r["ruleId"] == "MAS-SENTRY-MCP.AUTHZ_DESYNC")
+
+    assert "CWE-863" in result["properties"]["tags"]
+    assert result["properties"]["evidence"]["reference_unknown_tool"], "the answer it was told apart from"
+
+
+def test_the_finding_reaches_the_html_and_markdown_bodies(marker: Path, tmp_path: Path) -> None:
+    for fmt in ("html", "md"):
+        body = _converted("list-only", marker, tmp_path / fmt, fmt).read_text(encoding="utf-8")
+        assert HIDDEN in body, f"{fmt} does not name the tool"
+        assert "reference_unknown_tool" in body, f"{fmt} dropped the basis of the verdict"
+
+
 def test_the_row_carries_both_layers_it_spans(marker: Path, tmp_path: Path) -> None:
     """R-7.2 for a finding whose whole content is a disagreement between levels."""
     rows = _approved_then("list-only", marker, tmp_path)
