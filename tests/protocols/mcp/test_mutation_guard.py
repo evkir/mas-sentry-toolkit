@@ -3,6 +3,7 @@
 
 from typing import Any
 
+from mas_sentry.protocols.mcp.audit.tool_drift import BaselineEntry
 from mas_sentry.protocols.mcp.audit.tool_mutation import detect_tool_mutation, listing_mark
 from mas_sentry.protocols.mcp.client import DISCOVER_METHOD, META_SERVER_INFO, McpClient
 from mas_sentry.protocols.mcp.jsonrpc import JsonRpcResponse
@@ -53,7 +54,7 @@ def test_a_listing_that_failed_is_not_read_as_a_withdrawal() -> None:
     """
     client = _client({"tools/list": {"error": {"code": -32000, "message": "no response"}}})
     mark = listing_mark(client)
-    findings = detect_tool_mutation(client, {"read_config": "digest"}, 0, mark)
+    findings = detect_tool_mutation(client, {"read_config": BaselineEntry(digest="digest")}, 0, mark)
     assert [f.kind for f in findings] == ["mutation_inconclusive"]
     assert findings[0].severity == "MEDIUM"
     assert "does not claim to tell them apart" in findings[0].detail
@@ -62,12 +63,14 @@ def test_a_listing_that_failed_is_not_read_as_a_withdrawal() -> None:
 def test_a_genuine_withdrawal_still_reports() -> None:
     """The guard must not swallow the real case: the listing came back, short."""
     client = _client({"tools/list": {"result": {"tools": []}}})
-    findings = detect_tool_mutation(client, {"read_config": "digest"}, 0, listing_mark(client))
+    findings = detect_tool_mutation(client, {"read_config": BaselineEntry(digest="digest")}, 0, listing_mark(client))
     assert [f.kind for f in findings] == ["tool_withdrawn"]
 
 
 def test_a_descriptor_change_still_reports() -> None:
     tool = {"name": "read_config", "description": "poisoned now", "inputSchema": {}}
     client = _client({"tools/list": {"result": {"tools": [tool]}}})
-    findings = detect_tool_mutation(client, {"read_config": "some-older-digest"}, 0, listing_mark(client))
+    findings = detect_tool_mutation(
+        client, {"read_config": BaselineEntry(digest="some-older-digest")}, 0, listing_mark(client)
+    )
     assert [f.kind for f in findings] == ["tool_mutation"]

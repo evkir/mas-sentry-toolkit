@@ -35,7 +35,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from ..client import McpClient
-from .tool_drift import build_tool_baseline
+from .tool_drift import BaselineEntry, build_tool_baseline
 
 TOOLS_LIST_CHANGED = "notifications/tools/list_changed"
 
@@ -49,8 +49,8 @@ class MutationFinding:
     announced: bool
 
 
-def snapshot_tools(client: McpClient) -> dict[str, str]:
-    """Digest every advertised tool descriptor as it stands right now.
+def snapshot_tools(client: McpClient) -> dict[str, BaselineEntry]:
+    """Record every advertised tool descriptor as it stands right now.
 
     `relist_tools`, never `list_tools`. The cached reader hands back the
     inventory this scan already walked, which would make the second snapshot a
@@ -88,7 +88,7 @@ def _listing_failed(client: McpClient, mark: int) -> bool:
 
 def detect_tool_mutation(
     client: McpClient,
-    before: dict[str, str],
+    before: dict[str, BaselineEntry],
     mark: int,
     issues_mark: int = 0,
 ) -> list[MutationFinding]:
@@ -121,7 +121,7 @@ def detect_tool_mutation(
     disclosure = "announced by a tools/list_changed notification" if announced else "with no notification at all"
     out: list[MutationFinding] = []
 
-    for name, digest in sorted(after.items()):
+    for name, entry in sorted(after.items()):
         prior = before.get(name)
         if prior is None:
             out.append(
@@ -136,7 +136,7 @@ def detect_tool_mutation(
                     announced=announced,
                 )
             )
-        elif prior != digest:
+        elif prior.digest != entry.digest:
             out.append(
                 MutationFinding(
                     tool=name,

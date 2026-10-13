@@ -251,6 +251,23 @@
   no caching row at all.
 
 ### Changed
+- **Breaking** The tool-descriptor baseline keeps the descriptor rather than a
+  digest of it, and `build_tool_baseline` / `load_tool_baseline` return records
+  instead of hash strings. A digest proves that something moved and can say
+  nothing about what it moved from, so a `tool_rug_pull` row built on one could
+  never carry both sides of the change: no wording of its sentence can recover a
+  side the format discarded (R-7.2). It also cannot say what a withdrawn tool's
+  input schema was, which is the one input that lets a probe ask a server about
+  a tool it stopped advertising without guessing the name or the arguments.
+
+  Baselines written by earlier releases are still read. A string value is taken
+  as a digest, the change is still detected, and the row reports that the prior
+  side was never recorded rather than implying it was clean. An entry loaded
+  that way is written back as a digest, because filling in a descriptor it never
+  carried would make the next run name a prior side nothing observed. A record
+  in neither shape is refused instead of skipped: a baseline read in part
+  compares the live inventory against fewer tools than the file lists and
+  reports the remainder as unchanged.
 - **Breaking** The known-vulnerable server table moved out of `fingerprint.py`
   into `mas_sentry/protocols/mcp/data/known_cves.toml`, is keyed on the name a
   server announces rather than on its distribution, and is matched exactly

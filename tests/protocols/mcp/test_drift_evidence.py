@@ -188,7 +188,6 @@ def test_a_withdrawn_tool_keeps_the_schema_the_baseline_saw(rig: Path, tmp_path:
     assert "older_than" in str(row["previous_schema"]), "the schema the baseline recorded, not a digest of it"
 
 
-@pytest.mark.xfail(strict=True, reason="build_tool_baseline maps a name to a digest string")
 def test_the_baseline_keeps_the_descriptor_it_was_taken_from(tmp_path: Path) -> None:
     """What the format stores, round-tripped through disk."""
     from mas_sentry.protocols.mcp.audit.tool_drift import (
@@ -206,7 +205,6 @@ def test_the_baseline_keeps_the_descriptor_it_was_taken_from(tmp_path: Path) -> 
     assert entry.has_descriptor is True
 
 
-@pytest.mark.xfail(strict=True, reason="load_tool_baseline coerces every value to str")
 def test_a_digest_only_baseline_is_read_and_marks_what_it_cannot_tell(tmp_path: Path) -> None:
     """Old files keep working: the digest still proves a change (R-2.1).
 
