@@ -426,6 +426,22 @@
   report sites that used to be missed.
 
 ### Fixed
+- A mutation row says whether the change was announced, and what the target had
+  promised about announcing it. Both were computed and neither reached the
+  report: whether a `notifications/tools/list_changed` arrived in the window was
+  woven into the row's sentence, where it cannot be filtered, compared between
+  runs, or checked apart from the prose carrying it, and what the server
+  declared at `initialize` was not read at all. The row now carries `disclosure`
+  and `disclosure_declared`.
+
+  The second of those is the one worth having. Observed silence says little on
+  its own - a server that never offered the channel and then did not use it is
+  behaving as described - while a server that declared `tools.listChanged` and
+  stayed silent is not, and only that one is evidence about the target rather
+  than about the protocol. The reference SDK is the second kind:
+  `remove_tool`/`add_tool` emit nothing while the same server answers
+  `initialize` with `tools.listChanged: true`. Until now a report described it
+  exactly like a server that never offered the channel.
 - A mutation row carries both sides of the swap. The in-session half of the
   descriptor-change class said a descriptor "changed during this scan" and
   stopped there, while the between-runs half had carried what it compared since

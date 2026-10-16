@@ -87,6 +87,27 @@ def _announced_since(client: McpClient, mark: int) -> bool:
     return any(message.get("method") == TOOLS_LIST_CHANGED for message in inbound[mark:])
 
 
+def _declared_disclosure(client: McpClient) -> str:
+    """What the target undertook to do when its inventory changed.
+
+    Observed silence means little on its own: a server that never offered the
+    channel and then did not use it is behaving as described. One that
+    declared it and stayed silent is not, and only that one is evidence about
+    the target rather than about the protocol. Read off `initialize`, where
+    the reference SDK answers `tools.listChanged: true` for a server whose
+    `remove_tool`/`add_tool` emit nothing at all.
+
+    A client that never completed a handshake has no declaration to read and
+    reads as `absent`. That cannot be reached from a report: every row here
+    comes from a comparison of two enumerations, and neither could have been
+    made without a session.
+    """
+    server = client.server
+    tools = server.capabilities.get("tools") if server is not None else None
+    declared = isinstance(tools, dict) and tools.get("listChanged") is True
+    return "tools.listChanged: true" if declared else "tools.listChanged: absent"
+
+
 def listing_mark(client: McpClient) -> int:
     """Remember how many listings had already failed before the probes ran."""
     return len(client.enumeration_issues)
@@ -130,6 +151,13 @@ def detect_tool_mutation(
         ]
     announced = _announced_since(client, mark)
     disclosure = "announced by a tools/list_changed notification" if announced else "with no notification at all"
+    # The same observation the sentence makes, as keys a reviewer can filter,
+    # compare between runs and check apart from the prose carrying it (R-7.2).
+    # Both halves travel together because neither reads correctly alone.
+    told = {
+        "disclosure": TOOLS_LIST_CHANGED if announced else "none",
+        "disclosure_declared": _declared_disclosure(client),
+    }
     out: list[MutationFinding] = []
 
     for name, entry in sorted(after.items()):
@@ -145,7 +173,7 @@ def detect_tool_mutation(
                         "An inventory an operator approved does not contain it."
                     ),
                     announced=announced,
-                    evidence=arrival_evidence(entry),
+                    evidence={**arrival_evidence(entry), **told},
                 )
             )
         elif prior.digest != entry.digest:
@@ -159,7 +187,7 @@ def detect_tool_mutation(
                         "The description a model reads on the next call is not the one that was approved."
                     ),
                     announced=announced,
-                    evidence=change_evidence(prior, entry),
+                    evidence={**change_evidence(prior, entry), **told},
                 )
             )
 
@@ -175,7 +203,7 @@ def detect_tool_mutation(
                         "Whatever it did was not audited on the inventory it left behind."
                     ),
                     announced=announced,
-                    evidence=departure_evidence(prior),
+                    evidence={**departure_evidence(prior), **told},
                 )
             )
     return out

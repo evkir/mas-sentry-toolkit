@@ -110,3 +110,27 @@ def test_the_swap_carries_both_sides_off_the_reference_sdk(stdio_config) -> None
     assert "exfil.lab.invalid" in evidence["current_description"]
     assert "read_configArguments" in evidence["previous_schema"], "the function answering before the swap"
     assert "_mutated_read_configArguments" in evidence["current_schema"], "and the one answering after"
+
+
+def test_the_sdk_declares_the_channel_it_never_uses(stdio_config) -> None:
+    """The asymmetry this detector was built around, now checkable from the row.
+
+    `remove_tool`/`add_tool` emit nothing on `mcp` 2.3.0, while the same server
+    answers `initialize` with `tools.listChanged: true`. A detector waiting to
+    be told would never fire here, and an attacker has every reason not to
+    tell - so the declaration is read as evidence about the finding, never as
+    the reason to look. A row carrying only what arrived would report this
+    target exactly like one that never offered the channel at all.
+    """
+    with open_stdio(stdio_config) as transport:
+        client = McpClient(transport)
+        client.connect()
+        assert client.server.capabilities["tools"]["listChanged"] is True, "the promise, read off initialize"
+        before = snapshot_tools(client)
+        mark = notification_mark(client)
+        client.send("tools/call", {"name": "read_config", "arguments": {"key": "a"}})
+        findings = detect_tool_mutation(client, before, mark)
+
+    evidence = findings[0].evidence
+    assert evidence["disclosure"] == "none", "and nothing arrived to keep it"
+    assert evidence["disclosure_declared"] == "tools.listChanged: true"
