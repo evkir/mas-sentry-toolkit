@@ -23,8 +23,6 @@ from __future__ import annotations
 
 from typing import Any
 
-import pytest
-
 from mas_sentry.protocols.mcp.audit.tool_mutation import exercise_tools
 from mas_sentry.protocols.mcp.client import DISCOVER_METHOD, META_SERVER_INFO, McpClient
 from mas_sentry.protocols.mcp.jsonrpc import JsonRpcResponse
@@ -65,8 +63,9 @@ _STRING_PARAM: dict[str, Any] = {
 class _Transport:
     """Answers enough to enumerate, and records every call that reaches it."""
 
-    def __init__(self, names: tuple[str, ...]) -> None:
+    def __init__(self, names: tuple[str, ...], hints: dict[str, bool] | None = None) -> None:
         self.names = names
+        self.hints = hints or {}
         self.called: list[str] = []
         self.emit_routing_headers = False
         self.protocol_version: str | None = None
@@ -79,7 +78,12 @@ class _Transport:
         if method == DISCOVER_METHOD:
             return JsonRpcResponse(id=body.get("id"), result=_DISCOVER)
         if method == "tools/list":
-            tools = [{"name": n, "description": n, "inputSchema": _STRING_PARAM} for n in self.names]
+            tools: list[dict[str, Any]] = []
+            for n in self.names:
+                tool: dict[str, Any] = {"name": n, "description": n, "inputSchema": _STRING_PARAM}
+                if n in self.hints:
+                    tool["annotations"] = {"readOnlyHint": self.hints[n]}
+                tools.append(tool)
             return JsonRpcResponse(id=body.get("id"), result={"tools": tools})
         if method == "tools/call":
             name = (body.get("params") or {}).get("name")
@@ -90,14 +94,13 @@ class _Transport:
         return self.send(req)
 
 
-def _rig(names: tuple[str, ...]) -> tuple[McpClient, _Transport]:
-    transport = _Transport(names)
+def _rig(names: tuple[str, ...], hints: dict[str, bool] | None = None) -> tuple[McpClient, _Transport]:
+    transport = _Transport(names, hints)
     client = McpClient(transport)
     client.connect()
     return client, transport
 
 
-@pytest.mark.xfail(strict=True, reason="selection is a blocklist: an unenumerated destructive verb is called")
 def test_a_scan_executes_nothing_it_was_not_able_to_recognise() -> None:
     """Measured on the wire rather than on the return value.
 
@@ -120,3 +123,25 @@ def test_a_read_shaped_tool_is_still_called() -> None:
     client, transport = _rig(_READ_SHAPED)
     exercise_tools(client)
     assert transport.called == list(_READ_SHAPED)
+
+
+def test_a_declared_write_is_refused_under_a_retrieval_verb() -> None:
+    """The name says retrieval and the target says otherwise; the target wins.
+
+    A hint is only ever read in this direction. The symmetric case below is
+    what the asymmetry is for.
+    """
+    client, transport = _rig(("get_quote",), hints={"get_quote": False})
+    exercise_tools(client)
+    assert transport.called == []
+
+
+def test_a_declared_read_does_not_make_a_tool_callable() -> None:
+    """A server asking to be called is not a reason to call it (R-2.4).
+
+    Without this the selection would be the target's to set: `readOnlyHint`
+    is a value the server chooses, and the server is the thing under test.
+    """
+    client, transport = _rig(("charge_card",), hints={"charge_card": True})
+    exercise_tools(client)
+    assert transport.called == []

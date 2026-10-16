@@ -426,6 +426,28 @@
   report sites that used to be missed.
 
 ### Fixed
+- A scan no longer executes a tool on the target because nothing recognised its
+  name as dangerous. The mutation audit calls tools deliberately, to open the
+  window a descriptor swap fires in, and chose them by refusing any name
+  carrying one of 38 mutating verbs - a list that admits by default. Measured
+  against the reference rig, a default `mcp scan` therefore called `wipe_disk`,
+  `terminate_pod`, `revoke_token`, `overwrite_file` and `charge_card`, and the
+  rig's hidden tool wrote its execution marker to disk: the scanner was doing
+  the thing it reports as a finding when a server does it to a model (R-7.6).
+
+  The selection now admits rather than refuses. A tool is called only if its
+  name leads with a verb that names retrieval, and the former list of mutating
+  verbs is kept as a veto on the rest of a name whose head passed, which is the
+  one shape a head test cannot judge - `get_and_delete_logs` leads with a
+  retrieval verb and is not one. Being wrong now costs coverage rather than the
+  target: a swap keyed to a tool whose verb is unlisted is never triggered, and
+  is not seen.
+
+  A tool the target declares as writing, through `readOnlyHint: false`, is not
+  called even under a retrieval verb. The hint is read in that direction only.
+  `readOnlyHint: true` widens nothing, because a server with a reason to be
+  called has every reason to claim it, and the decision to act on a target is
+  not the target's to make.
 - The evidence block reaches the SARIF and HTML reports. SARIF promoted five
   keys the agentic modules emit and dropped everything else; the HTML template
   rendered four shapes of its own and ignored the rest. Any module-supplied

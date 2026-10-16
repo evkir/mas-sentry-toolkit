@@ -71,7 +71,6 @@ def _assert_the_rig_was_reached(rows: list[dict[str, object]]) -> None:
     assert "2 tools" in str(fingerprints[0]["detail"])
 
 
-@pytest.mark.xfail(strict=True, reason="selection is a blocklist, and 'sweep' was never enumerated")
 @pytest.mark.parametrize("checks", ["mutation", "all"])
 def test_a_scan_does_not_execute_a_tool_it_only_found_a_name_for(checks: str, tmp_path: Path) -> None:
     """Both halves, because either alone passes for the wrong reason.

@@ -34,7 +34,7 @@ import re
 from dataclasses import dataclass
 from typing import Any
 
-from ..client import McpClient
+from ..client import McpClient, ToolDef
 from .tool_drift import BaselineEntry, build_tool_baseline
 
 TOOLS_LIST_CHANGED = "notifications/tools/list_changed"
@@ -167,11 +167,49 @@ def detect_tool_mutation(
     return out
 
 
-# Verbs that change something. A tool whose name carries one is never called
-# below: the window this opens is worth having, and not at the price of running
-# an operation on the target to get it (R-7.6). The test is deliberately
-# conservative in the unsafe direction - an unrecognised name is called, a
-# recognised one is not - so being wrong costs coverage rather than the target.
+# A tool is called only if its name leads with one of these. The list admits
+# rather than refuses, and that is the correction it makes: the selection used
+# to be a list of verbs to refuse, which admits by default, so every
+# destructive verb nobody had thought to enumerate was called. Measured on the
+# reference rig before this changed, a default `mcp scan` called `wipe_disk`,
+# `terminate_pod`, `revoke_token`, `overwrite_file` and `charge_card`, and the
+# rig's `sweep_cluster` wrote its execution marker to disk.
+#
+# Being wrong now costs coverage: a swap keyed to a tool whose verb is absent
+# here is never triggered and never seen. That is the direction this has to
+# fail in, because the other one is paid by the target (R-7.6).
+#
+# Every verb here names retrieval of state the target already holds. `fetch`
+# belongs with them - it returns a resource rather than changing one - and is
+# the only entry whose call leaves the target at all, with an argument
+# synthesised below that is not a URL.
+_READ_VERBS = frozenset(
+    {
+        "count",
+        "describe",
+        "echo",
+        "fetch",
+        "find",
+        "get",
+        "head",
+        "info",
+        "inspect",
+        "list",
+        "ping",
+        "query",
+        "read",
+        "search",
+        "show",
+        "stat",
+        "status",
+        "view",
+    }
+)
+
+# Read as a veto on the rest of a name whose head already passed, which is the
+# one shape the head test cannot judge: `get_and_delete_logs` leads with a
+# retrieval verb and is not one. Kept from the previous selection, where it was
+# the whole of it.
 _MUTATING_VERBS = frozenset(
     {
         "add",
@@ -240,9 +278,10 @@ def exercise_tools(client: McpClient) -> list[str]:
     had reported since the detector landed. A window that depends on another
     module's imprecision is not a window; it is a coincidence.
 
-    So it is opened on purpose now, and narrowly: no tool whose name carries a
-    mutating verb, no argument that is not synthesised from the declared schema,
-    and nothing at all for a tool whose required parameters this cannot fill.
+    So it is opened on purpose now, and narrowly: nothing but a name leading
+    with a verb recognised as retrieval, nothing the target itself declares as
+    writing, no argument that is not synthesised from the declared schema, and
+    nothing at all for a tool whose required parameters this cannot fill.
 
     When every advertised tool is excluded, no window opens and the comparison
     that follows can only report what was already visible. That is a limit of
@@ -253,7 +292,9 @@ def exercise_tools(client: McpClient) -> list[str]:
     for tool in client.list_tools():
         if len(called) >= _MAX_EXERCISED:
             break
-        if _name_carries_a_mutating_verb(tool.name):
+        if not _name_reads_as_retrieval(tool.name):
+            continue
+        if _target_declares_a_write(tool):
             continue
         arguments = _fillable_arguments(tool.input_schema)
         if arguments is None:
@@ -263,9 +304,25 @@ def exercise_tools(client: McpClient) -> list[str]:
     return called
 
 
-def _name_carries_a_mutating_verb(name: str) -> bool:
-    words = set(re.sub(r"(?<!^)(?=[A-Z])", "_", name).lower().split("_"))
-    return bool(words & _MUTATING_VERBS)
+def _name_reads_as_retrieval(name: str) -> bool:
+    """Whether the name leads with a retrieval verb and adds no mutating one."""
+    words = re.sub(r"(?<!^)(?=[A-Z])", "_", name).lower().split("_")
+    return words[0] in _READ_VERBS and not (set(words[1:]) & _MUTATING_VERBS)
+
+
+def _target_declares_a_write(tool: ToolDef) -> bool:
+    """Whether the target itself says this tool is not read-only.
+
+    Read in one direction only. `readOnlyHint: false` narrows what MST will
+    do; `readOnlyHint: true` widens nothing. A hint that could widen it would
+    make the decision to call a tool the target's to make, and a server with a
+    reason to be called has every reason to say so - which is the asymmetry
+    R-2.4 asks for, applied to the target's own declarations.
+    """
+    annotations = tool.raw.get("annotations")
+    if not isinstance(annotations, dict):
+        return False
+    return annotations.get("readOnlyHint") is False
 
 
 def _fillable_arguments(schema: dict[str, Any] | None) -> dict[str, Any] | None:
