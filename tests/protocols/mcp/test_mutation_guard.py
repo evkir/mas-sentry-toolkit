@@ -3,7 +3,7 @@
 
 from typing import Any
 
-from mas_sentry.protocols.mcp.audit.tool_drift import BaselineEntry
+from mas_sentry.protocols.mcp.audit.descriptor import BaselineEntry
 from mas_sentry.protocols.mcp.audit.tool_mutation import detect_tool_mutation, listing_mark
 from mas_sentry.protocols.mcp.client import DISCOVER_METHOD, META_SERVER_INFO, McpClient
 from mas_sentry.protocols.mcp.jsonrpc import JsonRpcResponse

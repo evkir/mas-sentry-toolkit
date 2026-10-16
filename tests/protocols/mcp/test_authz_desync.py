@@ -23,7 +23,7 @@ from mas_sentry.protocols.mcp.audit.authz_desync import (
     WITHDRAWN,
     probe_authz_desync,
 )
-from mas_sentry.protocols.mcp.audit.tool_drift import BaselineEntry, build_tool_baseline
+from mas_sentry.protocols.mcp.audit.descriptor import BaselineEntry, build_tool_baseline
 from mas_sentry.protocols.mcp.client import ToolDef
 from mas_sentry.protocols.mcp.jsonrpc import JsonRpcResponse
 

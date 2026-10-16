@@ -19,6 +19,7 @@ from .audit.auth_prm import HttpFetcher, audit_protected_resource
 from .audit.authz_desync import REACHABLE as AUTHZ_REACHABLE
 from .audit.authz_desync import probe_authz_desync
 from .audit.caching import audit_caching
+from .audit.descriptor import load_tool_baseline
 from .audit.dns_rebind import test_dns_rebinding
 from .audit.elicitation import audit_elicitations
 from .audit.header_desync import probe_header_desync
@@ -27,7 +28,7 @@ from .audit.path_traversal import probe_path_traversal
 from .audit.resource_content import audit_resource_content, audit_resource_templates
 from .audit.ssrf import probe_ssrf
 from .audit.stdio_rce import StdioConfigAuditor
-from .audit.tool_drift import detect_tool_drift, load_tool_baseline
+from .audit.tool_drift import detect_tool_drift
 from .audit.tool_mutation import (
     detect_tool_mutation,
     exercise_tools,
@@ -533,8 +534,12 @@ def _mutation_rows(
     # keyed its swap to, which stopped being true the moment those probes became
     # precise about which tools they had business calling.
     exercise_tools(client)
+    # Spread exactly as the drift rows are, and for the same reason: the report
+    # adapter turns anything other than check/severity/detail into a finding's
+    # evidence block, and a row that kept them nested would reach json and
+    # sarif as one opaque string and md and html not at all.
     return [
-        {"check": mf.kind, "severity": mf.severity, "detail": mf.detail}
+        {"check": mf.kind, "severity": mf.severity, "detail": mf.detail, **mf.evidence}
         for mf in detect_tool_mutation(client, tools_before, inbound_mark, issues_mark)
     ]
 

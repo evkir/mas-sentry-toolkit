@@ -426,6 +426,32 @@
   report sites that used to be missed.
 
 ### Fixed
+- A mutation row carries both sides of the swap. The in-session half of the
+  descriptor-change class said a descriptor "changed during this scan" and
+  stopped there, while the between-runs half had carried what it compared since
+  the baseline started keeping descriptors. Nothing in the format blocked it:
+  `snapshot_tools` returns descriptors on both sides, so the two were already in
+  memory when the row was built and were dropped on the way to it.
+  `tool_mutation` now reports which part moved and both whole descriptors,
+  `tool_appeared` the one it arrived with, and `tool_withdrawn` the one it left
+  behind - the same keys the drift rows use, so a reviewer reads one shape
+  whichever span the swap crossed (R-7.2). Verified through `report convert` in
+  all four formats that carry evidence.
+
+  How a descriptor is recorded and how it reaches a row as evidence moved out of
+  `tool_drift` into `audit/descriptor.py`. Three modules read it - both halves
+  of the change class and the authorization probe - and leaving it inside one of
+  them made a judge the supplier of another judge's evidence format (R-1.7). No
+  behaviour changes with the move; both detectors are left deciding only what is
+  worth reporting.
+
+  Carrying the unchanged half turned out to earn its place on the first live
+  run. `mcp` 2.3.0 derives the input schema's `title` from the name of the
+  Python function backing a tool, so a server that re-registers a tool under the
+  same name with a different function carries the internal name onto the wire -
+  `read_configArguments` becomes `_mutated_read_configArguments`. An in-session
+  swap moves the schema as well as the description, and the half that looked
+  redundant is the one that names the function answering now.
 - A scan no longer executes a tool on the target because nothing recognised its
   name as dangerous. The mutation audit calls tools deliberately, to open the
   window a descriptor swap fires in, and chose them by refusing any name

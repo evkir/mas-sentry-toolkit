@@ -159,7 +159,8 @@ def test_a_rug_pull_row_carries_both_sides_of_the_change(rig: Path, tmp_path: Pa
 
 def test_a_schema_change_names_itself_and_shows_both_schemas() -> None:
     """The other half of the descriptor surface, which `detail` never distinguished."""
-    from mas_sentry.protocols.mcp.audit.tool_drift import build_tool_baseline, diff_tool_descriptors
+    from mas_sentry.protocols.mcp.audit.descriptor import build_tool_baseline
+    from mas_sentry.protocols.mcp.audit.tool_drift import diff_tool_descriptors
 
     before = [ToolDef(name="read", description="reads a file", input_schema={"type": "object"})]
     after = [ToolDef(name="read", description="reads a file", input_schema={"type": "string"})]
@@ -187,11 +188,7 @@ def test_a_withdrawn_tool_keeps_the_schema_the_baseline_saw(rig: Path, tmp_path:
 
 def test_the_baseline_keeps_the_descriptor_it_was_taken_from(tmp_path: Path) -> None:
     """What the format stores, round-tripped through disk."""
-    from mas_sentry.protocols.mcp.audit.tool_drift import (
-        build_tool_baseline,
-        load_tool_baseline,
-        save_tool_baseline,
-    )
+    from mas_sentry.protocols.mcp.audit.descriptor import build_tool_baseline, load_tool_baseline, save_tool_baseline
 
     tools = [ToolDef(name="pay", description="transfers funds", input_schema={"type": "object"})]
     path = tmp_path / "baseline.json"
@@ -208,10 +205,7 @@ def test_a_digest_only_baseline_is_read_and_marks_what_it_cannot_tell(tmp_path: 
     Baselines live in users' CI, so a format change that silently stopped
     detecting rug pulls would be the worst defect this project recognises.
     """
-    from mas_sentry.protocols.mcp.audit.tool_drift import (
-        load_tool_baseline,
-        tool_descriptor_digest,
-    )
+    from mas_sentry.protocols.mcp.audit.descriptor import load_tool_baseline, tool_descriptor_digest
 
     before = ToolDef(name="pay", description="transfers funds", input_schema={"type": "object"})
     path = tmp_path / "v1.json"
@@ -224,11 +218,8 @@ def test_a_digest_only_baseline_is_read_and_marks_what_it_cannot_tell(tmp_path: 
 
 def test_a_digest_only_baseline_still_reports_the_change_it_can_prove(tmp_path: Path) -> None:
     """The row from an old baseline: the current side, and an honest gap."""
-    from mas_sentry.protocols.mcp.audit.tool_drift import (
-        diff_tool_descriptors,
-        load_tool_baseline,
-        tool_descriptor_digest,
-    )
+    from mas_sentry.protocols.mcp.audit.descriptor import load_tool_baseline, tool_descriptor_digest
+    from mas_sentry.protocols.mcp.audit.tool_drift import diff_tool_descriptors
 
     before = ToolDef(name="pay", description="transfers funds", input_schema={"type": "object"})
     path = tmp_path / "v1.json"
@@ -294,11 +285,8 @@ def test_the_sides_reach_the_markdown_body(rig: Path, tmp_path: Path) -> None:
 
 def test_a_long_descriptor_is_capped_and_says_so() -> None:
     """A cap that hid a difference past it would read as no difference at all."""
-    from mas_sentry.protocols.mcp.audit.tool_drift import (
-        _MAX_EVIDENCE_CHARS,
-        build_tool_baseline,
-        diff_tool_descriptors,
-    )
+    from mas_sentry.protocols.mcp.audit.descriptor import _MAX_EVIDENCE_CHARS, build_tool_baseline
+    from mas_sentry.protocols.mcp.audit.tool_drift import diff_tool_descriptors
 
     head = "x" * _MAX_EVIDENCE_CHARS
     before = [ToolDef(name="pay", description=head + " benign tail")]

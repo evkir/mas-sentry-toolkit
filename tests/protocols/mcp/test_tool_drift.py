@@ -1,15 +1,13 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 from pathlib import Path
 
-from mas_sentry.protocols.mcp.audit.tool_drift import (
-    DriftFinding,
+from mas_sentry.protocols.mcp.audit.descriptor import (
     build_tool_baseline,
-    detect_tool_drift,
-    diff_tool_descriptors,
     load_tool_baseline,
     save_tool_baseline,
     tool_descriptor_digest,
 )
+from mas_sentry.protocols.mcp.audit.tool_drift import DriftFinding, detect_tool_drift, diff_tool_descriptors
 from mas_sentry.protocols.mcp.client import ToolDef
 
 

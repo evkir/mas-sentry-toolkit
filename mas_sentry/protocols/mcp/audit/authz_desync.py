@@ -58,7 +58,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from ..client import McpClient
-from .tool_drift import BaselineEntry
+from .descriptor import BaselineEntry
 
 REACHABLE = "reachable"
 REFUSED = "refused"

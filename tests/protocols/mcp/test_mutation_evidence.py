@@ -148,7 +148,6 @@ def test_the_rig_moves_its_inventory_under_the_scan(rig: Path, tmp_path: Path) -
     assert "tool_withdrawn" in kinds, "a tool stopped being advertised mid-scan"
 
 
-@pytest.mark.xfail(strict=True, reason="MutationFinding has no evidence; the row carries three keys")
 def test_a_mutation_row_carries_both_sides_of_the_swap(rig: Path, tmp_path: Path) -> None:
     """R-7.2 on the row an operator triages: what was seen, and against what.
 
@@ -164,7 +163,6 @@ def test_a_mutation_row_carries_both_sides_of_the_swap(rig: Path, tmp_path: Path
     assert "key" in str(row["current_schema"])
 
 
-@pytest.mark.xfail(strict=True, reason="MutationFinding has no evidence; the row carries three keys")
 def test_an_appeared_tool_carries_the_descriptor_it_arrived_with(rig: Path, tmp_path: Path) -> None:
     """One side only, and it is the current one: there is no prior side to show."""
     row = _row(_scan(rig, tmp_path / "scan.json"), "tool_appeared")
@@ -173,7 +171,6 @@ def test_an_appeared_tool_carries_the_descriptor_it_arrived_with(rig: Path, tmp_
     assert "previous_description" not in row, "a tool that was not there has no side to recover"
 
 
-@pytest.mark.xfail(strict=True, reason="MutationFinding has no evidence; the row carries three keys")
 def test_a_withdrawn_tool_carries_the_descriptor_it_left_behind(rig: Path, tmp_path: Path) -> None:
     """The mirror, and the side that matters: the schema is what lets a later
     probe ask about the tool without guessing either the name or the arguments.
@@ -184,7 +181,6 @@ def test_a_withdrawn_tool_carries_the_descriptor_it_left_behind(rig: Path, tmp_p
     assert "current_description" not in row, "a tool that left has no current side"
 
 
-@pytest.mark.xfail(strict=True, reason="MutationFinding has no evidence; the row carries three keys")
 def test_a_long_descriptor_is_capped_and_the_row_says_which_field(rig: Path, tmp_path: Path) -> None:
     """A descriptor is bounded by nothing in the protocol, and every byte of it
     would travel into each report format. The one case a cap can hide is a
@@ -207,7 +203,6 @@ def _converted(rig: Path, tmp_path: Path, fmt: str) -> Path:
     return out
 
 
-@pytest.mark.xfail(strict=True, reason="MutationFinding has no evidence; the row carries three keys")
 def test_the_sides_reach_the_json_report(rig: Path, tmp_path: Path) -> None:
     """Delivered means delivered in all four formats, not in the scan JSON (R-2.1)."""
     out = _converted(rig, tmp_path, "json")
@@ -218,7 +213,6 @@ def test_the_sides_reach_the_json_report(rig: Path, tmp_path: Path) -> None:
     assert "exfil.lab.invalid" in evidence["current_description"]
 
 
-@pytest.mark.xfail(strict=True, reason="MutationFinding has no evidence; the row carries three keys")
 def test_the_sides_reach_sarif_result_properties(rig: Path, tmp_path: Path) -> None:
     """The format a triager opens, and the one that used to drop unknown keys."""
     results = json.loads(_converted(rig, tmp_path, "sarif").read_text())["runs"][0]["results"]
@@ -228,7 +222,6 @@ def test_the_sides_reach_sarif_result_properties(rig: Path, tmp_path: Path) -> N
     assert "exfil.lab.invalid" in evidence["current_description"]
 
 
-@pytest.mark.xfail(strict=True, reason="MutationFinding has no evidence; the row carries three keys")
 def test_the_sides_reach_the_html_body(rig: Path, tmp_path: Path) -> None:
     body = _converted(rig, tmp_path, "html").read_text(encoding="utf-8")
     assert "previous_description" in body
@@ -236,7 +229,6 @@ def test_the_sides_reach_the_html_body(rig: Path, tmp_path: Path) -> None:
     assert "exfil.lab.invalid" in body
 
 
-@pytest.mark.xfail(strict=True, reason="MutationFinding has no evidence; the row carries three keys")
 def test_the_sides_reach_the_markdown_body(rig: Path, tmp_path: Path) -> None:
     body = _converted(rig, tmp_path, "md").read_text(encoding="utf-8")
     assert "previous_description" in body

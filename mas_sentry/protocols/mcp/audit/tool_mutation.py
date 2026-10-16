@@ -31,11 +31,17 @@ or it did not.
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 
 from ..client import McpClient, ToolDef
-from .tool_drift import BaselineEntry, build_tool_baseline
+from .descriptor import (
+    BaselineEntry,
+    arrival_evidence,
+    build_tool_baseline,
+    change_evidence,
+    departure_evidence,
+)
 
 TOOLS_LIST_CHANGED = "notifications/tools/list_changed"
 
@@ -47,6 +53,11 @@ class MutationFinding:
     severity: str
     detail: str
     announced: bool
+    # Both sides of whatever the row claims, in the same keys the between-runs
+    # half of this class uses: a reviewer reads one shape whether the swap
+    # crossed runs or happened under one scan (R-7.2). Empty for a row whose
+    # entire content is its sentence, such as a listing that did not come back.
+    evidence: dict[str, str] = field(default_factory=dict)
 
 
 def snapshot_tools(client: McpClient) -> dict[str, BaselineEntry]:
@@ -134,6 +145,7 @@ def detect_tool_mutation(
                         "An inventory an operator approved does not contain it."
                     ),
                     announced=announced,
+                    evidence=arrival_evidence(entry),
                 )
             )
         elif prior.digest != entry.digest:
@@ -147,10 +159,11 @@ def detect_tool_mutation(
                         "The description a model reads on the next call is not the one that was approved."
                     ),
                     announced=announced,
+                    evidence=change_evidence(prior, entry),
                 )
             )
 
-    for name in sorted(before):
+    for name, prior in sorted(before.items()):
         if name not in after:
             out.append(
                 MutationFinding(
@@ -162,6 +175,7 @@ def detect_tool_mutation(
                         "Whatever it did was not audited on the inventory it left behind."
                     ),
                     announced=announced,
+                    evidence=departure_evidence(prior),
                 )
             )
     return out
