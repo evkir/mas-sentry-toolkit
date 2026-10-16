@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-10-16 - Agent-host posture, authorization announced but not applied, and a scan that calls only what it recognised
+
 ### Added
 - A restriction announced at discovery and not applied at execution is detected.
   `mcp scan --tool-baseline` asks whether a tool the target has stopped
