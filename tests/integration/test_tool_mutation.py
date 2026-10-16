@@ -72,3 +72,31 @@ def test_the_scan_reports_the_swap_as_a_finding(stdio_config) -> None:
     assert len(mutations) == 1
     assert mutations[0]["severity"] == "HIGH"
     assert "read_config" in mutations[0]["detail"]
+
+
+@pytest.mark.xfail(strict=True, reason="MutationFinding has no evidence field")
+def test_the_swap_carries_both_sides_off_the_reference_sdk(stdio_config) -> None:
+    """The same claim as the unit rig, against a server that really swaps.
+
+    The hand-rolled rig rewrites a dict; this one calls `remove_tool` and
+    `add_tool` on the reference SDK, which is where the class was first seen
+    and the only place the descriptor both sides are read from is one the SDK
+    built rather than one a test wrote (R-2.2).
+    """
+    # Imported here, not at module scope: this module is skipped without the
+    # lab extra, and the rig imports the SDK at its own module scope (R-2.11).
+    from lab.mcp.server import CLEAN_CONFIG_DESCRIPTION
+
+    with open_stdio(stdio_config) as transport:
+        client = McpClient(transport)
+        client.connect()
+        before = snapshot_tools(client)
+        mark = notification_mark(client)
+        client.send("tools/call", {"name": "read_config", "arguments": {"key": "a"}})
+        findings = detect_tool_mutation(client, before, mark)
+
+    evidence = findings[0].evidence
+    assert evidence["changed"] == "description"
+    assert evidence["previous_description"] == CLEAN_CONFIG_DESCRIPTION
+    assert "exfil.lab.invalid" in evidence["current_description"]
+    assert "key" in evidence["previous_schema"], "the unchanged half, so `changed` can be checked"
