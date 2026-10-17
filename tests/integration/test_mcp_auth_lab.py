@@ -9,6 +9,7 @@ conforming server serves.
 
 from __future__ import annotations
 
+import json
 import os
 import socket
 import subprocess
@@ -101,6 +102,50 @@ def test_the_pointer_survives_a_real_refusal(rig: int) -> None:
 def test_a_refusal_without_a_header_records_nothing(silent_rig: int) -> None:
     """Pinned in both directions: the capture must not invent a challenge."""
     assert _challenge(silent_rig) is None
+
+
+@pytest.mark.xfail(strict=True, reason="the codec admits a non-object error; the fix lands in the next commit")
+def test_a_scan_survives_an_oauth_guarded_target(rig: int) -> None:
+    """A target behind OAuth must end the scan as a handshake failure, not a crash.
+
+    The assertion sits on `McpClient.connect()` rather than on `transport.send()`
+    because that is where the scan actually reads the error: the transport hands
+    the response back intact, and the first consumer to treat `error` as the
+    object its type promises is the client. A test one layer below the defect is
+    the R-2.3 trap - the covered function was never the one that breaks.
+
+    `HandshakeFailed` is the right end state, not an improvement on it: the
+    runtime catches that class and writes the gap row, so a refusal the scanner
+    cannot get past still reaches `report convert` as a reason.
+    """
+    from mas_sentry.protocols.mcp.client import McpClient
+    from mas_sentry.protocols.mcp.errors import HandshakeFailed
+    from mas_sentry.protocols.mcp.transport_http import HttpConfig, open_http
+
+    with pytest.raises(HandshakeFailed), open_http(HttpConfig(url=f"http://127.0.0.1:{rig}/mcp")) as transport:
+        McpClient(transport).connect()
+
+
+@pytest.mark.xfail(strict=True, reason="the codec admits a non-object error; the fix lands in the next commit")
+def test_the_cli_writes_a_report_against_an_oauth_guarded_target(rig: int, tmp_path: Path) -> None:
+    """The whole point of NS-1: a scan that could not happen still leaves a file.
+
+    Driven through the CLI because that is the contract an operator and a
+    pipeline depend on - `mcp scan | report convert` breaks on a missing file,
+    and a traceback is not a report.
+    """
+    from typer.testing import CliRunner
+
+    from mas_sentry.cli import app
+
+    out = tmp_path / "scan.json"
+    CliRunner().invoke(
+        app,
+        ["mcp", "scan", "-t", f"http://127.0.0.1:{rig}/mcp", "--confirm-scope", "-o", str(out)],
+    )
+    assert out.exists()
+    rows = json.loads(out.read_text())
+    assert rows, "a scan that did not happen must still say so"
 
 
 def test_an_oauth_error_body_does_not_crash_the_scan(rig: int) -> None:
