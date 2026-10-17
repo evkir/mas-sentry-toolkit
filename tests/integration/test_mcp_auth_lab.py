@@ -78,6 +78,12 @@ def silent_rig() -> Iterator[int]:
     yield from _spawn("challenge")
 
 
+@pytest.fixture()
+def weak_rig() -> Iterator[int]:
+    """A rig that refuses and then publishes metadata saying the wrong things."""
+    yield from _spawn("weak")
+
+
 def _challenge(port: int):
     from mas_sentry.protocols.mcp.jsonrpc import JsonRpcCodec
     from mas_sentry.protocols.mcp.transport_http import HttpConfig, StreamableHttpTransport
@@ -89,6 +95,64 @@ def _challenge(port: int):
         return transport.auth_challenge
     finally:
         transport.close()
+
+
+@pytest.mark.xfail(
+    strict=True, reason="the auth audit is unreachable past a refused handshake; the fix lands in the next commit"
+)
+def test_the_auth_audit_reaches_a_target_behind_oauth(weak_rig: int, tmp_path: Path) -> None:
+    """The RFC 9728 audit must run against the one class of target it was written for.
+
+    `_run_all_checks` opens with `fingerprint()`, which calls `connect()`, and a
+    target behind OAuth refuses the handshake - so every module after it,
+    including the authorization chain, was unreachable in the field. The module
+    itself works: pointed at this rig by hand it returns three rows, one of them
+    the HIGH for an issuer reachable over cleartext off loopback. None of them
+    ever reached a report.
+
+    Driven through the CLI because the defect is reachability, not logic. A unit
+    test of `audit_protected_resource` passes today and says nothing about
+    whether a scan ever calls it - the R-2.3 trap, in the same module twice.
+    """
+    from typer.testing import CliRunner
+
+    from mas_sentry.cli import app
+
+    out = tmp_path / "scan.json"
+    CliRunner().invoke(
+        app,
+        ["mcp", "scan", "-t", f"http://127.0.0.1:{weak_rig}/mcp", "--confirm-scope", "-o", str(out)],
+    )
+    assert out.exists()
+    rows = json.loads(out.read_text())
+    checks = {r["check"] for r in rows}
+
+    assert "auth_required" in checks, "a declared boundary bounds the scan and has to be said"
+    assert "auth_transport" in checks, "the HIGH the audit produces by hand must reach the report"
+    high = [r for r in rows if r["check"] == "auth_transport"]
+    assert high and high[0]["severity"] == "HIGH"
+
+
+def test_an_unreachable_target_is_still_unreachable(tmp_path: Path) -> None:
+    """The other half of R-2.4: a refusal at the auth boundary is not every refusal.
+
+    Green before the fix and after it. A port with nothing behind it must keep
+    producing the gap row, because a fix that read every failed handshake as an
+    authenticated target would file this scanner's own blindness as a fact about
+    whatever it was pointed at.
+    """
+    from typer.testing import CliRunner
+
+    from mas_sentry.cli import app
+
+    out = tmp_path / "scan.json"
+    CliRunner().invoke(
+        app,
+        ["mcp", "scan", "-t", f"http://127.0.0.1:{_free_port()}/mcp", "--confirm-scope", "-o", str(out)],
+    )
+    assert out.exists()
+    rows = json.loads(out.read_text())
+    assert [r["check"] for r in rows] == ["target_unreachable"]
 
 
 def test_the_pointer_survives_a_real_refusal(rig: int) -> None:
