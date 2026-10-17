@@ -37,9 +37,10 @@ from .audit.tool_mutation import (
     snapshot_tools,
 )
 from .audit.tool_poisoning import detect_tool_poisoning
+from .auth import AuthChallenge
 from .client import McpClient, ScanBudget
 from .cve_match import CveVerdict, verdicts_for
-from .errors import TargetUnreachable
+from .errors import HandshakeFailed, TargetUnreachable
 from .fingerprint import McpFingerprint, fingerprint
 from .known_cves import KnownCve
 from .transport_http import HttpConfig, open_http
@@ -579,6 +580,47 @@ def _budget_row(budget: ScanBudget, ran: list[str], skipped: list[str], probed: 
     }
 
 
+def _auth_bounded_rows(
+    client: McpClient,
+    target_url: str,
+    scope_confirmed: bool,
+    challenge: AuthChallenge,
+) -> list[dict[str, Any]]:
+    """What a scan can still say about a target that refused the handshake.
+
+    A refusal carrying `WWW-Authenticate` is not an unreachable target. The
+    server answered, named a scheme and pointed at the document describing its
+    authorization servers - which is the whole input the RFC 9728 audit needs,
+    and none of it requires a session. Before this existed the handshake failure
+    aborted `_run_all_checks` at its first line, so that audit never ran against
+    the one class of target it was written for: pointed at a rig publishing a
+    cleartext issuer it returns a HIGH by hand, and no report ever carried it.
+
+    The row leads rather than trails, for the reason `_launch_row` leads: a
+    reader has to know what bounded the scan before reading what it found.
+
+    It names the class of modules that did not run rather than listing them.
+    The list of module names lives in `_run_all_checks` and nowhere else, and a
+    second copy here would be a copy that goes stale - the defect this row
+    exists to report, committed in the row reporting it.
+    """
+    out: list[dict[str, Any]] = [
+        {
+            "check": "scan_bounded_by_auth",
+            "severity": "MEDIUM",
+            "detail": (
+                f"{target_url} refused the handshake with {challenge.status} and named "
+                f"{challenge.scheme}. No module that needs an inventory ran - no fingerprint, no tool, "
+                "resource or prompt was enumerated, and nothing behind the authorization boundary was "
+                "probed. What follows is the boundary itself: unassessed, not clean"
+            ),
+        },
+        {"check": "auth_required", "severity": "MEDIUM", "detail": challenge.detail},
+    ]
+    out.extend(_auth_rows(client, target_url, scope_confirmed))
+    return out
+
+
 def _auth_rows(client: McpClient, target_url: str, scope_confirmed: bool) -> list[dict[str, Any]]:
     """Audit the RFC 9728 chain the refusal pointed at.
 
@@ -706,7 +748,18 @@ def _run_all_checks(
     scope_confirmed: bool = False,
 ) -> list[dict[str, Any]]:
     out: list[dict[str, Any]] = []
-    fp = fingerprint(client, transport_name=transport)
+    try:
+        fp = fingerprint(client, transport_name=transport)
+    except HandshakeFailed:
+        # Only a refusal that declared a scheme is read this way. Without a
+        # challenge the handshake failed for a reason this scan cannot name, and
+        # treating that as an authenticated target would file our own blindness
+        # as a fact about whatever we were pointed at - so it travels on as the
+        # gap row it was.
+        challenge = getattr(client.transport, "auth_challenge", None)
+        if challenge is None:
+            raise
+        return _auth_bounded_rows(client, target_url, scope_confirmed, challenge)
     out.append(
         {
             "check": "fingerprint",

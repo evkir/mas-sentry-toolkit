@@ -250,6 +250,10 @@ _MCP_UNTAGGED_CHECKS = frozenset(
         # Bounds of ours, not facts about the target.
         "scan_budget_exhausted",
         "target_unreachable",
+        # The target refused the handshake at its authorization boundary, so
+        # every module needing an inventory was skipped. The boundary itself is
+        # audited by the rows that follow; this one says what was not reached.
+        "scan_bounded_by_auth",
         # Inventory movement that is worth reporting and is not, by itself, an
         # attack: a tool that stopped being advertised, and the cross-run
         # bookkeeping around a descriptor baseline.

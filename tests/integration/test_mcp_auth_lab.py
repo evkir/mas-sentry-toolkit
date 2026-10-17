@@ -97,9 +97,6 @@ def _challenge(port: int):
         transport.close()
 
 
-@pytest.mark.xfail(
-    strict=True, reason="the auth audit is unreachable past a refused handshake; the fix lands in the next commit"
-)
 def test_the_auth_audit_reaches_a_target_behind_oauth(weak_rig: int, tmp_path: Path) -> None:
     """The RFC 9728 audit must run against the one class of target it was written for.
 

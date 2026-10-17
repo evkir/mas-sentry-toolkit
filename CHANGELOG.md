@@ -25,6 +25,26 @@
   reason the target gave, and the status stays outside the reserved JSON-RPC
   band on purpose (R-2.5).
 
+- The RFC 9728 authorization audit now runs against a target that refuses the
+  handshake, which is the only class of target it was ever written for.
+  `_run_all_checks` opens with the fingerprint, that calls `connect()`, and a
+  server behind OAuth refuses it - so every module after it was unreachable in
+  the field. The audit itself worked: pointed by hand at a rig publishing an
+  issuer reachable over cleartext off loopback it returns a HIGH, and no report
+  had ever carried one.
+
+  A refusal that names an authentication scheme is no longer read as an
+  unreachable target. It reports what bounded the scan, the boundary the server
+  declared, and the audit of the document behind it - five rows where there was
+  one. A handshake that fails without a challenge still travels as the gap row,
+  because reading every failed handshake as an authenticated target would file
+  this scanner's own blindness as a fact about whatever it was pointed at.
+
+  New check key `scan_bounded_by_auth`, carrying no taxonomy on purpose: it
+  asserts no weakness, it says which half of the surface went unread. It names
+  the class of modules that did not run rather than listing them, because the
+  list lives in one place and a second copy is a copy that goes stale.
+
 ## [0.10.0] - 2026-10-16 - Agent-host posture, authorization announced but not applied, and a scan that calls only what it recognised
 
 ### Added
