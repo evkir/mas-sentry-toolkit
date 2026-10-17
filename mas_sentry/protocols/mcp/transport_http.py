@@ -129,19 +129,23 @@ def _error_response(req: JsonRpcRequest, r: httpx.Response) -> JsonRpcResponse:
     """
     decoded, _ = _decode_body(r, req.id)
     # A JSON-RPC error the server actually sent is worth more than the status.
-    # A parse failure is not one of those: the decoder reports -32700 for any
-    # body it could not read, including plain-text proxy pages, and passing that
-    # on would invent a protocol error where there was only an HTTP one.
-    # `error` is typed as a JSON-RPC error object, but the body of a 401 is not
-    # a JSON-RPC message at all: RFC 6750 says an OAuth resource server answers
-    # {"error": "invalid_token", ...}, so the decoder hands back a plain string
-    # here and this used to crash the whole scan on `.get`. Every OAuth-guarded
-    # MCP server answers that way, which made an authenticated target the one
-    # shape MST could not survive.
-    error = decoded.error if isinstance(decoded.error, dict) else {}
-    if decoded.result is not None or (decoded.is_error and error.get("code") != _PARSE_ERROR):
+    # Two bodies are not that, and both have to fall back to the status instead:
+    # a body the decoder could not read at all, which it reports as -32700 -
+    # including plain-text proxy pages, where passing it on would invent a
+    # protocol error where there was only an HTTP one - and a body that is not a
+    # JSON-RPC message, which the codec normalises to a null code. RFC 6750 is
+    # the second case and it is the common one: an OAuth resource server answers
+    # {"error": "invalid_token", ...}, and a scan behind 401 has nothing but the
+    # status to report. The status is kept outside the reserved JSON-RPC band on
+    # purpose (R-2.5), and the reason the target stated travels with it rather
+    # than being dropped for it.
+    error = decoded.error or {}
+    code = error.get("code")
+    if decoded.result is not None or (decoded.is_error and isinstance(code, int) and code != _PARSE_ERROR):
         return decoded
-    return JsonRpcResponse(id=req.id, error={"code": r.status_code, "message": r.reason_phrase})
+    stated = str(error.get("message", "")) if code is None else ""
+    detail = f"{r.reason_phrase}: {stated}" if stated else r.reason_phrase
+    return JsonRpcResponse(id=req.id, error={"code": r.status_code, "message": detail})
 
 
 def _carries_answer(text: str, req_id: Any) -> bool:

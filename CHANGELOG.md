@@ -2,6 +2,29 @@
 
 ## [Unreleased]
 
+### Fixed
+- A scan against a target behind OAuth now produces a report instead of a
+  traceback. `error` is declared a JSON-RPC error object and seven readers treat
+  it as one, but the codec put whatever the target sent into that field - and an
+  OAuth resource server sends a string: RFC 6750 Section 3 specifies a body of
+  `{"error": "invalid_token", ...}`, which is what every OAuth-guarded MCP
+  server answers with. The first reader to call `.get` on it aborted the scan
+  before any check ran, leaving no file at all, so a pipeline feeding `mcp scan`
+  into `report convert` broke on a missing file rather than on a finding.
+
+  The field is now made to hold the type it declares, in the codec where the
+  value enters, rather than guarded at each reader. A document that is valid
+  JSON but not a message at all - `null`, a bare string, a list, a number, all
+  of which a proxy or an error page produces - normalises the same way instead
+  of raising. Both carry a null code, which is not a new shape for readers: the
+  STDIO transport already reports process failures as an error object without a
+  code.
+
+  Nothing the target stated is dropped for the status (R-2.1). An HTTP refusal
+  whose body is not a JSON-RPC message reports the status together with the
+  reason the target gave, and the status stays outside the reserved JSON-RPC
+  band on purpose (R-2.5).
+
 ## [0.10.0] - 2026-10-16 - Agent-host posture, authorization announced but not applied, and a scan that calls only what it recognised
 
 ### Added

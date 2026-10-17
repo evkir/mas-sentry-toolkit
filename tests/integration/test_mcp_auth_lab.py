@@ -104,7 +104,6 @@ def test_a_refusal_without_a_header_records_nothing(silent_rig: int) -> None:
     assert _challenge(silent_rig) is None
 
 
-@pytest.mark.xfail(strict=True, reason="the codec admits a non-object error; the fix lands in the next commit")
 def test_a_scan_survives_an_oauth_guarded_target(rig: int) -> None:
     """A target behind OAuth must end the scan as a handshake failure, not a crash.
 
@@ -126,7 +125,6 @@ def test_a_scan_survives_an_oauth_guarded_target(rig: int) -> None:
         McpClient(transport).connect()
 
 
-@pytest.mark.xfail(strict=True, reason="the codec admits a non-object error; the fix lands in the next commit")
 def test_the_cli_writes_a_report_against_an_oauth_guarded_target(rig: int, tmp_path: Path) -> None:
     """The whole point of NS-1: a scan that could not happen still leaves a file.
 
