@@ -15,6 +15,7 @@ from mas_sentry.core.scope import assert_in_scope
 
 from .audit.apps import audit_apps
 from .audit.arg_bypass import BLOCKED, BYPASSED, probe_argument_bypass, probe_flag_injection
+from .audit.auth_bypass import McpSessionOpener, probe_auth_bypass
 from .audit.auth_prm import HttpFetcher, audit_protected_resource
 from .audit.authz_desync import REACHABLE as AUTHZ_REACHABLE
 from .audit.authz_desync import probe_authz_desync
@@ -618,6 +619,25 @@ def _auth_bounded_rows(
         {"check": "auth_required", "severity": "MEDIUM", "detail": challenge.detail},
     ]
     out.extend(_auth_rows(client, target_url, scope_confirmed))
+    # Asked here and nowhere else: a bypass is only a bypass against a boundary
+    # the target announced, and this is the one path on which that is known. A
+    # handshake that succeeded without a credential has no boundary to cross,
+    # and probing one there would manufacture the finding (R-2.4).
+    #
+    # Not filtered by `--checks` either, and that is the decision rather than an
+    # oversight: the selector chooses among modules that need a session, and on
+    # this path there is not one to need. Filtering here would make
+    # `--checks fingerprint` against an authenticated target return nothing,
+    # which reads exactly like a clean result.
+    opener = McpSessionOpener(budget=client.budget)
+    for finding in probe_auth_bypass(target_url, opener):
+        row: dict[str, Any] = {
+            "check": finding.check,
+            "severity": finding.severity,
+            "detail": finding.detail,
+        }
+        row.update(finding.evidence)
+        out.append(row)
     return out
 
 

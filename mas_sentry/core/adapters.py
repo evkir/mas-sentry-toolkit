@@ -106,6 +106,12 @@ _MCP_CHECK_TAGS = {
     # (checked against cwe.mitre.org). The agentic consequence is a tool the
     # operator removed from the inventory still acting on their behalf.
     "authz_desync": ["ASI02_Tool_Misuse", "CWE-863", "STRIDE_Elevation_Of_Privilege"],
+    # The boundary itself rather than a filter behind it: the target announced
+    # authentication and granted a session without it. CWE-287 is the CNA's
+    # attribution - the check runs and its result is discarded, which is not
+    # CWE-306, where no check exists. Identity abuse and spoofing for the same
+    # reason the MQTT and A2A anonymous-access rows carry them.
+    "auth_bypass": ["ASI03_Identity_Abuse", "CWE-287", "STRIDE_Spoofing"],
     # A known-vulnerable server implementation is inherited risk, so it maps to
     # the supply-chain lens rather than to anything the operator wrote.
     "known_cve": ["ASI04_Supply_Chain", "CWE-1395"],
@@ -210,6 +216,12 @@ _MCP_UNTAGGED_CHECKS = frozenset(
         # scan could not establish. None is a weakness, so none carries a CWE,
         # and the reason travels in evidence.
         "authz_desync_unverified",
+        # Every outcome of the bypass probe other than an admitted session:
+        # the target declared no boundary, it answered two generated references
+        # differently, or it refused every form. The first and last are good
+        # news about the target and the middle one is a bound on the
+        # observation; none is a weakness, and the reason travels in evidence.
+        "auth_bypass_unverified",
         "app_surface",
         "app_binding",
         # The target deferred the call to a task it was never asked for. A

@@ -2,6 +2,44 @@
 
 ## [Unreleased]
 
+### Added
+- A boundary the target announces and does not apply is detected. `mcp scan`
+  against a server that refuses an unauthenticated call now asks whether that
+  refusal holds, which is CVE-2026-59822 (`litellm` < 1.84.0, CWE-287) and the
+  class behind it: key validation ran, failed, and its failure was replaced with
+  an empty session object. It is the first MCP defect on CISA's Known Exploited
+  Vulnerabilities catalog, and no scanner reads it, because reading it means
+  asking the target for a session rather than reading a config.
+
+  Two forms, both taken from the published diff of 1.83.9 against 1.84.0 rather
+  than from a write-up. Any Authorization value, because the gate accepted any
+  header whose name starts with `authorization` whatever its value - so there is
+  no prefix or token shape to guess. And a public-route marker, because the same
+  fix closed a second defect where the public-route test matched `.well-known`
+  anywhere in the URL: of the three vectors its comment names, the query form is
+  the only one that changes exactly one variable from the baseline request.
+
+  Read differentially, against a baseline attempt with no credential taken from
+  the same target in the same scan. Without it an admitted session proves
+  nothing: a server that asks for nothing admits everything, which is a
+  legitimate local deployment and not a bypassed boundary (R-2.4), and it is
+  reported as such. Two generated tokens rather than one, because a single token
+  that worked could have been a real key by accident; a target that answers the
+  two differently says so instead of being guessed at.
+
+  No tool is called. Admission is established by `initialize` and `tools/list`,
+  the two calls that tell a caller it holds a session, and the lab rig's only
+  tool writes a marker file that every case asserts is absent (R-7.6). Severity
+  HIGH and not CRITICAL, by the first source: CVSS 8.8 from the CNA, 8.2 from
+  NVD, and a scan that reaches a listing does not know what the tools behind it
+  do.
+
+  New check keys `auth_bypass` (ASI03 / CWE-287 / STRIDE spoofing) and
+  `auth_bypass_unverified`, the latter carrying no taxonomy: its three outcomes
+  are a target that declared no boundary, one that answered the two references
+  differently, and one that refused every form. The first and last are good
+  news, the middle is a bound on the observation, and none is a weakness.
+
 ### Fixed
 - A scan against a target behind OAuth now produces a report instead of a
   traceback. `error` is declared a JSON-RPC error object and seven readers treat

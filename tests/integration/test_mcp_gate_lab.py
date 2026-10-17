@@ -103,10 +103,6 @@ def _scan(port: int, out: Path) -> list[dict[str, object]]:
     return rows
 
 
-_BYPASS_REASON = "the bypass probe does not exist yet; the detector lands in the next commit"
-
-
-@pytest.mark.xfail(strict=True, reason=_BYPASS_REASON)
 def test_any_bearer_value_opens_a_session(gate: Callable[[str], tuple[int, Path]], tmp_path: Path) -> None:
     """Branch 3 of the 1.83.9 gate: key validation fails and the fallback admits anyway.
 
@@ -123,7 +119,6 @@ def test_any_bearer_value_opens_a_session(gate: Callable[[str], tuple[int, Path]
     assert not marker.exists(), "reachability was established without executing a tool body (R-7.6)"
 
 
-@pytest.mark.xfail(strict=True, reason=_BYPASS_REASON)
 def test_a_public_route_marker_opens_a_session(gate: Callable[[str], tuple[int, Path]], tmp_path: Path) -> None:
     """Branch 1 of the same gate: the public-route test matched a substring of the URL.
 
@@ -138,7 +133,6 @@ def test_a_public_route_marker_opens_a_session(gate: Callable[[str], tuple[int, 
     assert not marker.exists(), "reachability was established without executing a tool body (R-7.6)"
 
 
-@pytest.mark.xfail(strict=True, reason=_BYPASS_REASON)
 def test_a_boundary_that_holds_is_reported_as_holding(gate: Callable[[str], tuple[int, Path]], tmp_path: Path) -> None:
     """The fixed shape, which has to produce a row rather than silence (R-7.5).
 
@@ -151,6 +145,40 @@ def test_a_boundary_that_holds_is_reported_as_holding(gate: Callable[[str], tupl
     assert "auth_bypass" not in checks, "the fixed gate must not produce a finding (R-2.4)"
     assert "auth_bypass_unverified" in checks, f"the probe has to say it ran and found nothing; got {sorted(checks)}"
     assert not marker.exists(), "reachability was established without executing a tool body (R-7.6)"
+
+
+def test_the_probe_is_not_filtered_out_by_checks(gate: Callable[[str], tuple[int, Path]], tmp_path: Path) -> None:
+    """`--checks` selects among modules that need a session, and this path has none.
+
+    Pinned because the decision is invisible otherwise: a later change that
+    moved the probe behind the filter would turn `--checks fingerprint` against
+    an OAuth-guarded target into an empty report, which is the shape of a clean
+    result. Against a refused handshake there is no fingerprint to take, so
+    filtering here would subtract the only rows a scan can produce.
+    """
+    from typer.testing import CliRunner
+
+    from mas_sentry.cli import app
+
+    port, _ = gate("bearer-any")
+    for selector in ("all", "fingerprint", "poisoning"):
+        out = tmp_path / f"scan-{selector}.json"
+        CliRunner().invoke(
+            app,
+            [
+                "mcp",
+                "scan",
+                "-t",
+                f"http://127.0.0.1:{port}/mcp",
+                "--confirm-scope",
+                "--checks",
+                selector,
+                "-o",
+                str(out),
+            ],
+        )
+        checks = {str(r["check"]) for r in json.loads(out.read_text())}
+        assert "auth_bypass" in checks, f"--checks {selector} dropped the probe"
 
 
 def test_a_server_without_a_boundary_is_not_a_bypass(gate: Callable[[str], tuple[int, Path]], tmp_path: Path) -> None:
