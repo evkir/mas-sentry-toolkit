@@ -6,7 +6,7 @@ The `main` branch and the latest tagged release receive security fixes. Older ta
 
 ## Reporting a vulnerability
 
-Email `ekiriyak@gmail.com` with subject prefix `[mas-sentry security]`. Include:
+Email `evgeny@maseclab.com` with subject prefix `[mas-sentry security]`. Include:
 
 - A clear description.
 - Reproduction steps (CLI invocation, target, expected vs actual).
