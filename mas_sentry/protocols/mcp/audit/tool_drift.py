@@ -33,13 +33,14 @@ from pathlib import Path
 
 from ..client import McpClient, ToolDef
 from .descriptor import (
+    Baseline,
     BaselineEntry,
     arrival_evidence,
     build_tool_baseline,
     change_evidence,
     departure_evidence,
-    load_tool_baseline,
-    save_tool_baseline,
+    load_baseline,
+    save_baseline,
 )
 
 
@@ -123,7 +124,7 @@ def detect_tool_drift(client: McpClient, baseline_path: Path | None) -> list[Dri
     if baseline_path is None:
         return _shadowing_findings(tools)
     if not baseline_path.exists():
-        save_tool_baseline(baseline_path, build_tool_baseline(tools))
+        save_baseline(baseline_path, Baseline(tools=build_tool_baseline(tools)))
         findings = _shadowing_findings(tools)
         findings.append(
             DriftFinding(
@@ -134,4 +135,4 @@ def detect_tool_drift(client: McpClient, baseline_path: Path | None) -> list[Dri
             )
         )
         return findings
-    return diff_tool_descriptors(load_tool_baseline(baseline_path), tools)
+    return diff_tool_descriptors(load_baseline(baseline_path).tools, tools)

@@ -2,9 +2,10 @@
 from pathlib import Path
 
 from mas_sentry.protocols.mcp.audit.descriptor import (
+    Baseline,
     build_tool_baseline,
-    load_tool_baseline,
-    save_tool_baseline,
+    load_baseline,
+    save_baseline,
     tool_descriptor_digest,
 )
 from mas_sentry.protocols.mcp.audit.tool_drift import DriftFinding, detect_tool_drift, diff_tool_descriptors
@@ -66,12 +67,12 @@ def test_first_run_captures_baseline(tmp_path: Path):
     findings = detect_tool_drift(_ToolsClient(tools), bpath)  # type: ignore[arg-type]
     assert bpath.exists()
     assert _kinds(findings) == {"tool_baseline_captured"}
-    assert load_tool_baseline(bpath) == build_tool_baseline(tools)
+    assert load_baseline(bpath).tools == build_tool_baseline(tools)
 
 
 def test_second_run_detects_rug_pull(tmp_path: Path):
     bpath = tmp_path / "baseline.json"
-    save_tool_baseline(bpath, build_tool_baseline([ToolDef(name="a", description="alpha")]))
+    save_baseline(bpath, Baseline(tools=build_tool_baseline([ToolDef(name="a", description="alpha")])))
     mutated = [ToolDef(name="a", description="alpha-evil")]
     findings = detect_tool_drift(_ToolsClient(mutated), bpath)  # type: ignore[arg-type]
     assert _kinds(findings) == {"tool_rug_pull"}
@@ -80,6 +81,6 @@ def test_second_run_detects_rug_pull(tmp_path: Path):
 def test_baseline_round_trip(tmp_path: Path):
     bpath = tmp_path / "b.json"
     baseline = build_tool_baseline([ToolDef(name="t", description="d")])
-    save_tool_baseline(bpath, baseline)
-    assert load_tool_baseline(bpath) == baseline
-    assert load_tool_baseline(tmp_path / "missing.json") == {}
+    save_baseline(bpath, Baseline(tools=baseline))
+    assert load_baseline(bpath).tools == baseline
+    assert load_baseline(tmp_path / "missing.json").tools == {}

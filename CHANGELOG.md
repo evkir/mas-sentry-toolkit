@@ -2,6 +2,32 @@
 
 ## [Unreleased]
 
+### Changed
+
+**Breaking.** The tool-descriptor baseline is written as an envelope with a
+`baseline_version` and a `tools` section, where it used to be a flat map keyed
+by tool name. A baseline records what one scan saw, and the surfaces behind NS-8
+are wider than tool descriptors: the negotiated protocol revision and the prompt
+and resource inventories move between runs too, and a flat map keyed by tool
+name had nowhere to put them.
+
+Both flat shapes are still read, the descriptor map and the older digest-only
+map, and a digest-only entry is still written back as a digest rather than given
+a descriptor it never carried. Baselines are committed next to projects and live
+in CI, so a format change that quietly stopped detecting rug pulls on them would
+be the worst defect this project recognises.
+
+What breaks is the other direction: 0.10.0 handed a file written by this release
+raises on the version key. That is the direction it has to fail in - the older
+reader refuses the file loudly instead of reporting a tree it never compared.
+
+The version key is an integer, and that was measured rather than argued. The
+entry reader refuses any value that is neither a string nor an object, so no
+flat baseline this product wrote or would accept can carry an integer. Branching
+on a `tools` key instead would have collided with a legal tool name: a server
+may advertise a tool called `tools`, and such a reader would take its descriptor
+for the tool map and report each of its fields as a withdrawn tool.
+
 ### Added
 - A boundary the target announces and does not apply is detected. `mcp scan`
   against a server that refuses an unauthenticated call now asks whether that

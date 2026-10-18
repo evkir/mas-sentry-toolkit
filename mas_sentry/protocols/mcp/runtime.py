@@ -20,7 +20,7 @@ from .audit.auth_prm import HttpFetcher, audit_protected_resource
 from .audit.authz_desync import REACHABLE as AUTHZ_REACHABLE
 from .audit.authz_desync import probe_authz_desync
 from .audit.caching import audit_caching
-from .audit.descriptor import load_tool_baseline
+from .audit.descriptor import load_baseline
 from .audit.dns_rebind import test_dns_rebinding
 from .audit.elicitation import audit_elicitations
 from .audit.header_desync import probe_header_desync
@@ -488,7 +488,7 @@ def _authz_rows(client: McpClient, tool_baseline: Path | None) -> list[dict[str,
     """
     if tool_baseline is None or not tool_baseline.exists():
         return []
-    baseline = load_tool_baseline(tool_baseline)
+    baseline = load_baseline(tool_baseline).tools
     rows: list[dict[str, Any]] = []
     for finding in probe_authz_desync(client, baseline):
         evidence = {
