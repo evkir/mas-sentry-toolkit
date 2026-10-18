@@ -273,6 +273,19 @@ _MCP_UNTAGGED_CHECKS = frozenset(
         "tool_added",
         "tool_removed",
         "tool_baseline_captured",
+        # The announced protocol revision moved between runs. MEDIUM on a
+        # downgrade is triage attention, not an established weakness class, and
+        # no first source names this one: CWE-757 is the selection of a weaker
+        # *algorithm* during negotiation, and MITRE keeps version rollback as a
+        # distinct peer in CWE-1328, which is about a mutable version number in
+        # a product rather than a negotiated protocol revision. What an older
+        # revision stopped requiring is not knowable from the handshake, so the
+        # row carries both sides and the direction and asserts nothing further
+        # (R-2.13, as with CWE-289 in `auth_bypass`).
+        "protocol_revision_changed",
+        # The third outcome: one side of the comparison was never recorded or
+        # never announced. A statement about what this run could compare.
+        "protocol_revision_unverified",
     }
 )
 

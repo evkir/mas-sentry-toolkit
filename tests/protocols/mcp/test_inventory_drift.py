@@ -225,7 +225,6 @@ def test_the_rig_moves_every_inventory_between_runs(rig: Path) -> None:
     assert before["resource_meta"] != after["resource_meta"], "the rig has to widen what the ui resource may reach"
 
 
-@pytest.mark.xfail(strict=True, reason="the baseline records no protocol revision, so a downgrade is unobserved")
 def test_a_protocol_revision_downgrade_is_reported(rig: Path, tmp_path: Path) -> None:
     """A server that withdrew a revision is reported, with both revisions in the row.
 

@@ -3,32 +3,58 @@
 ## [Unreleased]
 
 ### Changed
+- **Breaking** The tool-descriptor baseline is written as an envelope with a
+  `baseline_version` and a `tools` section, where it used to be a flat map keyed
+  by tool name. A baseline records what one scan saw, and the surfaces behind
+  NS-8 are wider than tool descriptors: the negotiated protocol revision and the
+  prompt and resource inventories move between runs too, and a flat map keyed by
+  tool name had nowhere to put them.
 
-**Breaking.** The tool-descriptor baseline is written as an envelope with a
-`baseline_version` and a `tools` section, where it used to be a flat map keyed
-by tool name. A baseline records what one scan saw, and the surfaces behind NS-8
-are wider than tool descriptors: the negotiated protocol revision and the prompt
-and resource inventories move between runs too, and a flat map keyed by tool
-name had nowhere to put them.
+  Both flat shapes are still read, the descriptor map and the older digest-only
+  map, and a digest-only entry is still written back as a digest rather than
+  given a descriptor it never carried. Baselines are committed next to projects
+  and live in CI, so a format change that quietly stopped detecting rug pulls on
+  them would be the worst defect this project recognises.
 
-Both flat shapes are still read, the descriptor map and the older digest-only
-map, and a digest-only entry is still written back as a digest rather than given
-a descriptor it never carried. Baselines are committed next to projects and live
-in CI, so a format change that quietly stopped detecting rug pulls on them would
-be the worst defect this project recognises.
+  What breaks is the other direction: 0.10.0 handed a file written by this
+  release raises on the version key. That is the direction it has to fail in -
+  the older reader refuses the file loudly instead of reporting a tree it never
+  compared.
 
-What breaks is the other direction: 0.10.0 handed a file written by this release
-raises on the version key. That is the direction it has to fail in - the older
-reader refuses the file loudly instead of reporting a tree it never compared.
-
-The version key is an integer, and that was measured rather than argued. The
-entry reader refuses any value that is neither a string nor an object, so no
-flat baseline this product wrote or would accept can carry an integer. Branching
-on a `tools` key instead would have collided with a legal tool name: a server
-may advertise a tool called `tools`, and such a reader would take its descriptor
-for the tool map and report each of its fields as a withdrawn tool.
+  The version key is an integer, and that was measured rather than argued. The
+  entry reader refuses any value that is neither a string nor an object, so no
+  flat baseline this product wrote or would accept can carry an integer.
+  Branching on a `tools` key instead would have collided with a legal tool name:
+  a server may advertise a tool called `tools`, and such a reader would take its
+  descriptor for the tool map and report each of its fields as a withdrawn tool.
 
 ### Added
+- A change in the protocol revision the target announces is detected. A baseline
+  taken by `mcp scan --tool-baseline` now records the revision it was taken
+  against, and a later run that finds a different one says so with both sides
+  and the direction in evidence. A downgrade carries MEDIUM, because an older
+  revision requires less of the server and what it stopped requiring is not
+  knowable from the handshake alone; an upgrade is INFO.
+
+  The revision is read from the handshake result the target returned, not from
+  the client's own negotiated state. Measured against a rig announcing two
+  different revisions, the client's own attribute stayed at the legacy fallback
+  both times while the handshake result followed the target. A detector on the
+  former would compare the scanner against itself and report nothing, and in the
+  other direction would publish a bound of the scanner as a fact about the
+  target.
+
+  Neither row carries a CWE. The change is reported, not classified: CWE-757 is
+  the selection of a weaker algorithm during negotiation, and MITRE keeps
+  version rollback as a distinct peer in CWE-1328, which is about a mutable
+  version number in a product rather than a negotiated protocol revision. No
+  first source names this class, so none is asserted.
+
+  A run that cannot compare names the side that was missing under
+  `protocol_revision_unverified` rather than passing for a run that found
+  nothing: either the baseline predates the field, or the target announced no
+  revision. When neither side has one there is no row at all, because nothing
+  was ever asked.
 - A boundary the target announces and does not apply is detected. `mcp scan`
   against a server that refuses an unauthenticated call now asks whether that
   refusal holds, which is CVE-2026-59822 (`litellm` < 1.84.0, CWE-287) and the

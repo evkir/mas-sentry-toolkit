@@ -8,11 +8,16 @@ from mas_sentry.protocols.mcp.audit.descriptor import (
     save_baseline,
     tool_descriptor_digest,
 )
-from mas_sentry.protocols.mcp.audit.tool_drift import DriftFinding, detect_tool_drift, diff_tool_descriptors
+from mas_sentry.protocols.mcp.audit.tool_drift import DriftFinding, detect_inventory_drift, diff_tool_descriptors
 from mas_sentry.protocols.mcp.client import ToolDef
 
 
 class _ToolsClient:
+    # No handshake result, which is what `server = None` means to the detector:
+    # these cases are about the tool map, and a stub that invented a revision
+    # would make the revision rows appear here instead of where they are tested.
+    server = None
+
     def __init__(self, tools: list[ToolDef]) -> None:
         self._tools = tools
 
@@ -56,7 +61,7 @@ def test_diff_added_and_removed():
 
 def test_shadowing_needs_no_baseline():
     tools = [ToolDef(name="dup", description="a"), ToolDef(name="dup", description="b")]
-    findings = detect_tool_drift(_ToolsClient(tools), None)  # type: ignore[arg-type]
+    findings = detect_inventory_drift(_ToolsClient(tools), None)  # type: ignore[arg-type]
     assert _kinds(findings) == {"tool_shadowing"}
     assert findings[0].severity == "HIGH"
 
@@ -64,7 +69,7 @@ def test_shadowing_needs_no_baseline():
 def test_first_run_captures_baseline(tmp_path: Path):
     bpath = tmp_path / "baseline.json"
     tools = [ToolDef(name="a", description="alpha"), ToolDef(name="b", description="beta")]
-    findings = detect_tool_drift(_ToolsClient(tools), bpath)  # type: ignore[arg-type]
+    findings = detect_inventory_drift(_ToolsClient(tools), bpath)  # type: ignore[arg-type]
     assert bpath.exists()
     assert _kinds(findings) == {"tool_baseline_captured"}
     assert load_baseline(bpath).tools == build_tool_baseline(tools)
@@ -74,7 +79,7 @@ def test_second_run_detects_rug_pull(tmp_path: Path):
     bpath = tmp_path / "baseline.json"
     save_baseline(bpath, Baseline(tools=build_tool_baseline([ToolDef(name="a", description="alpha")])))
     mutated = [ToolDef(name="a", description="alpha-evil")]
-    findings = detect_tool_drift(_ToolsClient(mutated), bpath)  # type: ignore[arg-type]
+    findings = detect_inventory_drift(_ToolsClient(mutated), bpath)  # type: ignore[arg-type]
     assert _kinds(findings) == {"tool_rug_pull"}
 
 

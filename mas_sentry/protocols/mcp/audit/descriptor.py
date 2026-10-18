@@ -87,17 +87,20 @@ class BaselineEntry:
 _BASELINE_VERSION = 2
 _VERSION_KEY = "baseline_version"
 _TOOLS_KEY = "tools"
+_REVISION_KEY = "protocol_revision"
 
 
 @dataclass(frozen=True, slots=True)
 class Baseline:
-    """What one scan recorded, as the file keeps it.
-
-    One section today. The container exists because the surfaces NS-8 names
-    arrive next, and a flat map had nowhere to put them.
-    """
+    """What one scan recorded, as the file keeps it."""
 
     tools: dict[str, BaselineEntry] = field(default_factory=dict)
+    # The revision the target announced when the baseline was taken, or None
+    # when the file does not record one at all. The two are different answers:
+    # a server may announce an empty string, and a baseline written before this
+    # field existed cannot say anything, which is not the same as a server that
+    # said nothing (R-2.1).
+    protocol_revision: str | None = None
 
 
 # A descriptor is bounded by nothing in the protocol: a server may answer with a
@@ -220,6 +223,11 @@ def save_baseline(path: Path, baseline: Baseline) -> None:
             for name, entry in baseline.tools.items()
         },
     }
+    # Written only when there is one. A baseline loaded from a flat file has no
+    # revision, and writing an empty string for it would claim the target
+    # announced nothing when in truth nothing was ever asked.
+    if baseline.protocol_revision is not None:
+        payload[_REVISION_KEY] = baseline.protocol_revision
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(payload, indent=2, sort_keys=True))
 
@@ -247,6 +255,18 @@ def _tools_from(section: Any) -> dict[str, BaselineEntry]:
     return {str(name): _entry_from(str(name), value) for name, value in section.items()}
 
 
+def _revision_from(value: Any) -> str | None:
+    """The recorded revision, or None when the file records none.
+
+    A value of the wrong type is refused rather than dropped to None: dropping
+    it would make a damaged file read as one written before the field existed,
+    and the run would report nothing about a revision the file does record.
+    """
+    if value is None or isinstance(value, str):
+        return value
+    raise ValueError(f"baseline '{_REVISION_KEY}' is not a string")
+
+
 def load_baseline(path: Path) -> Baseline:
     """Load a baseline in any shape it was written in; empty if the file is absent.
 
@@ -268,4 +288,7 @@ def load_baseline(path: Path) -> Baseline:
         return Baseline(tools=_tools_from(data))
     if version > _BASELINE_VERSION:
         raise ValueError(f"baseline {_VERSION_KEY} {version} is newer than this release reads")
-    return Baseline(tools=_tools_from(data.get(_TOOLS_KEY, {})))
+    return Baseline(
+        tools=_tools_from(data.get(_TOOLS_KEY, {})),
+        protocol_revision=_revision_from(data.get(_REVISION_KEY)),
+    )

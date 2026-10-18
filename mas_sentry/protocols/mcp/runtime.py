@@ -29,7 +29,7 @@ from .audit.path_traversal import probe_path_traversal
 from .audit.resource_content import audit_resource_content, audit_resource_templates
 from .audit.ssrf import probe_ssrf
 from .audit.stdio_rce import StdioConfigAuditor
-from .audit.tool_drift import detect_tool_drift
+from .audit.tool_drift import detect_inventory_drift
 from .audit.tool_mutation import (
     detect_tool_mutation,
     exercise_tools,
@@ -461,7 +461,7 @@ def _drift_rows(client: McpClient, tool_baseline: Path | None) -> list[dict[str,
     # reach json and sarif as one opaque string and md and html not at all.
     return [
         {"check": df.kind, "severity": df.severity, "detail": df.detail, **df.evidence}
-        for df in detect_tool_drift(client, tool_baseline)
+        for df in detect_inventory_drift(client, tool_baseline)
     ]
 
 
