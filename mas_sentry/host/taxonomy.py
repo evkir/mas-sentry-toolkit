@@ -74,6 +74,24 @@ HOST_LENSES: Final[dict[str, list[str]]] = {
     # but an attribution beats a resemblance (R-2.13).
     # https://cwe.mitre.org/data/definitions/15.html
     "host.git_exec": ["ASI05_Unexpected_Code_Execution", "CWE-15", "STRIDE_Tampering"],
+    # A directory the tree carries that git uses as the repository. CWE-427 is
+    # root cause analysis here, not an attribution, and the difference is worth
+    # stating: no first-party source classifies this class. NVD recorded
+    # NVD-CWE-noinfo for CVE-2021-43891, the GitHub advisory for it says
+    # CWE-94 about executing code in the editor rather than about how git
+    # chose the directory, and the 2022 advisory that first described buried
+    # bare repositories (OVE-20210718-0001) assigns nothing.
+    #
+    # The definition fits literally. Git's discovery order is fixed - a .git
+    # file, a .git/ directory, the current directory, then upward - and the
+    # tree supplies one of its positions, which is CWE-427's case rather than
+    # its peer CWE-426's by MITRE's own distinction: the order did not move,
+    # the contents of a position did. MITRE's own examples on that page
+    # include a malicious repository reached this way (CVE-2022-4826). It is
+    # the same reasoning host.server_override carries, over git's search
+    # instead of settings precedence.
+    # https://cwe.mitre.org/data/definitions/427.html
+    "host.git_plant": ["ASI04_Supply_Chain", "CWE-427", "STRIDE_Tampering"],
 }
 
 # Rows that assert no weakness. Each would make a CWE filter less useful, not

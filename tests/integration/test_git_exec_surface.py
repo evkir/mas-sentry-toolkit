@@ -194,7 +194,6 @@ def test_an_executable_key_in_a_delivered_git_config_is_reported(rig: dict[str, 
     assert row["evidence"]["scope"] == "local"
 
 
-@pytest.mark.xfail(strict=True, reason="the audit does not look for directories git would adopt")
 def test_a_planted_repository_directory_is_reported(rig: dict[str, Path], tmp_path: Path) -> None:
     """A directory git adopts, carried by the tree itself, leaves a row naming it.
 
@@ -204,6 +203,98 @@ def test_a_planted_repository_directory_is_reported(rig: dict[str, Path], tmp_pa
     rows = _rows(_audit(rig, tmp_path), "host.git_plant")
     assert rows, "a directory git adopts as a repository must produce a row"
     assert rows[0]["evidence"]["path"] == "vendor/thing"
+
+
+def test_a_plant_with_a_work_tree_is_high_and_one_without_is_medium(rig: dict[str, Path], tmp_path: Path) -> None:
+    """The severity split, and it is the one the 2022 advisory named.
+
+    Measured: a bare plant fails `git status` with "must be run in a work
+    tree" before reaching any of its keys. Add `core.worktree` and the same
+    command, run inside the plant or in any directory below it, reaches its
+    `core.fsmonitor` and runs the program. The rig's plant is bare, so it is
+    MEDIUM; the live one is HIGH.
+    """
+    (row,) = _rows(_audit(rig, tmp_path), "host.git_plant")
+    assert row["severity"] == "MEDIUM"
+    assert row["evidence"]["live_worktree"] is False
+
+    work = rig["plant"] / "work"
+    work.mkdir()
+    (rig["plant"] / "config").write_text(
+        f"[core]\n\trepositoryformatversion = 0\n\tbare = false\n\tworktree = {work}\n\tfsmonitor = {rig['helper']}\n",
+        encoding="utf-8",
+    )
+    (row,) = _rows(_audit(rig, tmp_path), "host.git_plant")
+    assert row["severity"] == "HIGH"
+    assert row["evidence"]["live_worktree"] is True
+
+
+def test_the_plant_row_counts_its_executable_keys_without_rejudging_them(rig: dict[str, Path], tmp_path: Path) -> None:
+    """One weakness, one row each: the plant is where git reads, the keys are what runs.
+
+    The count ties the two together for an operator reading either, and the
+    keys keep their own rows rather than being restated at a severity this row
+    decided.
+    """
+    findings = _audit(rig, tmp_path)
+    (plant,) = _rows(findings, "host.git_plant")
+    keys = _by_role(findings, "host.git_exec", "plant")
+    assert plant["evidence"]["executable_keys"] == len(keys) == 1
+    assert keys[0]["evidence"]["key"] == "core.fsmonitor"
+
+
+def test_the_plant_row_names_the_setting_that_closes_the_class(rig: dict[str, Path], tmp_path: Path) -> None:
+    """A finding with no way to act on it is half a finding.
+
+    Measured: with `safe.bareRepository = explicit` in protected configuration,
+    git refuses the plant outright and the program does not run. It is honoured
+    only from protected scope, so a repository cannot undo it - and this audit
+    does not read the operator's global config, so the row names the setting
+    instead of claiming anything about whether it is already on.
+    """
+    (row,) = _rows(_audit(rig, tmp_path), "host.git_plant")
+    assert "safe.bareRepository" in row["evidence"]["mitigation"]
+    assert "explicit" in row["evidence"]["mitigation"]
+    assert "HEAD" in row["evidence"]["adoption_test"], "the row carries the test it was judged by (R-7.2)"
+
+
+def test_the_checkout_own_git_directory_gets_no_plant_row(tmp_path: Path) -> None:
+    """R-2.4: git using the repository's own git directory is the point of it.
+
+    A row there would fire on every checkout in existence, which is the half of
+    this detector that has to stay silent.
+    """
+    rig = _plain(tmp_path, "[core]\n\trepositoryformatversion = 0\n")
+    assert _rows(_audit(rig, tmp_path), "host.git_plant") == []
+
+
+def test_a_plant_row_carries_its_cwe_into_sarif(rig: dict[str, Path], tmp_path: Path) -> None:
+    """CWE-427 reaches the file an operator filters (R-2.1).
+
+    Root cause analysis rather than an attribution - no first-party source
+    classifies this class - so the reasoning lives in the taxonomy comment and
+    what is asserted here is only that the lens arrives.
+    """
+    _audit(rig, tmp_path)
+    out = tmp_path / "plant.sarif.json"
+    result = runner.invoke(
+        app,
+        [
+            "report",
+            "convert",
+            str(tmp_path / "reports" / "host.json"),
+            "-f",
+            "sarif",
+            "-o",
+            str(out),
+            "--target",
+            "host",
+        ],
+    )
+    assert result.exit_code == 0, result.stdout
+    text = out.read_text(encoding="utf-8")
+    assert "CWE-427" in text
+    assert str(rig["helper"]) not in text
 
 
 def test_no_executable_payload_from_a_git_config_reaches_the_report(rig: dict[str, Path], tmp_path: Path) -> None:

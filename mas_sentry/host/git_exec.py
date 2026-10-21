@@ -2,8 +2,9 @@
 """Judge the keys a repository's git configuration uses to run a program.
 
 The reader (`git_surface.py`) says what the files declare. This says which of
-those declarations is an execution path, how much it is worth, and why - and
-nothing about the directories themselves, which is the next detector's.
+those declarations is an execution path, how much it is worth, and why. Two
+questions, both verdicts about the same reading: which keys run a program, and
+which directories git will take its configuration from in the first place.
 
 Source: CVE-2026-19592 (Codex CLI) and CVE-2026-19593 (Codex Desktop), both
 attributed by the CNA to **CWE-15, External Control of System or Configuration
@@ -55,6 +56,32 @@ otherwise make a false positive (R-2.4):
 A boolean value is not a program. `core.fsmonitor = true` selects git's own
 built-in monitor, measured to run nothing, so the reader records booleans as
 booleans and this judge skips them.
+
+The second question is the planted directory, and the first-party account of it
+is Justin Steven's 2022 advisory on buried bare repositories
+(OVE-20210718-0001, no CVE). It gives git's own discovery order from
+`setup_git_directory_gently_1()` - a `.git` file, then a `.git/` directory,
+then the current directory as a repository, then upward toward `/` - and the
+test `is_git_directory()` applies, which is a valid `HEAD` plus `objects` and
+`refs`. That is the same test measured independently for the reader, now
+confirmed against git's source.
+
+Two things in that advisory changed this judge, and both were measured here
+before being used:
+
+- **`core.worktree` is what makes a plant live.** A bare plant has no work
+  tree, so `git status` inside it fails before reaching anything, which is
+  where an earlier measurement stopped. With `core.worktree` set and
+  `core.bare` false, `git status` run inside the plant - or in any directory
+  below it - reaches its `core.fsmonitor` and runs the program. That is the
+  severity split, and nothing else is.
+- **`safe.bareRepository = explicit` closes the class.** Added in git 2.38.0
+  and off by default, it makes git refuse an implicitly discovered repository
+  outright: measured, the program does not run and git says "cannot use bare
+  repository". It is honoured only from protected configuration, so it is the
+  operator's to set and not something a repository can undo. This audit does
+  not read the operator's global config, so the row names the setting rather
+  than claiming anything about whether it is on.
 """
 
 from __future__ import annotations
@@ -145,6 +172,70 @@ def _row(root: Path, repo: GitRepoDir, key: GitConfigKey, reached_by: str, passi
     )
 
 
+# What git requires before it will use a directory, quoted from the behaviour
+# `is_git_directory()` implements, so the row carries the test it was judged by
+# and not a summary of it (R-7.2).
+_ADOPTION_TEST: Final = "a valid HEAD plus objects and refs entries, which is git's is_git_directory() test"
+
+# The operator's side, named in every row because a finding with no way to act
+# on it is half a finding. Measured: with this set in protected configuration,
+# git refuses the plant and the program does not run.
+_PLANT_MITIGATION: Final = (
+    "safe.bareRepository = explicit, in system, global or command scope, makes git refuse an "
+    "implicitly discovered repository; it was added in git 2.38.0 and is off by default"
+)
+
+
+def _plant_row(root: Path, repo: GitRepoDir, live: bool, executable: int) -> Finding:
+    """One directory the tree carries that git will use as a repository.
+
+    HIGH when the plant declares `core.worktree`, because that is the measured
+    difference between a directory git adopts and one it can actually run a
+    passive command in: with a work tree, `git status` from inside the plant or
+    from any directory below it reaches the plant's own configuration. Without
+    one, the same command fails before reaching anything, so the path exists
+    but needs a different command to walk it.
+
+    The count of executable keys is carried rather than re-judged: each of
+    those already has its own row, and repeating the verdict here would make
+    one weakness look like two.
+    """
+    return Finding(
+        module="host.git_plant",
+        title=f"{repo.path}: a directory the tree carries that git uses as a repository",
+        detail=(
+            f"{repo.path} holds {_ADOPTION_TEST}, so git run inside it - or in any directory below "
+            f"it - takes its configuration from there rather than from this checkout. Unlike a "
+            f".git that arrived with an archive, this survives an ordinary clone: the files are "
+            f"tracked like any others. "
+            + (
+                "It declares core.worktree, so it behaves as a checkout and a passive command such "
+                "as git status reaches its configuration. "
+                if live
+                else "It declares no core.worktree, so a passive command fails before reaching its "
+                "configuration and a different command is needed. "
+            )
+            + (
+                f"{executable} of its keys name a program git would run, each reported separately. "
+                if executable
+                else "None of its keys name a program git would run. "
+            )
+            + _PLANT_MITIGATION
+        ),
+        severity=Severity.HIGH if live else Severity.MEDIUM,
+        target=str(root / repo.path),
+        tags=["host", "host.git_plant"],
+        evidence={
+            "path": repo.path,
+            "role": repo.role,
+            "live_worktree": live,
+            "executable_keys": executable,
+            "adoption_test": _ADOPTION_TEST,
+            "mitigation": _PLANT_MITIGATION,
+        },
+    )
+
+
 def _gap_row(root: Path, repo: GitRepoDir) -> Finding:
     """Configuration this audit could not read, named as such.
 
@@ -198,15 +289,25 @@ def git_exec_findings(surface: GitSurface, project_root: Path) -> list[Finding]:
     behaviour and runs nothing, which is the measured half of R-2.4 for this
     detector. A key not in the table is skipped for the other half - this
     reports execution paths, not every key a repository happens to set.
+
+    A plant gets one row of its own on top of its keys, because the two say
+    different things: the keys are what would run, and the plant is where git
+    would read them from. The checkout's own git directory gets no such row -
+    git using it is the point of it.
     """
     out: list[Finding] = []
     for repo in surface.repos:
+        executable = 0
         for key in repo.keys:
             entry = _EXECUTABLE_KEYS.get(key.pattern)
             if entry is None or key.boolean is not None:
                 continue
             reached_by, passive = entry
+            executable += 1
             out.append(_row(project_root, repo, key, reached_by, passive))
+        if repo.role == "plant":
+            live = any(k.pattern == "core.worktree" and k.boolean is None for k in repo.keys)
+            out.append(_plant_row(project_root, repo, live, executable))
         if repo.gaps:
             out.append(_gap_row(project_root, repo))
     if surface.gaps:
