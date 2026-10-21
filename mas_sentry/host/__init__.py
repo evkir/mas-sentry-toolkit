@@ -10,6 +10,8 @@ so it has its own package.
 from .credentials import credential_findings
 from .discovery import HostConfig, PathExposure, locate, present, supported_hosts
 from .executable import surface_findings
+from .git_exec import git_exec_findings
+from .git_surface import GitConfigKey, GitRepoDir, GitSurface, read_git_surface
 from .integrity import integrity_findings
 from .inventory import InputDecl, Inventory, ServerEntry, read
 from .launch_spec import PinVerdict, launch_findings, verdict_for
@@ -26,6 +28,9 @@ __all__ = [
     "HOST_UNLENSED",
     "EnvEntry",
     "ExecutableSurface",
+    "GitConfigKey",
+    "GitRepoDir",
+    "GitSurface",
     "HelperCommand",
     "HookHandler",
     "HostConfig",
@@ -40,12 +45,14 @@ __all__ = [
     "credential_findings",
     "cross_scope_findings",
     "findings_for",
+    "git_exec_findings",
     "integrity_findings",
     "launch_findings",
     "lensed",
     "locate",
     "present",
     "read",
+    "read_git_surface",
     "read_surface",
     "run_host_audit",
     "shape_of",

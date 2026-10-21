@@ -67,6 +67,13 @@ HOST_LENSES: Final[dict[str, list[str]]] = {
     # run and nothing checks the difference.
     # https://cwe.mitre.org/data/definitions/494.html
     "host.server_approval": ["ASI04_Supply_Chain", "CWE-494", "STRIDE_Tampering"],
+    # A repository's own git config names a program git runs, and git documents
+    # that scope as not protected. CWE-15 is the CNA's attribution for
+    # CVE-2026-19592 and CVE-2026-19593, which are this class; CWE-829, used
+    # above for a settings file that runs a command, reads on the same class,
+    # but an attribution beats a resemblance (R-2.13).
+    # https://cwe.mitre.org/data/definitions/15.html
+    "host.git_exec": ["ASI05_Unexpected_Code_Execution", "CWE-15", "STRIDE_Tampering"],
 }
 
 # Rows that assert no weakness. Each would make a CWE filter less useful, not

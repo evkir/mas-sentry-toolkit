@@ -24,6 +24,8 @@ from mas_sentry.reporting.structured import write_json
 from .credentials import credential_findings
 from .discovery import HostConfig, PathExposure, locate
 from .executable import surface_findings
+from .git_exec import git_exec_findings
+from .git_surface import GitSurface, read_git_surface
 from .integrity import integrity_findings
 from .inventory import Inventory, ServerEntry, read
 from .launch_spec import launch_findings
@@ -259,7 +261,13 @@ def _nothing_found_row(target: str, checked: int) -> Finding:
     )
 
 
-def findings_for(inventories: list[Inventory], target: str, checked: int) -> list[Finding]:
+def findings_for(
+    inventories: list[Inventory],
+    target: str,
+    checked: int,
+    git_surface: GitSurface | None = None,
+    project_root: Path | None = None,
+) -> list[Finding]:
     """Turn the readings into rows. Separated from I/O so it can be driven directly."""
     out: list[Finding] = []
     for inv in inventories:
@@ -284,6 +292,11 @@ def findings_for(inventories: list[Inventory], target: str, checked: int) -> lis
     # Runs over the whole set rather than per file: a name taken over by a
     # repository is a property of a pair of scopes, not of one config.
     out.extend(cross_scope_findings(inventories))
+    # Outside the per-file loop because it is not about a located config at
+    # all: the git surface is found by walking the tree rather than by the
+    # discovery table, and `None` means a caller that did not read it.
+    if git_surface is not None and project_root is not None:
+        out.extend(git_exec_findings(git_surface, project_root))
     if not out:
         out.append(_nothing_found_row(target, checked))
     # One pass over the finished rows rather than a lens in each judge: the
@@ -304,7 +317,13 @@ def run_host_audit(home: Path, project_root: Path, system: str, out: Path) -> li
     located: list[HostConfig] = locate(home=home, project_root=project_root, system=system)
     inventories = [read(c) for c in located if c.exists]
     target = str(home)
-    findings = findings_for(inventories, target, len(located))
+    findings = findings_for(
+        inventories,
+        target,
+        len(located),
+        git_surface=read_git_surface(project_root),
+        project_root=project_root,
+    )
     write_json(findings, target, out)
     audit_write({"action": "host_audit_done", "target": target, "findings": len(findings)})
     return findings
