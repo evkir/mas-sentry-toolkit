@@ -333,6 +333,39 @@ def test_a_pruned_directory_is_named_rather_than_silently_skipped(tmp_path: Path
     assert any("node_modules: not descended into" in gap for gap in surface.gaps)
 
 
+def test_a_tool_cache_is_walked_rather_than_reported_as_a_gap(tmp_path: Path) -> None:
+    """The other half of the prune, and the one that was wrong (R-2.4).
+
+    A cache is cheap to walk - measured on this repository: 553 `__pycache__`
+    directories with no subdirectory in any of them - and the structural test
+    rejects each without help. Pruning them produced one gap entry per cache,
+    so an ordinary Python checkout reported thirty bounds that were not bounds
+    and buried the one that was.
+
+    The assertion is on the whole gap list rather than on a substring: a bound
+    reported where none exists is the defect, so any entry at all is a failure.
+    """
+    root = _project(tmp_path)
+    for name in ("__pycache__", ".mypy_cache", ".pytest_cache", ".ruff_cache"):
+        (root / "src" / name).mkdir(parents=True)
+    surface = read_git_surface(root)
+    assert surface.gaps == (), "a tool cache is not a gap in coverage"
+    assert surface.dirs_walked >= 6, "and it is walked rather than skipped silently"
+
+
+def test_a_cache_directory_that_does_hold_a_repository_is_still_found(tmp_path: Path) -> None:
+    """Walking the caches is not only quieter, it is also stricter.
+
+    Nothing stops a plant being written under a cache name, and the previous
+    prune would have skipped it with a gap entry nobody reads among thirty
+    others. Now it is reported like any other.
+    """
+    root = _project(tmp_path)
+    _repo_dir(root / "src" / "__pycache__" / "thing")
+    surface = read_git_surface(root)
+    assert [r.path for r in surface.repos if r.role == "plant"] == ["src/__pycache__/thing"]
+
+
 def test_a_symlinked_directory_is_not_followed(tmp_path: Path) -> None:
     """A link can leave the tree the operator asked about, or point at itself."""
     root = _project(tmp_path)

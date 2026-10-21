@@ -328,6 +328,22 @@ def test_the_row_carries_the_rule_it_is_judged_against(rig: dict[str, Path], tmp
     assert "cloned repository" in evidence["scope_rule"]
 
 
+def test_an_ordinary_python_checkout_reports_no_coverage_gap(tmp_path: Path) -> None:
+    """The fix, through the command rather than the reader (R-2.3).
+
+    Pruning tool caches put one gap entry per cache into the report, so every
+    `host audit` of a Python project carried a MEDIUM row listing thirty
+    bounds that were not bounds. The caches are walked now, and the row is
+    gone - which is asserted on the report an operator opens, because that is
+    where the noise was.
+    """
+    rig = _plain(tmp_path, "[core]\n\trepositoryformatversion = 0\n")
+    for name in ("__pycache__", ".mypy_cache", ".pytest_cache"):
+        (rig["repo"] / "src" / name).mkdir(parents=True)
+    rows = _rows(_audit(rig, tmp_path), "host.enumeration_gap")
+    assert rows == [], "a tool cache is not a gap, and the report must not claim one"
+
+
 def test_a_git_config_row_carries_its_cwe_into_sarif(rig: dict[str, Path], tmp_path: Path) -> None:
     """The lens an operator filters by, in the file they open (R-2.1).
 

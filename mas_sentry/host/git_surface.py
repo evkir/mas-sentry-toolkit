@@ -87,11 +87,20 @@ _MAX_CONFIG_BYTES: Final = 1_000_000
 # Exceeding it is reported as a gap, never as a clean tree (R-2.1).
 _MAX_WALK_DIRS: Final = 20_000
 
-# Directory names that hold no repository but plenty of directories. Skipped to
-# spend the walk budget on the tree an operator actually reviews; a repository
-# vendored under one of these is the known cost, and each skip is named in the
-# gap list rather than left silent.
-_PRUNED_DIRS: Final = frozenset({"node_modules", ".venv", "venv", "__pycache__", ".tox", ".mypy_cache"})
+# Directories deep enough that walking them costs more than the tree is worth,
+# and that can hold a vendored repository: a package installed from a git URL
+# brings one. Each skip is named in the gap list, because a repository under
+# one of them would not appear in the result (R-2.5).
+#
+# Tool caches are deliberately NOT here, and the reason was measured rather
+# than assumed. This tree carries 553 `__pycache__` directories with zero
+# subdirectories in any of them, against 1430 subdirectories ten deep inside
+# one `.venv`. Walking a cache is free and the structural test rejects it
+# without help - a directory with no subdirectories can hold neither
+# `objects/` nor `refs/` - while pruning them produced one gap entry per cache
+# and buried the one entry that mattered under thirty that did not. A bound
+# reported where there is no bound is the noise R-2.4 forbids.
+_PRUNED_DIRS: Final = frozenset({"node_modules", ".venv", "venv", ".tox"})
 
 # `[section "subsection"]`, `[section]`, and the legacy `[section.subsection]`.
 _SECTION: Final = re.compile(r'^\[([A-Za-z0-9.-]+)(?:\s+"((?:[^"\\]|\\.)*)")?\]$')
