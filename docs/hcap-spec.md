@@ -1,7 +1,7 @@
 # HCAP — Hierarchical Capability and Attestation Protocol
 
 **Specification draft v0.1** — research preview
-**Author:** Evgeny Kiriyak (evkir) — MASec Lab
+**Author:** Evgeny Kiryak (evkir) — MASec Lab, ORCID [0009-0001-9871-2924](https://orcid.org/0009-0001-9871-2924)
 **Status:** Working Draft
 **Last updated:** 2026-05-08
 
