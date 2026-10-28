@@ -1,0 +1,31 @@
+cff-version: 1.2.0
+title: mas-sentry-toolkit
+message: >-
+  If you reference this toolkit, please cite it using the metadata
+  below.
+type: software
+authors:
+  - family-names: Kiryak
+    given-names: Evgeny
+    orcid: 'https://orcid.org/0009-0001-9871-2924'
+    affiliation: MASec Lab
+repository-code: 'https://github.com/evkir/mas-sentry-toolkit'
+url: 'https://maseclab.com/products/'
+abstract: >-
+  An offensive and audit toolkit for multi-agent systems. Audits
+  deployments over MCP, A2A, MQTT and AMQP; implements ABFP
+  behavioural fingerprinting for detecting agent impersonation,
+  hijacking and drift, and an MCP offensive audit module covering
+  tool poisoning, SSRF and path traversal. Emits SARIF 2.1.0 with
+  findings mapped to the OWASP Top 10 for Agentic Applications.
+keywords:
+  - multi-agent systems
+  - agentic AI
+  - LLM security
+  - MCP
+  - A2A
+  - MQTT
+  - OWASP
+  - SARIF
+license: AGPL-3.0-or-later
+version: 0.10.0

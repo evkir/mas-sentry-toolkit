@@ -31,5 +31,5 @@ Thanks for considering a contribution. A few principles up front:
 
 ## Reporting security issues
 
-Do not open a public issue. Email `ekiriyak@gmail.com` with subject
+Do not open a public issue. Email `security@maseclab.com` with subject
 `[mas-sentry security]`.

@@ -10,7 +10,7 @@ readme = "README.md"
 requires-python = ">=3.11"
 license = "AGPL-3.0-or-later"
 license-files = ["LICENSE"]
-authors = [{ name = "Evgeny Kiriyak", email = "ekiriyak@gmail.com" }]
+authors = [{ name = "Evgeny Kiryak", email = "evgeny@maseclab.com" }]
 keywords = ["security", "pentesting", "multi-agent-systems", "mqtt", "amqp", "mcp", "a2a", "owasp", "agentic-ai", "llm-security", "abfp"]
 classifiers = [
     "Development Status :: 3 - Alpha",
