@@ -76,6 +76,18 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -e .
+      # Gated by the toolkit's own --fail-on rather than a script here. This
+      # job exists to run mas-sentry against mas-sentry, and a hand-rolled gate
+      # beside it dogfooded nothing: core.gating is the decision users get, it
+      # is tested, and it separates "found something" (1) from "invoked wrongly"
+      # (2), which a bare `if findings: sys.exit(1)` collapsed.
+      #
+      # The floor is low, not the absence of one. Every severity the agentic
+      # modules emit today is LOW or above, so this gates exactly what the
+      # previous step gated. INFO is left below the line on purpose: the
+      # advisory work ahead reports "could not check" as its own outcome, and
+      # that finding must not be able to turn a green pipeline red on a runner
+      # with no network - a gate that cries wolf is a gate that gets ignored.
       - name: Scan own lockfile for supply-chain risk
         run: |
           mkdir -p reports
@@ -83,19 +95,8 @@ jobs:
             --target self-audit \
             --requirements requirements-lock.txt \
             --asi supply_chain \
+            --fail-on low \
             --out reports/self-audit-supply-chain.json
-      - name: Gate on findings
-        run: |
-          python - reports/self-audit-supply-chain.json <<'EOF'
-          import json, sys, pathlib
-          findings = json.loads(pathlib.Path(sys.argv[1]).read_text())
-          if findings:
-              print(f"::error::supply-chain self-audit found {len(findings)} finding(s)")
-              for f in findings:
-                  print(f"  - [{f['severity']}] {f['title']}")
-              sys.exit(1)
-          print("supply-chain self-audit clean: 0 findings")
-          EOF
       - name: Upload self-audit report
         if: always()
         uses: actions/upload-artifact@v4
