@@ -50,7 +50,16 @@ def run_static_scan(ctx: dict[str, Any]) -> EngineRun:
 
     if ctx.get("requirements_path"):
         rp = ctx["requirements_path"]
-        sc_ctx = supply_chain.SupplyChainContext(requirements_path=Path(rp) if rp else None)
+        # The advisory source is taken from the caller rather than built here.
+        # A detector that constructed its own would decide where a feed lives,
+        # and the only code that may make that choice is the one the operator
+        # pointed at a file (R-1.7).
+        sc_kwargs: dict[str, Any] = {"requirements_path": Path(rp) if rp else None}
+        if ctx.get("advisories") is not None:
+            sc_kwargs["advisories"] = ctx["advisories"]
+        if ctx.get("max_advisory_age_days") is not None:
+            sc_kwargs["max_advisory_age_days"] = ctx["max_advisory_age_days"]
+        sc_ctx = supply_chain.SupplyChainContext(**sc_kwargs)
         engine.register(
             "supply_chain",
             lambda c: [from_agentic(f) for f in supply_chain.audit_supply_chain(sc_ctx, target)],

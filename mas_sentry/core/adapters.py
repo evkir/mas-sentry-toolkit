@@ -51,6 +51,7 @@ def from_agentic(af: AgenticFinding) -> Finding:
         target=af.target,
         tags=tags,
         evidence=af.evidence,
+        references=list(af.references),
         captured_at=af.captured_at,
     )
 
