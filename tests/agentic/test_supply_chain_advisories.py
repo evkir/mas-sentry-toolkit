@@ -219,6 +219,57 @@ class TestWhatCouldNotBeChecked:
         assert "GHSA-unreadable" in pair.evidence["pairs"][0]
 
 
+class TestThroughRunStaticScan:
+    """The injection path, which is the only way a library caller supplies a feed.
+
+    The cases above build a SupplyChainContext directly and so never touch it. A
+    typo in the two lines that copy the source out of the scan context would have
+    left every one of them green while no caller could pass a feed at all - the
+    shape R-2.3 is about, where covering a function hides that nobody calls it.
+    """
+
+    def test_a_source_passed_in_the_scan_context_reaches_the_detector(self, tmp_path: Path) -> None:
+        from mas_sentry.agentic.run import run_static_scan
+
+        run = run_static_scan(
+            {
+                "target": "t",
+                "requirements_path": _lockfile(tmp_path, "certifi==2026.5.20\n"),
+                "selected": "supply_chain",
+                "advisories": FakeSource({"certifi": (CERTIFI,)}),
+            }
+        )
+        assert [f for f in run.findings if "PYSEC-2026-4320" in f.title]
+
+    def test_without_one_the_scan_reports_that_no_feed_was_read(self, tmp_path: Path) -> None:
+        from mas_sentry.agentic.run import run_static_scan
+
+        run = run_static_scan(
+            {
+                "target": "t",
+                "requirements_path": _lockfile(tmp_path, "certifi==2026.5.20\n"),
+                "selected": "supply_chain",
+            }
+        )
+        assert [f for f in run.findings if "not checked against any advisory feed" in f.title]
+
+    def test_the_age_threshold_passed_in_the_scan_context_is_honoured(self, tmp_path: Path) -> None:
+        """A threshold that never left the context would silently keep the default."""
+        from mas_sentry.agentic.run import run_static_scan
+
+        ctx = {
+            "target": "t",
+            "requirements_path": _lockfile(tmp_path, "certifi==2026.10.23\n"),
+            "selected": "supply_chain",
+            "advisories": FakeSource({}, exported_at=datetime.now(UTC) - timedelta(days=10)),
+            "max_advisory_age_days": 90,
+        }
+        assert not [f for f in run_static_scan(ctx).findings if "days old" in f.title]
+
+        ctx["max_advisory_age_days"] = 3
+        assert [f for f in run_static_scan(ctx).findings if "days old" in f.title]
+
+
 class TestThroughTheCli:
     """R-2.3: a unit test cannot notice that nobody calls the function."""
 
