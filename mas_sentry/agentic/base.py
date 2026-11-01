@@ -49,4 +49,15 @@ class AgenticFinding:
     target: str
     evidence: dict[str, Any] = field(default_factory=dict)
     cwe: str | None = None
+    # Source URLs for the finding, carried through to Finding.references, which
+    # the unified model documents for exactly this and which the host modules
+    # already populate. Agentic findings could not until now, so every one of
+    # them reached a report with an empty references list while the markdown
+    # reporter had a line waiting to render it.
+    #
+    # It earns its place rather than filling a gap: an advisory finding quotes
+    # the advisory's own summary, PyPI records in OSV come from GHSA (CC-BY-4.0)
+    # and PYSEC (CC0), and CC-BY asks for attribution wherever that text travels
+    # - including into a report the operator publishes.
+    references: tuple[str, ...] = ()
     captured_at: str = field(default_factory=lambda: datetime.now(UTC).isoformat())
